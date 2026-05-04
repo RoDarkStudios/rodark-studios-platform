@@ -20,7 +20,7 @@ const { getAdminGroupId } = require('./api/_lib/roblox-groups');
 
 const rootDir = __dirname;
 const port = process.env.PORT || 3000;
-const socialPreviewFallbackDescription = '1.1M visits, 3,212 concurrent players, and 327,543 community members.';
+const socialPreviewFallbackDescription = '1.1M visits, 3.2K active players, and 328K community members.';
 const socialPreviewCacheTtlMs = 5 * 60 * 1000;
 const socialPreviewFailureTtlMs = 60 * 1000;
 const socialPreviewRequestTimeoutMs = 5000;
@@ -145,6 +145,21 @@ function formatCompactVisits(value) {
     }
 
     return formatInteger(visits);
+}
+
+function formatCompactCount(value) {
+    const count = Math.trunc(value);
+    if (count >= 1000000) {
+        const millions = count / 1000000;
+        return `${millions.toFixed(millions >= 10 ? 0 : 1).replace(/\.0$/, '')}M`;
+    }
+
+    if (count >= 1000) {
+        const thousands = count / 1000;
+        return `${thousands.toFixed(thousands >= 10 ? 0 : 1).replace(/\.0$/, '')}K`;
+    }
+
+    return formatInteger(count);
 }
 
 async function fetchRobloxJson(endpoint) {
@@ -278,7 +293,7 @@ async function fetchSocialPreviewDescription() {
         throw new Error('Roblox group response was missing memberCount');
     }
 
-    return `${formatCompactVisits(totalVisits)} visits, ${formatInteger(totalPlaying)} concurrent players, and ${formatInteger(memberCount)} community members.`;
+    return `${formatCompactVisits(totalVisits)} visits, ${formatCompactCount(totalPlaying)} active players, and ${formatCompactCount(memberCount)} community members.`;
 }
 
 async function getSocialPreviewDescription() {
