@@ -295,7 +295,7 @@ async function syncRolesChannel(channel) {
             `${getRoleMention(guild, 'Owner')}\n> Owns and runs RoDark Studios.`,
             `${getRoleMention(guild, 'RoDark Studios Bot')}\n> Our custom bot for support, automation, and moderation.`,
             `${getRoleMention(guild, 'Developer')}\n> Helps create and improve RoDark Studios games.`,
-            `${getRoleMention(guild, 'Moderator')}\n> Helps members, handles tickets, and enforces the rules.`,
+            `${getRoleMention(guild, 'Staff')}\n> Helps members, handles tickets, and enforces the rules.`,
             `${getRoleMention(guild, 'Associate')}\n> Trusted friend, collaborator, or long-term supporter of RoDark Studios.`,
             `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator. Create a ticket to apply.`,
             `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`,
@@ -309,12 +309,12 @@ async function syncStaffInfoChannel(channel) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
     const embed = new EmbedBuilder()
-        .setTitle('Moderator Info')
+        .setTitle('Staff Info')
         .setColor(0x2ecc71)
-        .setDescription(`${getRoleMention(guild, 'Moderator')} responsibilities and expectations.`)
+        .setDescription(`${getRoleMention(guild, 'Staff')} responsibilities and expectations.`)
         .addFields(
             {
-                name: 'Moderator Jobs',
+                name: 'Staff Jobs',
                 value: [
                     `1. **Bug report follow-up** - Watch <#${BUG_REPORT_CHANNEL_ID}> and <#${TESTING_BUG_REPORT_CHANNEL_ID}>. If a report is vague, promptly ask for what happened, how to reproduce it, screenshots or video, and an F9 developer console screenshot if errors may be involved.`,
                     `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs owner or developer help, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
@@ -330,7 +330,7 @@ async function syncStaffInfoChannel(channel) {
             },
             {
                 name: 'Permissions',
-                value: 'Do not use moderator permissions for personal reasons or jokes. Permission abuse will result in the role being revoked.',
+                value: 'Do not use staff permissions for personal reasons or jokes. Permission abuse will result in the role being revoked.',
                 inline: false
             }
         );
