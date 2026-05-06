@@ -1,3 +1,5 @@
+const ACTIVE_PLAYERS_DISPLAY_THRESHOLD = 1000;
+
 async function postJson(url, payload) {
     const response = await fetch(url, {
         method: 'POST',
@@ -193,6 +195,21 @@ function formatNumber(num) {
     return num.toLocaleString();
 }
 
+function formatCompactNumber(value) {
+    const number = Math.trunc(value);
+    if (number >= 1000000) {
+        const millions = number / 1000000;
+        return `${millions.toFixed(millions >= 10 ? 0 : 1).replace(/\.0$/, '')}M`;
+    }
+
+    if (number >= 1000) {
+        const thousands = number / 1000;
+        return `${thousands.toFixed(thousands >= 10 ? 0 : 1).replace(/\.0$/, '')}K`;
+    }
+
+    return formatNumber(number);
+}
+
 async function fetchRobloxGroupGames() {
     const response = await fetch('/api/roblox/group-games', { method: 'GET' });
     if (!response.ok) {
@@ -211,6 +228,25 @@ async function fetchRobloxGroupGames() {
 
     const payload = await response.json();
     return Array.isArray(payload && payload.games) ? payload.games : [];
+}
+
+async function fetchRobloxStudioStats() {
+    const response = await fetch('/api/roblox/studio-stats', { method: 'GET' });
+    if (!response.ok) {
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+
+        const detail = payload && typeof payload.details === 'string' && payload.details.trim()
+            ? payload.details.trim()
+            : `Studio stats API failed (${response.status})`;
+        throw new Error(detail);
+    }
+
+    return response.json();
 }
 
 function createStat(iconClass, value, label) {
@@ -314,7 +350,7 @@ function createGameCard(game, index) {
         Number.isFinite(visits) && visits >= 0 ? formatNumber(Math.trunc(visits)) : 'Unavailable',
         'Total Visits'
     ));
-    if (Number.isFinite(playing) && playing > 1000) {
+    if (Number.isFinite(playing) && playing > ACTIVE_PLAYERS_DISPLAY_THRESHOLD) {
         stats.append(createStat(
             'fas fa-users',
             formatNumber(Math.trunc(playing)),
@@ -425,27 +461,72 @@ async function fetchAllGameStats() {
 }
 
 async function fetchGroupStats() {
+    const totalVisitsElement = document.getElementById('studio-total-visits');
+    const activePlayersElement = document.getElementById('studio-active-players');
+    const activePlayersStat = document.getElementById('studio-active-players-stat');
+    const heroStatGrid = activePlayersStat ? activePlayersStat.closest('.hero-stat-grid') : null;
     const groupMemberCountElement = document.getElementById('group-member-count');
-    if (!groupMemberCountElement) {
+    if (!groupMemberCountElement && !totalVisitsElement && !activePlayersElement) {
         return;
     }
 
     try {
-        const response = await fetch('/api/roblox/group-stats', { method: 'GET' });
-        if (!response.ok) {
-            throw new Error(`Group stats API failed (${response.status})`);
+        const studioStats = await fetchRobloxStudioStats();
+        const totalVisits = Number(studioStats && studioStats.totalVisits);
+        const totalPlaying = Number(studioStats && studioStats.totalPlaying);
+        const memberCount = Number(studioStats && studioStats.memberCount);
+        const activePlayersDisplayThreshold = Number(studioStats && studioStats.activePlayersDisplayThreshold);
+        const shouldShowActivePlayers = Boolean(studioStats && studioStats.showActivePlayers)
+            && Number.isFinite(totalPlaying)
+            && totalPlaying > activePlayersDisplayThreshold;
+
+        if (!Number.isFinite(totalVisits) || totalVisits < 0) {
+            throw new Error('Studio stats API returned invalid totalVisits');
         }
 
-        const groupStats = await response.json();
-        const memberCount = Number(groupStats && groupStats.memberCount);
         if (!Number.isFinite(memberCount) || memberCount < 0) {
-            throw new Error('Group stats API returned invalid memberCount');
+            throw new Error('Studio stats API returned invalid memberCount');
         }
 
-        groupMemberCountElement.textContent = formatNumber(Math.trunc(memberCount));
+        if (totalVisitsElement) {
+            totalVisitsElement.textContent = formatCompactNumber(totalVisits);
+        }
+
+        if (groupMemberCountElement) {
+            groupMemberCountElement.textContent = formatCompactNumber(memberCount);
+        }
+
+        if (activePlayersElement && activePlayersStat) {
+            if (shouldShowActivePlayers) {
+                activePlayersElement.textContent = formatCompactNumber(totalPlaying);
+                activePlayersStat.classList.remove('hidden');
+                if (heroStatGrid) {
+                    heroStatGrid.classList.remove('is-two-up');
+                }
+            } else {
+                activePlayersStat.classList.add('hidden');
+                if (heroStatGrid) {
+                    heroStatGrid.classList.add('is-two-up');
+                }
+            }
+        }
     } catch (error) {
-        console.error('Failed to fetch group statistics:', error);
-        groupMemberCountElement.textContent = 'Unavailable';
+        console.error('Failed to fetch studio statistics:', error);
+        if (totalVisitsElement) {
+            totalVisitsElement.textContent = 'Unavailable';
+        }
+        if (activePlayersElement) {
+            activePlayersElement.textContent = 'Unavailable';
+        }
+        if (activePlayersStat) {
+            activePlayersStat.classList.remove('hidden');
+        }
+        if (heroStatGrid) {
+            heroStatGrid.classList.remove('is-two-up');
+        }
+        if (groupMemberCountElement) {
+            groupMemberCountElement.textContent = 'Unavailable';
+        }
     }
 }
 

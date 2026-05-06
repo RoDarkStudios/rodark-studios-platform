@@ -20,13 +20,19 @@ const { getAdminGroupId } = require('./api/_lib/roblox-groups');
 
 const rootDir = __dirname;
 const port = process.env.PORT || 3000;
-const socialPreviewFallbackDescription = '1.1M visits, 3.2K active players, and 328K community members.';
+const socialPreviewFallbackDescription = '6.5M visits, 2.2K active players, and 460K community members.';
 const socialPreviewCacheTtlMs = 5 * 60 * 1000;
 const socialPreviewFailureTtlMs = 60 * 1000;
 const socialPreviewRequestTimeoutMs = 5000;
+const activePlayersDisplayThreshold = 1000;
 const robloxGroupGamesPageLimit = 100;
 const robloxGameDetailsBatchSize = 20;
 const robloxGroupGamesMaxPages = 20;
+let studioStatsCache = {
+    stats: null,
+    expiresAt: 0,
+    pending: null
+};
 let socialPreviewCache = {
     description: socialPreviewFallbackDescription,
     expiresAt: 0,
@@ -71,6 +77,7 @@ const apiRoutes = {
     '/api/roblox/games': robloxGames,
     '/api/roblox/group-games': robloxGroupGames,
     '/api/roblox/group-stats': robloxGroupStats,
+    '/api/roblox/studio-stats': sendStudioStats,
     '/api/admin/roblox-copy-monetization': adminCopyMonetization,
     '/api/admin/roblox-list-monetization-items': adminListMonetizationItems,
     '/api/admin/roblox-sync-experience-configs': adminSyncExperienceConfigs,
@@ -160,6 +167,26 @@ function formatCompactCount(value) {
     }
 
     return formatInteger(count);
+}
+
+function shouldDisplayActivePlayers(value) {
+    const count = Number(value);
+    return Number.isFinite(count) && count > activePlayersDisplayThreshold;
+}
+
+function serializeStudioStats(stats) {
+    const totalVisits = Number(stats && stats.totalVisits);
+    const totalPlaying = Number(stats && stats.totalPlaying);
+    const memberCount = Number(stats && stats.memberCount);
+
+    return {
+        groupId: Number(stats && stats.groupId),
+        totalVisits: Number.isFinite(totalVisits) && totalVisits >= 0 ? Math.trunc(totalVisits) : null,
+        totalPlaying: Number.isFinite(totalPlaying) && totalPlaying >= 0 ? Math.trunc(totalPlaying) : null,
+        memberCount: Number.isFinite(memberCount) && memberCount >= 0 ? Math.trunc(memberCount) : null,
+        activePlayersDisplayThreshold,
+        showActivePlayers: shouldDisplayActivePlayers(totalPlaying)
+    };
 }
 
 async function fetchRobloxJson(endpoint) {
@@ -261,7 +288,7 @@ async function fetchGameDetails(universeIds) {
     return games;
 }
 
-async function fetchSocialPreviewDescription() {
+async function fetchFreshStudioStats() {
     const groupId = getAdminGroupId();
     const groupEndpoint = `https://groups.roblox.com/v1/groups/${encodeURIComponent(groupId)}`;
 
@@ -293,7 +320,67 @@ async function fetchSocialPreviewDescription() {
         throw new Error('Roblox group response was missing memberCount');
     }
 
-    return `${formatCompactVisits(totalVisits)} visits, ${formatCompactCount(totalPlaying)} active players, and ${formatCompactCount(memberCount)} community members.`;
+    return serializeStudioStats({
+        groupId,
+        totalVisits,
+        totalPlaying,
+        memberCount
+    });
+}
+
+function refreshStudioStats() {
+    if (!studioStatsCache.pending) {
+        studioStatsCache.pending = fetchFreshStudioStats()
+            .then((stats) => {
+                studioStatsCache = {
+                    stats,
+                    expiresAt: Date.now() + socialPreviewCacheTtlMs,
+                    pending: null
+                };
+                return stats;
+            })
+            .catch((error) => {
+                const staleStats = studioStatsCache.stats;
+                studioStatsCache = {
+                    stats: staleStats,
+                    expiresAt: staleStats ? Date.now() + socialPreviewFailureTtlMs : 0,
+                    pending: null
+                };
+
+                if (staleStats) {
+                    return staleStats;
+                }
+
+                throw error;
+            });
+    }
+
+    return studioStatsCache.pending;
+}
+
+function getStudioStats() {
+    const now = Date.now();
+    if (studioStatsCache.stats && studioStatsCache.expiresAt > now) {
+        return Promise.resolve(studioStatsCache.stats);
+    }
+
+    return refreshStudioStats();
+}
+
+function buildSocialPreviewDescription(stats) {
+    const visitsText = `${formatCompactVisits(stats.totalVisits)} visits`;
+    const membersText = `${formatCompactCount(stats.memberCount)} community members`;
+
+    if (stats.showActivePlayers) {
+        return `${visitsText}, ${formatCompactCount(stats.totalPlaying)} active players, and ${membersText}.`;
+    }
+
+    return `${visitsText} and ${membersText}.`;
+}
+
+async function fetchSocialPreviewDescription() {
+    const stats = await getStudioStats();
+    return buildSocialPreviewDescription(stats);
 }
 
 async function getSocialPreviewDescription() {
@@ -321,6 +408,25 @@ function injectSocialPreviewDescription(html, description) {
             /(<meta\s+name="twitter:description"\s+content=")[^"]*(")/i,
             `$1${escapedDescription}$2`
         );
+}
+
+async function sendStudioStats(req, res) {
+    if (req.method !== 'GET') {
+        res.setHeader('Allow', 'GET');
+        sendJson(res, 405, { error: 'Method Not Allowed' });
+        return;
+    }
+
+    try {
+        const stats = await getStudioStats();
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+        sendJson(res, 200, stats);
+    } catch (error) {
+        sendJson(res, 502, {
+            error: 'Failed to fetch Roblox studio stats',
+            details: error.message
+        });
+    }
 }
 
 async function sendIndexHtml(req, res) {
