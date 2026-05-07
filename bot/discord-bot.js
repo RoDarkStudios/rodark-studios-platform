@@ -4,6 +4,7 @@ const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
+const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
@@ -87,6 +88,7 @@ function createClient() {
             await runStartupSync(nextClient, control);
             await syncTicketPanelIfNeeded(nextClient, control, { force: true });
             await syncLevelSystemIfNeeded(nextClient, control, { force: true });
+            await ensureChannelPurgeCommand(nextClient, control, { force: true });
             await setDiscordBotRuntimeStatus('online', null);
         } catch (error) {
             console.error('Discord startup sync failed:', error);
@@ -98,22 +100,28 @@ function createClient() {
         try {
             const control = currentControl || await getDiscordBotControl();
             currentControl = control;
-            const handled = await handleTicketInteraction(interaction, control);
-            if (handled) {
+            const ticketHandled = await handleTicketInteraction(interaction, control);
+            if (ticketHandled) {
+                await setDiscordBotRuntimeStatus('online', null);
+                return;
+            }
+
+            const purgeHandled = await handleChannelPurgeInteraction(interaction);
+            if (purgeHandled) {
                 await setDiscordBotRuntimeStatus('online', null);
             }
         } catch (error) {
-            console.error('Discord ticket interaction failed:', error);
+            console.error('Discord interaction failed:', error);
             await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
 
             if (interaction && interaction.isRepliable && interaction.isRepliable()) {
                 if (interaction.deferred || interaction.replied) {
                     await interaction.editReply({
-                        content: 'Something went wrong while handling that ticket action.'
+                        content: 'Something went wrong while handling that bot action.'
                     }).catch(() => {});
                 } else {
                     await interaction.reply({
-                        content: 'Something went wrong while handling that ticket action.',
+                        content: 'Something went wrong while handling that bot action.',
                         ephemeral: true
                     }).catch(() => {});
                 }
@@ -203,6 +211,7 @@ async function syncBotState() {
         if (client && client.isReady()) {
             await syncTicketPanelIfNeeded(client, control);
             await syncLevelSystemIfNeeded(client, control);
+            await ensureChannelPurgeCommand(client, control);
         }
         return;
     }
