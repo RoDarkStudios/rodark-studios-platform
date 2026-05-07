@@ -3,7 +3,8 @@ const { postgresQuery } = require('../api/_lib/postgres');
 
 const LEVEL_ROLE_MILESTONES = [5, 10, 15, 25, 50, 75, 100];
 const DEFAULT_UNLOCK_LEVEL = 5;
-const MESSAGES_PER_LEVEL = 10;
+const MESSAGES_PER_LEVEL = 5;
+const LEVEL_MESSAGE_COOLDOWN_SECONDS = 60;
 const LEVEL_ROLE_PREFIX = 'Level ';
 const ATTACH_EMBED_PERMISSION_BITS = PermissionFlagsBits.AttachFiles | PermissionFlagsBits.EmbedLinks;
 
@@ -169,16 +170,30 @@ async function incrementMemberMessageCount(guildId, userId) {
             level = floor((discord_bot_member_levels.message_count + 1) / $3)::integer,
             last_message_at = now(),
             updated_at = now()
+        where
+            discord_bot_member_levels.last_message_at is null
+            or discord_bot_member_levels.last_message_at <= now() - ($4::text)::interval
         returning message_count, level
     `, [
         String(guildId),
         String(userId),
-        MESSAGES_PER_LEVEL
+        MESSAGES_PER_LEVEL,
+        `${LEVEL_MESSAGE_COOLDOWN_SECONDS} seconds`
     ]);
+
+    if (!result.rows.length) {
+        return {
+            counted: false,
+            messageCount: 0,
+            previousLevel: 0,
+            level: 0
+        };
+    }
 
     const row = result.rows[0] || {};
     const messageCount = Number(row.message_count) || 0;
     return {
+        counted: true,
         messageCount,
         previousLevel: calculateLevel(Math.max(0, messageCount - 1)),
         level: Number(row.level) || 0
@@ -257,6 +272,10 @@ async function handleLevelMessage(message, control) {
     }
 
     const levelResult = await incrementMemberMessageCount(message.guild.id, message.author.id);
+    if (!levelResult.counted) {
+        return true;
+    }
+
     const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
     const addedRoles = member && levelResult.level > 0
         ? await assignEarnedLevelRoles(member, control, levelResult.level)
