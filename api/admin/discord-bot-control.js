@@ -50,7 +50,8 @@ function getGuildDiscoveryChannelIds(control) {
         startup.staffInfoChannelId,
         startup.gameTestInfoChannelId,
         control && control.ticketSystem ? control.ticketSystem.categoryChannelId : null,
-        control && control.ticketSystem ? control.ticketSystem.panelChannelId : null
+        control && control.ticketSystem ? control.ticketSystem.panelChannelId : null,
+        control && control.levelSystem ? control.levelSystem.announcementChannelId : null
     ]
         .filter(Boolean)
         .map((value) => String(value));
@@ -309,6 +310,9 @@ module.exports = async (req, res) => {
         const ticketSystem = body && typeof body.ticketSystem === 'object' && body.ticketSystem
             ? body.ticketSystem
             : null;
+        const levelSystem = body && typeof body.levelSystem === 'object' && body.levelSystem
+            ? body.levelSystem
+            : null;
         const patch = {};
 
         if (body && Object.prototype.hasOwnProperty.call(body, 'desiredEnabled')) {
@@ -351,12 +355,24 @@ module.exports = async (req, res) => {
             patch.ticketsHelperRoleIds = ticketSystem.helperRoleIds;
         }
 
+        if (levelSystem && Object.prototype.hasOwnProperty.call(levelSystem, 'enabled')) {
+            patch.levelSystemEnabled = levelSystem.enabled;
+        }
+
+        if (levelSystem && Object.prototype.hasOwnProperty.call(levelSystem, 'announcementChannelId')) {
+            patch.levelAnnouncementChannelId = levelSystem.announcementChannelId;
+        }
+
+        if (levelSystem && Object.prototype.hasOwnProperty.call(levelSystem, 'attachmentUnlockLevel')) {
+            patch.levelAttachmentUnlockLevel = levelSystem.attachmentUnlockLevel;
+        }
+
         const control = await updateDiscordBotControl(patch, auth.user);
         const channelLookup = await getDiscordChannelLookup(control);
         const roleLookup = await getDiscordRoleLookup(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });
     } catch (error) {
-        const statusCode = /required|valid discord id|must be a valid discord id/i.test(String(error && error.message || ''))
+        const statusCode = /required|valid discord id|must be a valid discord id|unlock level/i.test(String(error && error.message || ''))
             ? 400
             : 500;
         return sendJson(res, statusCode, {

@@ -3,14 +3,18 @@ const { getDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_li
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
+const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 
 let client = null;
 let connecting = false;
+let currentControl = null;
 let lastTicketPanelSyncKey = '';
 let lastTicketPanelSyncAt = 0;
+let lastLevelSystemSyncKey = '';
+let lastLevelSystemSyncAt = 0;
 
 function getTicketPanelSyncKey(control) {
     const ticketSystem = getTicketSystemControl(control);
@@ -46,6 +50,23 @@ async function syncTicketPanelIfNeeded(nextClient, control, options) {
     lastTicketPanelSyncAt = now;
 }
 
+async function syncLevelSystemIfNeeded(nextClient, control, options) {
+    if (!nextClient || !nextClient.isReady()) {
+        return;
+    }
+
+    const syncKey = getLevelSystemSyncKey(control);
+    const force = Boolean(options && options.force);
+    const now = Date.now();
+    if (!force && syncKey === lastLevelSystemSyncKey && now - lastLevelSystemSyncAt < 5 * 60 * 1000) {
+        return;
+    }
+
+    await ensureLevelSystem(nextClient, control);
+    lastLevelSystemSyncKey = syncKey;
+    lastLevelSystemSyncAt = now;
+}
+
 function createClient() {
     const nextClient = new Client({
         intents: [
@@ -61,9 +82,11 @@ function createClient() {
         await setDiscordBotRuntimeStatus('online', null);
 
         try {
-            const control = await getDiscordBotControl();
+            const control = currentControl || await getDiscordBotControl();
+            currentControl = control;
             await runStartupSync(nextClient, control);
             await syncTicketPanelIfNeeded(nextClient, control, { force: true });
+            await syncLevelSystemIfNeeded(nextClient, control, { force: true });
             await setDiscordBotRuntimeStatus('online', null);
         } catch (error) {
             console.error('Discord startup sync failed:', error);
@@ -73,7 +96,8 @@ function createClient() {
 
     nextClient.on('interactionCreate', async (interaction) => {
         try {
-            const control = await getDiscordBotControl();
+            const control = currentControl || await getDiscordBotControl();
+            currentControl = control;
             const handled = await handleTicketInteraction(interaction, control);
             if (handled) {
                 await setDiscordBotRuntimeStatus('online', null);
@@ -94,6 +118,20 @@ function createClient() {
                     }).catch(() => {});
                 }
             }
+        }
+    });
+
+    nextClient.on('messageCreate', async (message) => {
+        try {
+            const control = currentControl || await getDiscordBotControl();
+            currentControl = control;
+            const handled = await handleLevelMessage(message, control);
+            if (handled) {
+                await setDiscordBotRuntimeStatus('online', null);
+            }
+        } catch (error) {
+            console.error('Discord level system message handling failed:', error);
+            await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
         }
     });
 
@@ -151,15 +189,20 @@ async function disconnectBot() {
     await setDiscordBotRuntimeStatus('offline', null);
     lastTicketPanelSyncKey = '';
     lastTicketPanelSyncAt = 0;
+    lastLevelSystemSyncKey = '';
+    lastLevelSystemSyncAt = 0;
+    currentControl = null;
     console.log('Discord bot is offline.');
 }
 
 async function syncBotState() {
     const control = await getDiscordBotControl();
+    currentControl = control;
     if (control && control.desiredEnabled) {
         await connectBot();
         if (client && client.isReady()) {
             await syncTicketPanelIfNeeded(client, control);
+            await syncLevelSystemIfNeeded(client, control);
         }
         return;
     }

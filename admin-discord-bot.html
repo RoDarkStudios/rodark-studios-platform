@@ -65,6 +65,9 @@
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-tickets">
                                         Tickets
                                     </button>
+                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-levels">
+                                        Levels
+                                    </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-transcripts">
                                         Transcripts
                                     </button>
@@ -257,6 +260,57 @@
 
                                     <button id="discord-ticket-system-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
                                         Save ticket settings
+                                    </button>
+                                </section>
+
+                                <section id="discord-tab-levels" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-level-system-title" hidden>
+                                    <div class="admin-discord-feature-head">
+                                        <div>
+                                            <h2 id="discord-level-system-title" class="admin-tool-title">Level System</h2>
+                                            <p class="admin-tool-note">
+                                                Count community messages, assign level roles, and unlock attachments/embeds after the configured level.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <label class="admin-checkbox-row">
+                                        <input id="discord-level-system-enabled" type="checkbox">
+                                        <span>Enable message leveling</span>
+                                    </label>
+
+                                    <div class="admin-discord-field-grid">
+                                        <label class="admin-field">
+                                            <span class="admin-label">Level-Up Announcement Channel</span>
+                                            <input
+                                                id="discord-level-announcement-channel-id"
+                                                class="admin-input"
+                                                type="text"
+                                                autocomplete="off"
+                                                list="discord-text-channel-options"
+                                                placeholder="Search Discord channels"
+                                            >
+                                        </label>
+
+                                        <label class="admin-field">
+                                            <span class="admin-label">Attachment/Embed Unlock Level</span>
+                                            <select id="discord-level-attachment-unlock-level" class="admin-input">
+                                                <option value="5">Level 5 (about 50 messages)</option>
+                                                <option value="10">Level 10</option>
+                                                <option value="15">Level 15</option>
+                                                <option value="25">Level 25</option>
+                                                <option value="50">Level 50</option>
+                                                <option value="75">Level 75</option>
+                                                <option value="100">Level 100</option>
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <p class="admin-tool-note">
+                                        When enabled, the bot ensures Level 5, 10, 15, 25, 50, 75, and 100 roles exist. Turning this off stops counting messages and assigning roles, but it does not delete roles from Discord.
+                                    </p>
+
+                                    <button id="discord-level-system-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
+                                        Save level settings
                                     </button>
                                 </section>
 

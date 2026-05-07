@@ -1503,6 +1503,26 @@ function getDiscordTicketSystemControl(control) {
     };
 }
 
+function getDiscordLevelSystemControl(control) {
+    if (!control || typeof control !== 'object' || !control.levelSystem || typeof control.levelSystem !== 'object') {
+        return {
+            enabled: false,
+            announcementChannelId: '',
+            attachmentUnlockLevel: 5
+        };
+    }
+
+    const attachmentUnlockLevel = Number.parseInt(control.levelSystem.attachmentUnlockLevel || '5', 10);
+
+    return {
+        enabled: Boolean(control.levelSystem.enabled),
+        announcementChannelId: control.levelSystem.announcementChannelId ? String(control.levelSystem.announcementChannelId) : '',
+        attachmentUnlockLevel: [5, 10, 15, 25, 50, 75, 100].includes(attachmentUnlockLevel)
+            ? attachmentUnlockLevel
+            : 5
+    };
+}
+
 function getDiscordChannelLookup(payload) {
     const channelLookup = payload && payload.channelLookup && typeof payload.channelLookup === 'object'
         ? payload.channelLookup
@@ -1876,13 +1896,19 @@ function renderDiscordBotControl(control, options) {
     const ticketHelperRoleInput = document.getElementById('discord-ticket-helper-role-input');
     const ticketHelperRoleList = document.getElementById('discord-ticket-helper-role-list');
     const ticketSystemSaveButton = document.getElementById('discord-ticket-system-save-btn');
+    const levelSystemEnabledInput = document.getElementById('discord-level-system-enabled');
+    const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
+    const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
+    const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const channelLookupSummary = document.getElementById('discord-channel-lookup-summary');
     const formatted = formatDiscordBotStatus(control);
     const preserveGuildForm = Boolean(options && options.preserveGuildForm);
     const preserveStartupSyncForm = Boolean(options && options.preserveStartupSyncForm);
     const preserveTicketSystemForm = Boolean(options && options.preserveTicketSystemForm);
+    const preserveLevelSystemForm = Boolean(options && options.preserveLevelSystemForm);
     const startupSyncControl = getDiscordStartupSyncControl(control);
     const ticketSystemControl = getDiscordTicketSystemControl(control);
+    const levelSystemControl = getDiscordLevelSystemControl(control);
     const requestedChannelLookup = getDiscordChannelLookup(options);
     const requestedRoleLookup = getDiscordRoleLookup(options);
     const shouldKeepExistingChannelLookup = !requestedChannelLookup.channels.length
@@ -1973,6 +1999,18 @@ function renderDiscordBotControl(control, options) {
     }
     if (ticketSystemSaveButton) {
         ticketSystemSaveButton.disabled = false;
+    }
+    if (!preserveLevelSystemForm && levelSystemEnabledInput) {
+        levelSystemEnabledInput.checked = levelSystemControl.enabled;
+    }
+    if (!preserveLevelSystemForm && levelAnnouncementChannelInput) {
+        setDiscordChannelInputDisplayValue(levelAnnouncementChannelInput, levelSystemControl.announcementChannelId, channelMaps);
+    }
+    if (!preserveLevelSystemForm && levelAttachmentUnlockLevelInput) {
+        levelAttachmentUnlockLevelInput.value = String(levelSystemControl.attachmentUnlockLevel);
+    }
+    if (levelSystemSaveButton) {
+        levelSystemSaveButton.disabled = false;
     }
     if (channelLookupSummary) {
         let lookupMessage = '';
@@ -2073,6 +2111,22 @@ async function saveDiscordTicketSystemConfig(config) {
             categoryChannelId: config && config.categoryChannelId ? String(config.categoryChannelId).trim() : '',
             panelChannelId: config && config.panelChannelId ? String(config.panelChannelId).trim() : '',
             helperRoleIds: config && Array.isArray(config.helperRoleIds) ? config.helperRoleIds : []
+        }
+    });
+
+    return {
+        control: payload.control || null,
+        channelLookup: getDiscordChannelLookup(payload),
+        roleLookup: getDiscordRoleLookup(payload)
+    };
+}
+
+async function saveDiscordLevelSystemConfig(config) {
+    const payload = await postJson('/api/admin/discord-bot-control', {
+        levelSystem: {
+            enabled: Boolean(config && config.enabled),
+            announcementChannelId: config && config.announcementChannelId ? String(config.announcementChannelId).trim() : '',
+            attachmentUnlockLevel: config && config.attachmentUnlockLevel ? Number.parseInt(config.attachmentUnlockLevel, 10) : 5
         }
     });
 
@@ -2265,6 +2319,10 @@ async function initDiscordBotDashboard() {
     const ticketHelperRoleAddButton = document.getElementById('discord-ticket-helper-role-add-btn');
     const ticketHelperRoleList = document.getElementById('discord-ticket-helper-role-list');
     const ticketSystemSaveButton = document.getElementById('discord-ticket-system-save-btn');
+    const levelSystemEnabledInput = document.getElementById('discord-level-system-enabled');
+    const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
+    const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
+    const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const ticketTranscriptsRefreshButton = document.getElementById('discord-ticket-transcripts-refresh-btn');
     const ticketTranscriptsLoadMoreButton = document.getElementById('discord-ticket-transcripts-load-more-btn');
     const ticketTranscriptsList = document.getElementById('discord-ticket-transcripts-list');
@@ -2287,6 +2345,7 @@ async function initDiscordBotDashboard() {
     dashboard.dataset.guildDirty = 'false';
     dashboard.dataset.startupSyncDirty = 'false';
     dashboard.dataset.ticketSystemDirty = 'false';
+    dashboard.dataset.levelSystemDirty = 'false';
     let currentTicketTranscriptId = '';
     let currentTicketTranscripts = [];
     let ticketTranscriptOffset = 0;
@@ -2316,6 +2375,7 @@ async function initDiscordBotDashboard() {
                 preserveGuildForm: dashboard.dataset.guildDirty === 'true',
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
                 preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
+                preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
                 channelLookup: control.channelLookup,
                 roleLookup: control.roleLookup
             });
@@ -2332,6 +2392,9 @@ async function initDiscordBotDashboard() {
             }
             if (ticketSystemSaveButton) {
                 ticketSystemSaveButton.disabled = true;
+            }
+            if (levelSystemSaveButton) {
+                levelSystemSaveButton.disabled = true;
             }
             setDiscordBotStatusMessage(error.message || 'Failed to load Discord bot status.', 'error');
         }
@@ -2413,6 +2476,10 @@ async function initDiscordBotDashboard() {
         dashboard.dataset.ticketSystemDirty = 'true';
     }
 
+    function markLevelSystemFormDirty() {
+        dashboard.dataset.levelSystemDirty = 'true';
+    }
+
     function getCurrentDiscordChannelMaps() {
         return buildDiscordChannelLookupMaps(discordChannelLookupState);
     }
@@ -2463,6 +2530,15 @@ async function initDiscordBotDashboard() {
     if (ticketHelperRoleInput) {
         ticketHelperRoleInput.addEventListener('input', markTicketSystemFormDirty);
     }
+    if (levelSystemEnabledInput) {
+        levelSystemEnabledInput.addEventListener('change', markLevelSystemFormDirty);
+    }
+    if (levelAnnouncementChannelInput) {
+        levelAnnouncementChannelInput.addEventListener('input', markLevelSystemFormDirty);
+    }
+    if (levelAttachmentUnlockLevelInput) {
+        levelAttachmentUnlockLevelInput.addEventListener('change', markLevelSystemFormDirty);
+    }
     bindDiscordChannelAutocompleteInput(startupRulesChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(startupInfoChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(startupRolesChannelInput, getCurrentDiscordChannelMaps);
@@ -2470,6 +2546,7 @@ async function initDiscordBotDashboard() {
     bindDiscordChannelAutocompleteInput(startupGameTestInfoChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(ticketCategoryChannelInput, getCurrentDiscordCategoryMaps);
     bindDiscordChannelAutocompleteInput(ticketPanelChannelInput, getCurrentDiscordChannelMaps);
+    bindDiscordChannelAutocompleteInput(levelAnnouncementChannelInput, getCurrentDiscordChannelMaps);
 
     if (ticketHelperRoleAddButton) {
         ticketHelperRoleAddButton.addEventListener('click', () => {
@@ -2574,6 +2651,30 @@ async function initDiscordBotDashboard() {
             } catch (error) {
                 ticketSystemSaveButton.disabled = false;
                 setDiscordBotStatusMessage(error.message || 'Failed to save ticket settings.', 'error');
+            }
+        });
+    }
+
+    if (levelSystemSaveButton) {
+        levelSystemSaveButton.addEventListener('click', async () => {
+            levelSystemSaveButton.disabled = true;
+            setDiscordBotStatusMessage('Saving level settings...', 'info');
+
+            try {
+                const control = await saveDiscordLevelSystemConfig({
+                    enabled: levelSystemEnabledInput ? levelSystemEnabledInput.checked : false,
+                    announcementChannelId: levelAnnouncementChannelInput ? resolveDiscordChannelInputValue(levelAnnouncementChannelInput, getCurrentDiscordChannelMaps()) : '',
+                    attachmentUnlockLevel: levelAttachmentUnlockLevelInput ? levelAttachmentUnlockLevelInput.value : 5
+                });
+                dashboard.dataset.levelSystemDirty = 'false';
+                renderDiscordBotControl(control.control, {
+                    channelLookup: control.channelLookup,
+                    roleLookup: control.roleLookup
+                });
+                setDiscordBotStatusMessage('Level settings saved. The level roles will sync while the bot is online.', 'success');
+            } catch (error) {
+                levelSystemSaveButton.disabled = false;
+                setDiscordBotStatusMessage(error.message || 'Failed to save level settings.', 'error');
             }
         });
     }

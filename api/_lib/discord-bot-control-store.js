@@ -1,6 +1,7 @@
 const { postgresQuery } = require('./postgres');
 
 const CONTROL_ID = 1;
+const LEVEL_ATTACHMENT_UNLOCK_LEVELS = [5, 10, 15, 25, 50, 75, 100];
 
 function toIsoString(value) {
     if (value instanceof Date) {
@@ -52,6 +53,15 @@ function normalizeOptionalSnowflakeArray(value, fieldName) {
     return normalizedValues;
 }
 
+function normalizeLevelUnlockLevel(value) {
+    const parsedValue = Number.parseInt(value || '5', 10);
+    if (!LEVEL_ATTACHMENT_UNLOCK_LEVELS.includes(parsedValue)) {
+        throw new Error('Attachment unlock level must be one of 5, 10, 15, 25, 50, 75, or 100');
+    }
+
+    return parsedValue;
+}
+
 async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         create table if not exists discord_bot_control (
@@ -66,6 +76,9 @@ async function ensureDiscordBotControlSchema() {
             content_roles_channel_id text,
             content_staff_info_channel_id text,
             content_game_test_info_channel_id text,
+            level_system_enabled boolean not null default false,
+            level_announcement_channel_id text,
+            level_attachment_unlock_level integer not null default 5,
             updated_at timestamptz not null default now(),
             updated_by_user_id text,
             updated_by_username text
@@ -120,6 +133,33 @@ async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         alter table discord_bot_control
         add column if not exists tickets_helper_role_ids text[] not null default '{}'
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists level_system_enabled boolean not null default false
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists level_announcement_channel_id text
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists level_attachment_unlock_level integer not null default 5
+    `);
+
+    await postgresQuery(`
+        create table if not exists discord_bot_member_levels (
+            guild_id text not null,
+            user_id text not null,
+            message_count integer not null default 0,
+            level integer not null default 0,
+            last_message_at timestamptz,
+            updated_at timestamptz not null default now(),
+            primary key (guild_id, user_id)
+        )
     `);
 
     await postgresQuery(`
@@ -242,6 +282,11 @@ function mapRowToDiscordBotControl(row) {
             helperRoleIds: Array.isArray(row.tickets_helper_role_ids)
                 ? row.tickets_helper_role_ids.map((value) => String(value)).filter(Boolean)
                 : []
+        },
+        levelSystem: {
+            enabled: Boolean(row.level_system_enabled),
+            announcementChannelId: row.level_announcement_channel_id ? String(row.level_announcement_channel_id) : null,
+            attachmentUnlockLevel: Number(row.level_attachment_unlock_level) || 5
         }
     };
 }
@@ -267,7 +312,10 @@ async function getDiscordBotControl() {
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
-            tickets_helper_role_ids
+            tickets_helper_role_ids,
+            level_system_enabled,
+            level_announcement_channel_id,
+            level_attachment_unlock_level
         from discord_bot_control
         where id = $1
         limit 1
@@ -330,6 +378,17 @@ async function updateDiscordBotControl(patch, user) {
         : (currentControl.ticketSystem && Array.isArray(currentControl.ticketSystem.helperRoleIds)
             ? currentControl.ticketSystem.helperRoleIds.map((value) => String(value)).filter(Boolean)
             : []);
+    const levelSystemEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'levelSystemEnabled')
+        ? Boolean(patch.levelSystemEnabled)
+        : Boolean(currentControl.levelSystem && currentControl.levelSystem.enabled);
+    const levelAnnouncementChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'levelAnnouncementChannelId')
+        ? normalizeOptionalSnowflake(patch.levelAnnouncementChannelId, 'Level-up announcement channel ID')
+        : (currentControl.levelSystem && currentControl.levelSystem.announcementChannelId
+            ? String(currentControl.levelSystem.announcementChannelId)
+            : null);
+    const levelAttachmentUnlockLevel = patch && Object.prototype.hasOwnProperty.call(patch, 'levelAttachmentUnlockLevel')
+        ? normalizeLevelUnlockLevel(patch.levelAttachmentUnlockLevel)
+        : normalizeLevelUnlockLevel(currentControl.levelSystem && currentControl.levelSystem.attachmentUnlockLevel);
 
     const result = await postgresQuery(`
         update discord_bot_control
@@ -348,9 +407,12 @@ async function updateDiscordBotControl(patch, user) {
                 when tickets_panel_channel_id is distinct from $10 then null
                 else tickets_panel_message_id
             end,
+            level_system_enabled = $12,
+            level_announcement_channel_id = $13,
+            level_attachment_unlock_level = $14,
             updated_at = now(),
-            updated_by_user_id = $12,
-            updated_by_username = $13,
+            updated_by_user_id = $15,
+            updated_by_username = $16,
             last_error = case when $2 = false then null else last_error end
         where id = $1
         returning
@@ -370,7 +432,10 @@ async function updateDiscordBotControl(patch, user) {
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
-            tickets_helper_role_ids
+            tickets_helper_role_ids,
+            level_system_enabled,
+            level_announcement_channel_id,
+            level_attachment_unlock_level
     `, [
         CONTROL_ID,
         desiredEnabled,
@@ -383,6 +448,9 @@ async function updateDiscordBotControl(patch, user) {
         ticketsCategoryChannelId,
         ticketsPanelChannelId,
         ticketsHelperRoleIds,
+        levelSystemEnabled,
+        levelAnnouncementChannelId,
+        levelAttachmentUnlockLevel,
         user && user.id ? String(user.id) : null,
         user && user.username ? String(user.username) : null
     ]);
@@ -414,7 +482,10 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
-            tickets_helper_role_ids
+            tickets_helper_role_ids,
+            level_system_enabled,
+            level_announcement_channel_id,
+            level_attachment_unlock_level
     `, [
         CONTROL_ID,
         normalizeOptionalSnowflake(panelMessageId, 'Ticket panel message ID')
@@ -450,7 +521,10 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
-            tickets_helper_role_ids
+            tickets_helper_role_ids,
+            level_system_enabled,
+            level_announcement_channel_id,
+            level_attachment_unlock_level
     `, [
         CONTROL_ID,
         String(runtimeStatus || 'offline'),
