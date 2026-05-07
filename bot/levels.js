@@ -7,7 +7,7 @@ const MESSAGES_PER_LEVEL = 10;
 const LEVEL_MESSAGE_COOLDOWN_SECONDS = 10;
 const LEVEL_ROLE_PREFIX = 'Level ';
 const LEVEL_EMBED_COLOR = 0xf97316;
-const ATTACH_EMBED_PERMISSION_BITS = PermissionFlagsBits.AttachFiles | PermissionFlagsBits.EmbedLinks;
+const EMBED_LINKS_PERMISSION_BITS = PermissionFlagsBits.EmbedLinks;
 
 let ensuredGuildLevelRoles = new Map();
 
@@ -45,7 +45,7 @@ function getLevelSystemSyncKey(control) {
 }
 
 function buildLevelRolePermissions(levelSystem, milestoneLevel) {
-    return milestoneLevel >= levelSystem.attachmentUnlockLevel ? ATTACH_EMBED_PERMISSION_BITS : 0n;
+    return milestoneLevel >= levelSystem.attachmentUnlockLevel ? EMBED_LINKS_PERMISSION_BITS : 0n;
 }
 
 async function ensureMemberLevelTable() {
@@ -69,14 +69,14 @@ async function ensureEveryoneAttachmentGate(guild, levelSystem) {
     }
 
     const currentPermissions = BigInt(everyoneRole.permissions.bitfield);
-    if ((currentPermissions & ATTACH_EMBED_PERMISSION_BITS) === 0n) {
+    if ((currentPermissions & EMBED_LINKS_PERMISSION_BITS) === 0n) {
         return;
     }
 
-    const nextPermissions = currentPermissions & ~ATTACH_EMBED_PERMISSION_BITS;
+    const nextPermissions = currentPermissions & ~EMBED_LINKS_PERMISSION_BITS;
     await everyoneRole.edit({
         permissions: nextPermissions,
-        reason: `Require ${getLevelRoleName(levelSystem.attachmentUnlockLevel)} for attachments and embeds`
+        reason: `Require ${getLevelRoleName(levelSystem.attachmentUnlockLevel)} for embed links`
     });
 }
 
@@ -108,8 +108,8 @@ async function ensureLevelRoles(guild, control) {
             });
         } else {
             const currentPermissions = BigInt(role.permissions.bitfield);
-            if ((currentPermissions & ATTACH_EMBED_PERMISSION_BITS) !== desiredPermissions) {
-                const nextPermissions = (currentPermissions & ~ATTACH_EMBED_PERMISSION_BITS) | desiredPermissions;
+            if ((currentPermissions & EMBED_LINKS_PERMISSION_BITS) !== desiredPermissions) {
+                const nextPermissions = (currentPermissions & ~EMBED_LINKS_PERMISSION_BITS) | desiredPermissions;
                 await role.edit({
                     permissions: nextPermissions,
                     reason: 'Sync RoDark Studios level role permissions'
@@ -123,7 +123,7 @@ async function ensureLevelRoles(guild, control) {
     }
 
     await ensureEveryoneAttachmentGate(guild, levelSystem).catch((error) => {
-        console.error('[levels] Failed to remove attachment/embed permissions from @everyone:', error);
+        console.error('[levels] Failed to remove embed links permission from @everyone:', error);
     });
 
     ensuredGuildLevelRoles.set(guild.id, {
@@ -249,7 +249,7 @@ function buildLevelUpEmbed(message, control, levelResult, addedRoles) {
     ];
 
     if (nextLevel === levelSystem.attachmentUnlockLevel) {
-        lines.push('You can now attach files and embed links.');
+        lines.push('You can now embed links.');
     } else if (highestAddedRole) {
         lines.push(`You earned **${highestAddedRole.name}**.`);
     }
