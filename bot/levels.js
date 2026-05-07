@@ -247,7 +247,7 @@ async function sendLevelUpAnnouncement(message, control, nextLevel, addedRoles) 
         ? ' You can now attach files and embed links.'
         : '';
     const roleNote = highestAddedRole
-        ? ` You earned ${highestAddedRole.toString()}.`
+        ? ` You earned **${highestAddedRole.name}**.`
         : '';
 
     await channel.send({
