@@ -247,6 +247,7 @@ async function sendLevelUpAnnouncement(message, control, nextLevel, addedRoles) 
         ? ' You can now attach files and embed links.'
         : '';
     const roleNote = highestAddedRole
+        && nextLevel !== levelSystem.attachmentUnlockLevel
         ? ` You earned **${highestAddedRole.name}**.`
         : '';
 
