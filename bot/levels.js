@@ -1,4 +1,4 @@
-const { ChannelType, PermissionFlagsBits } = require('discord.js');
+const { ChannelType, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { postgresQuery } = require('../api/_lib/postgres');
 
 const LEVEL_ROLE_MILESTONES = [5, 10, 15, 25, 50, 75, 100];
@@ -6,6 +6,7 @@ const DEFAULT_UNLOCK_LEVEL = 5;
 const MESSAGES_PER_LEVEL = 10;
 const LEVEL_MESSAGE_COOLDOWN_SECONDS = 10;
 const LEVEL_ROLE_PREFIX = 'Level ';
+const LEVEL_EMBED_COLOR = 0xf97316;
 const ATTACH_EMBED_PERMISSION_BITS = PermissionFlagsBits.AttachFiles | PermissionFlagsBits.EmbedLinks;
 
 let ensuredGuildLevelRoles = new Map();
@@ -229,7 +230,45 @@ async function assignEarnedLevelRoles(member, control, memberLevel) {
     return addedRoles;
 }
 
-async function sendLevelUpAnnouncement(message, control, nextLevel, addedRoles) {
+function buildLevelUpEmbed(message, control, levelResult, addedRoles) {
+    const levelSystem = getLevelSystemControl(control);
+    const nextLevel = Number(levelResult.level) || 0;
+    const messageCount = Number(levelResult.messageCount) || 0;
+    const xpToNextLevel = Math.max(0, ((nextLevel + 1) * MESSAGES_PER_LEVEL) - messageCount);
+    const displayName = message.member && message.member.displayName
+        ? message.member.displayName
+        : (message.author && message.author.username ? message.author.username : 'A member');
+    const userAvatarUrl = message.author && typeof message.author.displayAvatarURL === 'function'
+        ? message.author.displayAvatarURL({ size: 64 })
+        : null;
+    const highestAddedRole = Array.isArray(addedRoles) && addedRoles.length
+        ? addedRoles[addedRoles.length - 1]
+        : null;
+    const lines = [
+        `You have ascended to **Level ${nextLevel}!** (${messageCount.toLocaleString()} XP)`
+    ];
+
+    if (nextLevel === levelSystem.attachmentUnlockLevel) {
+        lines.push('You can now attach files and embed links.');
+    } else if (highestAddedRole) {
+        lines.push(`You earned **${highestAddedRole.name}**.`);
+    }
+
+    lines.push(`You need another ${xpToNextLevel.toLocaleString()} XP to reach Level ${nextLevel + 1}.`);
+
+    const embed = new EmbedBuilder()
+        .setColor(LEVEL_EMBED_COLOR)
+        .setTitle(`${displayName} leveled up!`)
+        .setDescription(lines.join('\n'));
+
+    if (userAvatarUrl) {
+        embed.setThumbnail(userAvatarUrl);
+    }
+
+    return embed;
+}
+
+async function sendLevelUpAnnouncement(message, control, levelResult, addedRoles) {
     const levelSystem = getLevelSystemControl(control);
     if (!levelSystem.announcementChannelId) {
         return;
@@ -240,19 +279,9 @@ async function sendLevelUpAnnouncement(message, control, nextLevel, addedRoles) 
         return;
     }
 
-    const highestAddedRole = Array.isArray(addedRoles) && addedRoles.length
-        ? addedRoles[addedRoles.length - 1]
-        : null;
-    const unlockNote = nextLevel === levelSystem.attachmentUnlockLevel
-        ? ' You can now attach files and embed links.'
-        : '';
-    const roleNote = highestAddedRole
-        && nextLevel !== levelSystem.attachmentUnlockLevel
-        ? ` You earned **${highestAddedRole.name}**.`
-        : '';
-
     await channel.send({
-        content: `<@${message.author.id}> leveled up to **Level ${nextLevel}**.${roleNote}${unlockNote}`,
+        content: `<@${message.author.id}>`,
+        embeds: [buildLevelUpEmbed(message, control, levelResult, addedRoles)],
         allowedMentions: {
             users: [String(message.author.id)],
             roles: []
@@ -285,7 +314,7 @@ async function handleLevelMessage(message, control) {
         return true;
     }
 
-    await sendLevelUpAnnouncement(message, control, levelResult.level, addedRoles);
+    await sendLevelUpAnnouncement(message, control, levelResult, addedRoles);
     return true;
 }
 
