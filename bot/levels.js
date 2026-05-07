@@ -3,8 +3,8 @@ const { postgresQuery } = require('../api/_lib/postgres');
 
 const LEVEL_ROLE_MILESTONES = [5, 10, 15, 25, 50, 75, 100];
 const DEFAULT_UNLOCK_LEVEL = 5;
-const MESSAGES_PER_LEVEL = 5;
-const LEVEL_MESSAGE_COOLDOWN_SECONDS = 60;
+const MESSAGES_PER_LEVEL = 10;
+const LEVEL_MESSAGE_COOLDOWN_SECONDS = 10;
 const LEVEL_ROLE_PREFIX = 'Level ';
 const ATTACH_EMBED_PERMISSION_BITS = PermissionFlagsBits.AttachFiles | PermissionFlagsBits.EmbedLinks;
 
