@@ -3,7 +3,8 @@ const { postgresQuery } = require('../api/_lib/postgres');
 
 const LEVEL_ROLE_MILESTONES = [5, 10, 15, 25, 50, 75, 100];
 const DEFAULT_UNLOCK_LEVEL = 5;
-const MESSAGES_PER_LEVEL = 10;
+const LEVEL_BASE_XP = 8;
+const LEVEL_GROWTH_XP = 0.4;
 const LEVEL_MESSAGE_COOLDOWN_SECONDS = 10;
 const LEVEL_ROLE_PREFIX = 'Level ';
 const LEVEL_EMBED_COLOR = 0xf97316;
@@ -28,8 +29,20 @@ function getLevelSystemControl(control) {
     };
 }
 
+function calculateRequiredXpForLevel(level) {
+    const normalizedLevel = Math.max(0, Number.parseInt(level || '0', 10) || 0);
+    return Math.round((LEVEL_BASE_XP * normalizedLevel) + (LEVEL_GROWTH_XP * normalizedLevel * normalizedLevel));
+}
+
 function calculateLevel(messageCount) {
-    return Math.floor((Number(messageCount) || 0) / MESSAGES_PER_LEVEL);
+    const xp = Math.max(0, Number(messageCount) || 0);
+    let level = 0;
+
+    while (calculateRequiredXpForLevel(level + 1) <= xp) {
+        level += 1;
+    }
+
+    return level;
 }
 
 function getLevelRoleName(level) {
@@ -170,17 +183,15 @@ async function incrementMemberMessageCount(guildId, userId) {
         on conflict (guild_id, user_id) do update
         set
             message_count = discord_bot_member_levels.message_count + 1,
-            level = floor((discord_bot_member_levels.message_count + 1) / $3)::integer,
             last_message_at = now(),
             updated_at = now()
         where
             discord_bot_member_levels.last_message_at is null
-            or discord_bot_member_levels.last_message_at <= now() - ($4::text)::interval
-        returning message_count, level
+            or discord_bot_member_levels.last_message_at <= now() - ($3::text)::interval
+        returning message_count
     `, [
         String(guildId),
         String(userId),
-        MESSAGES_PER_LEVEL,
         `${LEVEL_MESSAGE_COOLDOWN_SECONDS} seconds`
     ]);
 
@@ -195,11 +206,24 @@ async function incrementMemberMessageCount(guildId, userId) {
 
     const row = result.rows[0] || {};
     const messageCount = Number(row.message_count) || 0;
+    const level = calculateLevel(messageCount);
+    await postgresQuery(`
+        update discord_bot_member_levels
+        set
+            level = $3,
+            updated_at = now()
+        where guild_id = $1 and user_id = $2
+    `, [
+        String(guildId),
+        String(userId),
+        level
+    ]);
+
     return {
         counted: true,
         messageCount,
         previousLevel: calculateLevel(Math.max(0, messageCount - 1)),
-        level: Number(row.level) || 0
+        level
     };
 }
 
@@ -236,7 +260,7 @@ function buildLevelUpEmbed(message, control, levelResult, addedRoles) {
     const levelSystem = getLevelSystemControl(control);
     const nextLevel = Number(levelResult.level) || 0;
     const messageCount = Number(levelResult.messageCount) || 0;
-    const xpToNextLevel = Math.max(0, ((nextLevel + 1) * MESSAGES_PER_LEVEL) - messageCount);
+    const xpToNextLevel = Math.max(0, calculateRequiredXpForLevel(nextLevel + 1) - messageCount);
     const displayName = message.member && message.member.displayName
         ? message.member.displayName
         : (message.author && message.author.username ? message.author.username : 'A member');
