@@ -367,6 +367,10 @@ module.exports = async (req, res) => {
             patch.levelAttachmentUnlockLevel = levelSystem.attachmentUnlockLevel;
         }
 
+        if (levelSystem && Object.prototype.hasOwnProperty.call(levelSystem, 'mentionLevelUps')) {
+            patch.levelMentionEnabled = levelSystem.mentionLevelUps;
+        }
+
         const control = await updateDiscordBotControl(patch, auth.user);
         const channelLookup = await getDiscordChannelLookup(control);
         const roleLookup = await getDiscordRoleLookup(control);

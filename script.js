@@ -1508,7 +1508,8 @@ function getDiscordLevelSystemControl(control) {
         return {
             enabled: false,
             announcementChannelId: '',
-            attachmentUnlockLevel: 5
+            attachmentUnlockLevel: 5,
+            mentionLevelUps: true
         };
     }
 
@@ -1519,7 +1520,8 @@ function getDiscordLevelSystemControl(control) {
         announcementChannelId: control.levelSystem.announcementChannelId ? String(control.levelSystem.announcementChannelId) : '',
         attachmentUnlockLevel: [5, 10, 15, 25, 50, 75, 100].includes(attachmentUnlockLevel)
             ? attachmentUnlockLevel
-            : 5
+            : 5,
+        mentionLevelUps: control.levelSystem.mentionLevelUps !== false
     };
 }
 
@@ -1897,6 +1899,7 @@ function renderDiscordBotControl(control, options) {
     const ticketHelperRoleList = document.getElementById('discord-ticket-helper-role-list');
     const ticketSystemSaveButton = document.getElementById('discord-ticket-system-save-btn');
     const levelSystemEnabledInput = document.getElementById('discord-level-system-enabled');
+    const levelMentionEnabledInput = document.getElementById('discord-level-mention-enabled');
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
@@ -2002,6 +2005,9 @@ function renderDiscordBotControl(control, options) {
     }
     if (!preserveLevelSystemForm && levelSystemEnabledInput) {
         levelSystemEnabledInput.checked = levelSystemControl.enabled;
+    }
+    if (!preserveLevelSystemForm && levelMentionEnabledInput) {
+        levelMentionEnabledInput.checked = levelSystemControl.mentionLevelUps;
     }
     if (!preserveLevelSystemForm && levelAnnouncementChannelInput) {
         setDiscordChannelInputDisplayValue(levelAnnouncementChannelInput, levelSystemControl.announcementChannelId, channelMaps);
@@ -2125,6 +2131,9 @@ async function saveDiscordLevelSystemConfig(config) {
     const payload = await postJson('/api/admin/discord-bot-control', {
         levelSystem: {
             enabled: Boolean(config && config.enabled),
+            mentionLevelUps: config && Object.prototype.hasOwnProperty.call(config, 'mentionLevelUps')
+                ? Boolean(config.mentionLevelUps)
+                : true,
             announcementChannelId: config && config.announcementChannelId ? String(config.announcementChannelId).trim() : '',
             attachmentUnlockLevel: config && config.attachmentUnlockLevel ? Number.parseInt(config.attachmentUnlockLevel, 10) : 5
         }
@@ -2320,6 +2329,7 @@ async function initDiscordBotDashboard() {
     const ticketHelperRoleList = document.getElementById('discord-ticket-helper-role-list');
     const ticketSystemSaveButton = document.getElementById('discord-ticket-system-save-btn');
     const levelSystemEnabledInput = document.getElementById('discord-level-system-enabled');
+    const levelMentionEnabledInput = document.getElementById('discord-level-mention-enabled');
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
@@ -2533,6 +2543,9 @@ async function initDiscordBotDashboard() {
     if (levelSystemEnabledInput) {
         levelSystemEnabledInput.addEventListener('change', markLevelSystemFormDirty);
     }
+    if (levelMentionEnabledInput) {
+        levelMentionEnabledInput.addEventListener('change', markLevelSystemFormDirty);
+    }
     if (levelAnnouncementChannelInput) {
         levelAnnouncementChannelInput.addEventListener('input', markLevelSystemFormDirty);
     }
@@ -2663,6 +2676,7 @@ async function initDiscordBotDashboard() {
             try {
                 const control = await saveDiscordLevelSystemConfig({
                     enabled: levelSystemEnabledInput ? levelSystemEnabledInput.checked : false,
+                    mentionLevelUps: levelMentionEnabledInput ? levelMentionEnabledInput.checked : true,
                     announcementChannelId: levelAnnouncementChannelInput ? resolveDiscordChannelInputValue(levelAnnouncementChannelInput, getCurrentDiscordChannelMaps()) : '',
                     attachmentUnlockLevel: levelAttachmentUnlockLevelInput ? levelAttachmentUnlockLevelInput.value : 5
                 });

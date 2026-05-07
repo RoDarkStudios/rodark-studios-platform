@@ -23,7 +23,8 @@ function getLevelSystemControl(control) {
     return {
         enabled: Boolean(levelSystem.enabled),
         announcementChannelId: levelSystem.announcementChannelId ? String(levelSystem.announcementChannelId) : '',
-        attachmentUnlockLevel
+        attachmentUnlockLevel,
+        mentionLevelUps: levelSystem.mentionLevelUps !== false
     };
 }
 
@@ -40,7 +41,8 @@ function getLevelSystemSyncKey(control) {
     return JSON.stringify({
         enabled: levelSystem.enabled,
         announcementChannelId: levelSystem.announcementChannelId,
-        attachmentUnlockLevel: levelSystem.attachmentUnlockLevel
+        attachmentUnlockLevel: levelSystem.attachmentUnlockLevel,
+        mentionLevelUps: levelSystem.mentionLevelUps
     });
 }
 
@@ -279,13 +281,17 @@ async function sendLevelUpAnnouncement(message, control, levelResult, addedRoles
         return;
     }
 
+    const shouldMentionUser = levelSystem.mentionLevelUps !== false;
+
     await channel.send({
-        content: `<@${message.author.id}>`,
+        content: shouldMentionUser ? `<@${message.author.id}>` : '',
         embeds: [buildLevelUpEmbed(message, control, levelResult, addedRoles)],
-        allowedMentions: {
-            users: [String(message.author.id)],
-            roles: []
-        }
+        allowedMentions: shouldMentionUser
+            ? {
+                users: [String(message.author.id)],
+                roles: []
+            }
+            : { parse: [] }
     }).catch((error) => {
         console.error('[levels] Failed to send level-up announcement:', error);
     });

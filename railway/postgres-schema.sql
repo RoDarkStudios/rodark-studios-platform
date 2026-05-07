@@ -27,6 +27,7 @@ create table if not exists discord_bot_control (
     level_system_enabled boolean not null default false,
     level_announcement_channel_id text,
     level_attachment_unlock_level integer not null default 5,
+    level_mention_enabled boolean not null default true,
     updated_at timestamptz not null default now(),
     updated_by_user_id text,
     updated_by_username text

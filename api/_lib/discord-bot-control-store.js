@@ -79,6 +79,7 @@ async function ensureDiscordBotControlSchema() {
             level_system_enabled boolean not null default false,
             level_announcement_channel_id text,
             level_attachment_unlock_level integer not null default 5,
+            level_mention_enabled boolean not null default true,
             updated_at timestamptz not null default now(),
             updated_by_user_id text,
             updated_by_username text
@@ -148,6 +149,11 @@ async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         alter table discord_bot_control
         add column if not exists level_attachment_unlock_level integer not null default 5
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists level_mention_enabled boolean not null default true
     `);
 
     await postgresQuery(`
@@ -286,7 +292,8 @@ function mapRowToDiscordBotControl(row) {
         levelSystem: {
             enabled: Boolean(row.level_system_enabled),
             announcementChannelId: row.level_announcement_channel_id ? String(row.level_announcement_channel_id) : null,
-            attachmentUnlockLevel: Number(row.level_attachment_unlock_level) || 5
+            attachmentUnlockLevel: Number(row.level_attachment_unlock_level) || 5,
+            mentionLevelUps: row.level_mention_enabled !== false
         }
     };
 }
@@ -315,7 +322,8 @@ async function getDiscordBotControl() {
             tickets_helper_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
-            level_attachment_unlock_level
+            level_attachment_unlock_level,
+            level_mention_enabled
         from discord_bot_control
         where id = $1
         limit 1
@@ -389,6 +397,9 @@ async function updateDiscordBotControl(patch, user) {
     const levelAttachmentUnlockLevel = patch && Object.prototype.hasOwnProperty.call(patch, 'levelAttachmentUnlockLevel')
         ? normalizeLevelUnlockLevel(patch.levelAttachmentUnlockLevel)
         : normalizeLevelUnlockLevel(currentControl.levelSystem && currentControl.levelSystem.attachmentUnlockLevel);
+    const levelMentionEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'levelMentionEnabled')
+        ? Boolean(patch.levelMentionEnabled)
+        : (currentControl.levelSystem ? currentControl.levelSystem.mentionLevelUps !== false : true);
 
     const result = await postgresQuery(`
         update discord_bot_control
@@ -410,9 +421,10 @@ async function updateDiscordBotControl(patch, user) {
             level_system_enabled = $12,
             level_announcement_channel_id = $13,
             level_attachment_unlock_level = $14,
+            level_mention_enabled = $15,
             updated_at = now(),
-            updated_by_user_id = $15,
-            updated_by_username = $16,
+            updated_by_user_id = $16,
+            updated_by_username = $17,
             last_error = case when $2 = false then null else last_error end
         where id = $1
         returning
@@ -435,7 +447,8 @@ async function updateDiscordBotControl(patch, user) {
             tickets_helper_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
-            level_attachment_unlock_level
+            level_attachment_unlock_level,
+            level_mention_enabled
     `, [
         CONTROL_ID,
         desiredEnabled,
@@ -451,6 +464,7 @@ async function updateDiscordBotControl(patch, user) {
         levelSystemEnabled,
         levelAnnouncementChannelId,
         levelAttachmentUnlockLevel,
+        levelMentionEnabled,
         user && user.id ? String(user.id) : null,
         user && user.username ? String(user.username) : null
     ]);
@@ -485,7 +499,8 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             tickets_helper_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
-            level_attachment_unlock_level
+            level_attachment_unlock_level,
+            level_mention_enabled
     `, [
         CONTROL_ID,
         normalizeOptionalSnowflake(panelMessageId, 'Ticket panel message ID')
@@ -524,7 +539,8 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             tickets_helper_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
-            level_attachment_unlock_level
+            level_attachment_unlock_level,
+            level_mention_enabled
     `, [
         CONTROL_ID,
         String(runtimeStatus || 'offline'),
