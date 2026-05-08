@@ -1,4 +1,3 @@
-const { Routes } = require('discord.js');
 const { postgresQuery } = require('../api/_lib/postgres');
 const { getStoredGameConfig } = require('../api/_lib/admin-game-config-store');
 const {
@@ -15,6 +14,8 @@ const BLOXLINK_LOOKUP_CACHE_TTL_MS = Number.parseInt(process.env.BLOXLINK_LOOKUP
 const BLOXLINK_LOOKUPS_PER_SYNC = Math.max(1, Math.min(100, Number.parseInt(process.env.BLOXLINK_LOOKUPS_PER_SYNC || '10', 10) || 10));
 const BLOXLINK_LOOKUP_DELAY_MS = Math.max(0, Number.parseInt(process.env.BLOXLINK_LOOKUP_DELAY_MS || '750', 10) || 750);
 const BLOXLINK_RATE_LIMIT_BACKOFF_MS = Math.max(60 * 1000, Number.parseInt(process.env.BLOXLINK_RATE_LIMIT_BACKOFF_MS || '300000', 10) || 300000);
+const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
+const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 
 let lastSyncAtByGuildId = new Map();
 let bloxlinkLookupCache = new Map();
@@ -369,16 +370,37 @@ async function deleteAssignment(guildId, userId) {
     ]);
 }
 
-async function addRoleToMember(guild, userId, roleId) {
-    await guild.client.rest.put(Routes.guildMemberRole(guild.id, userId, roleId), {
-        reason: 'Top player on Coding Simulator 2 leaderboard'
+async function discordRoleRequest(method, guildId, userId, roleId, reason) {
+    if (!DISCORD_BOT_TOKEN) {
+        throw new Error('DISCORD_BOT_TOKEN must be set');
+    }
+
+    const response = await fetch(`${DISCORD_API_BASE_URL}/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}`, {
+        method,
+        headers: {
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+            'X-Audit-Log-Reason': encodeURIComponent(reason || 'Sync leaderboard role')
+        },
+        signal: AbortSignal.timeout(15000)
     });
+
+    if (response.status === 204) {
+        return;
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    const message = payload && payload.message
+        ? String(payload.message)
+        : `Discord role request failed (${response.status})`;
+    throw new Error(message);
+}
+
+async function addRoleToMember(guild, userId, roleId) {
+    await discordRoleRequest('PUT', guild.id, userId, roleId, 'Top player on Coding Simulator 2 leaderboard');
 }
 
 async function removeRoleFromMember(guild, userId, roleId) {
-    await guild.client.rest.delete(Routes.guildMemberRole(guild.id, userId, roleId), {
-        reason: 'No longer in Coding Simulator 2 leaderboard top list'
-    });
+    await discordRoleRequest('DELETE', guild.id, userId, roleId, 'No longer in Coding Simulator 2 leaderboard top list');
 }
 
 async function syncLeaderboardRoleForGuild(guild, control) {
