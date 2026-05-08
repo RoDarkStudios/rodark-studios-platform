@@ -175,7 +175,7 @@ function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescri
         .addFields(
             {
                 name: 'Tester',
-                value: `${targetUser.toString()}\n\`${targetUser.tag || targetUser.id}\``,
+                value: targetUser.toString(),
                 inline: true
             },
             {
@@ -190,7 +190,7 @@ function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescri
             },
             {
                 name: 'Added By',
-                value: `${interaction.user.toString()}\n\`${interaction.user.tag || interaction.user.id}\``,
+                value: interaction.user.toString(),
                 inline: false
             },
             {
@@ -227,7 +227,7 @@ function buildPaidBugPayoutEmbed(guild, existingEmbed, paidByUser) {
 
     fields.push({
         name: 'Paid By',
-        value: `${paidByUser.toString()}\n\`${paidByUser.tag || paidByUser.id}\``,
+        value: paidByUser.toString(),
         inline: false
     });
 
