@@ -2032,8 +2032,6 @@ function renderDiscordBotControl(control, options) {
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
-    const leaderboardDataStoreScopeInput = document.getElementById('discord-leaderboard-datastore-scope');
-    const leaderboardKeyPrefixInput = document.getElementById('discord-leaderboard-key-prefix');
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
     const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
     const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
@@ -2161,12 +2159,6 @@ function renderDiscordBotControl(control, options) {
     }
     if (!preserveLeaderboardRoleForm && leaderboardDataStoreNameInput) {
         leaderboardDataStoreNameInput.value = leaderboardRoleControl.orderedDataStoreName;
-    }
-    if (!preserveLeaderboardRoleForm && leaderboardDataStoreScopeInput) {
-        leaderboardDataStoreScopeInput.value = leaderboardRoleControl.orderedDataStoreScope;
-    }
-    if (!preserveLeaderboardRoleForm && leaderboardKeyPrefixInput) {
-        leaderboardKeyPrefixInput.value = leaderboardRoleControl.keyPrefix;
     }
     if (!preserveLeaderboardRoleForm && leaderboardTopSizeInput) {
         leaderboardTopSizeInput.value = String(leaderboardRoleControl.topSize);
@@ -2542,8 +2534,6 @@ async function initDiscordBotDashboard() {
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
-    const leaderboardDataStoreScopeInput = document.getElementById('discord-leaderboard-datastore-scope');
-    const leaderboardKeyPrefixInput = document.getElementById('discord-leaderboard-key-prefix');
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
     const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
     const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
@@ -2810,12 +2800,6 @@ async function initDiscordBotDashboard() {
     if (leaderboardDataStoreNameInput) {
         leaderboardDataStoreNameInput.addEventListener('input', markLeaderboardRoleFormDirty);
     }
-    if (leaderboardDataStoreScopeInput) {
-        leaderboardDataStoreScopeInput.addEventListener('input', markLeaderboardRoleFormDirty);
-    }
-    if (leaderboardKeyPrefixInput) {
-        leaderboardKeyPrefixInput.addEventListener('input', markLeaderboardRoleFormDirty);
-    }
     if (leaderboardTopSizeInput) {
         leaderboardTopSizeInput.addEventListener('input', markLeaderboardRoleFormDirty);
     }
@@ -2975,8 +2959,8 @@ async function initDiscordBotDashboard() {
                 const control = await saveDiscordLeaderboardRoleConfig({
                     enabled: leaderboardRoleEnabledInput ? leaderboardRoleEnabledInput.checked : false,
                     orderedDataStoreName: leaderboardDataStoreNameInput ? leaderboardDataStoreNameInput.value : '',
-                    orderedDataStoreScope: leaderboardDataStoreScopeInput ? leaderboardDataStoreScopeInput.value : 'global',
-                    keyPrefix: leaderboardKeyPrefixInput ? leaderboardKeyPrefixInput.value : '',
+                    orderedDataStoreScope: 'global',
+                    keyPrefix: '',
                     topSize: leaderboardTopSizeInput ? leaderboardTopSizeInput.value : 100,
                     syncIntervalMinutes: leaderboardSyncIntervalInput ? leaderboardSyncIntervalInput.value : 5,
                     roleName: leaderboardRoleNameInput ? leaderboardRoleNameInput.value : 'Leaderboard Player'
