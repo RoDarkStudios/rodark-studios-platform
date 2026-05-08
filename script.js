@@ -2116,11 +2116,9 @@ function renderDiscordBotControl(control, options) {
     const requestedChannelLookup = getDiscordChannelLookup(options);
     const requestedRoleLookup = getDiscordRoleLookup(options);
     const shouldKeepExistingChannelLookup = !requestedChannelLookup.channels.length
-        && Boolean(requestedChannelLookup.error)
         && Array.isArray(discordChannelLookupState.channels)
         && discordChannelLookupState.channels.length > 0;
     const shouldKeepExistingRoleLookup = !requestedRoleLookup.roles.length
-        && Boolean(requestedRoleLookup.error)
         && Array.isArray(discordRoleLookupState.roles)
         && discordRoleLookupState.roles.length > 0;
     const channelLookup = shouldKeepExistingChannelLookup
