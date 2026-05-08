@@ -289,6 +289,7 @@ async function syncLeaderboardRoleForGuild(guild, control) {
 
     const role = await ensureLeaderboardRole(guild, leaderboardRole);
     const topEntries = await fetchTopLeaderboardEntries(leaderboardRole);
+    console.log(`[leaderboard-role] Read ${topEntries.length} top Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} from OrderedDataStore "${leaderboardRole.orderedDataStoreName}".`);
     const desiredByUserId = new Map();
 
     for (const entry of topEntries) {
@@ -301,17 +302,21 @@ async function syncLeaderboardRoleForGuild(guild, control) {
         }
     }
 
+    console.log(`[leaderboard-role] Bloxlink resolved ${desiredByUserId.size} Discord member${desiredByUserId.size === 1 ? '' : 's'} from ${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'}.`);
+
     const existingAssignments = await getExistingAssignments(guild.id);
-    const existingUserIds = new Set(existingAssignments.map((assignment) => assignment.userId));
+    let addedOrConfirmedCount = 0;
+    let failedAddCount = 0;
 
     for (const [userId, desired] of desiredByUserId.entries()) {
-        if (!existingUserIds.has(userId)) {
-            await addRoleToMember(guild, userId, role.id).catch((error) => {
-                console.error(`[leaderboard-role] Failed to add role to ${userId}:`, error);
-            });
+        try {
+            await addRoleToMember(guild, userId, role.id);
+            addedOrConfirmedCount += 1;
+            await upsertAssignment(guild.id, userId, desired.robloxUserId, role.id, desired.levelValue);
+        } catch (error) {
+            failedAddCount += 1;
+            console.error(`[leaderboard-role] Failed to add role to ${userId}:`, error);
         }
-
-        await upsertAssignment(guild.id, userId, desired.robloxUserId, role.id, desired.levelValue);
     }
 
     for (const assignment of existingAssignments) {
@@ -325,7 +330,7 @@ async function syncLeaderboardRoleForGuild(guild, control) {
         await deleteAssignment(guild.id, assignment.userId);
     }
 
-    console.log(`[leaderboard-role] Synced ${desiredByUserId.size} Discord member(s) for ${guild.name}.`);
+    console.log(`[leaderboard-role] Synced ${addedOrConfirmedCount} Discord member(s) for ${guild.name}. Failed adds: ${failedAddCount}.`);
 }
 
 async function syncLeaderboardRoleIfNeeded(client, control, options) {
@@ -340,6 +345,10 @@ async function syncLeaderboardRoleIfNeeded(client, control, options) {
     const targetGuilds = guildId
         ? Array.from(client.guilds.cache.values()).filter((guild) => String(guild.id) === guildId)
         : Array.from(client.guilds.cache.values());
+
+    if (guildId && targetGuilds.length === 0) {
+        console.warn(`[leaderboard-role] Configured guild ${guildId} is not available in the bot cache.`);
+    }
 
     for (const guild of targetGuilds) {
         const lastSync = lastSyncAtByGuildId.get(guild.id) || 0;
