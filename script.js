@@ -3490,8 +3490,6 @@ async function fetchGroupStats() {
             return num.toLocaleString();
         }
 
-        console.log('Fetching group statistics...');
-
         const groupStatsResponse = await fetch('/api/roblox/group-stats', {
             method: 'GET'
         });
@@ -3506,8 +3504,6 @@ async function fetchGroupStats() {
         }
 
         groupMemberCountElement.textContent = formatNumber(Math.trunc(memberCount));
-        console.log('Group statistics updated successfully');
-
     } catch (error) {
         console.error('Failed to fetch group statistics:', error);
         groupMemberCountElement.textContent = 'Unavailable';
@@ -3595,7 +3591,6 @@ function initGamesCarousel() {
 
 // Update ages when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 RoDark Studios website loaded!');
     initAuth();
     initAdminToolsDirectory();
     initAdminCopyTool();
@@ -3636,8 +3631,6 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchGroupStats();
     // Bind fallback handlers for user avatars
     fetchUserAvatars();
-
-    console.log('✅ All initialization functions called');
 });
 
 // Mobile navigation toggle
