@@ -305,9 +305,15 @@ async function syncRolesChannel(channel) {
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.roles);
 }
 
-async function syncStaffInfoChannel(channel) {
+async function syncStaffInfoChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
+    const bugPayoutChannelId = control
+        && control.bugPayouts
+        && control.bugPayouts.channelId
+        ? String(control.bugPayouts.channelId)
+        : '';
+    const bugPayoutChannelText = bugPayoutChannelId ? `<#${bugPayoutChannelId}>` : 'the selected payout channel';
     const embed = new EmbedBuilder()
         .setTitle('Staff Info')
         .setColor(0x2ecc71)
@@ -320,7 +326,7 @@ async function syncStaffInfoChannel(channel) {
                     `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs owner or developer help, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
                     '3. **Community help** - Stay up to date on how the game works, answer general questions, help people out, and keep an active, helpful community presence.',
                     '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.',
-                    '5. **Bug payouts** - For valid test-game reward bugs, use `/bug-payout` once per bug and choose minor, moderate, or critical. Live-game bugs do not qualify for payouts.'
+                    `5. **Bug payouts** - For valid test-game reward bugs, use \`/bug-payout\` once per bug; entries appear in ${bugPayoutChannelText}. Choose minor, moderate, or critical. Live-game bugs do not qualify.`
                 ].join('\n'),
                 inline: false
             },
@@ -420,7 +426,7 @@ async function runStartupSync(client, control) {
     }
 
     if (channels.staffInfo) {
-        await syncStaffInfoChannel(channels.staffInfo);
+        await syncStaffInfoChannel(channels.staffInfo, control);
     }
 
     if (channels.gameTestInfo) {
