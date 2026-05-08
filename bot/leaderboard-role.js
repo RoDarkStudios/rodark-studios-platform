@@ -40,7 +40,8 @@ function getLeaderboardRoleControl(control) {
         topSize,
         syncIntervalMinutes,
         roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
-        roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName).trim() : DEFAULT_ROLE_NAME
+        roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName).trim() : DEFAULT_ROLE_NAME,
+        hoist: Boolean(leaderboardRole.hoist)
     };
 }
 
@@ -305,6 +306,15 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
     ));
 
     if (existingRole) {
+        if (existingRole.hoist !== Boolean(leaderboardRole.hoist)) {
+            await existingRole.edit({
+                hoist: Boolean(leaderboardRole.hoist),
+                reason: 'Sync RoDark Studios leaderboard role display setting'
+            }).catch((error) => {
+                console.error('[leaderboard-role] Failed to sync role hoist setting:', error);
+            });
+        }
+
         if (String(existingRole.id) !== String(leaderboardRole.roleId || '')) {
             await setDiscordLeaderboardRoleId(existingRole.id).catch(() => null);
         }
@@ -314,6 +324,7 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
     const createdRole = await guild.roles.create({
         name: roleName,
         color: 0x22d3ee,
+        hoist: Boolean(leaderboardRole.hoist),
         mentionable: false,
         reason: 'Ensure RoDark Studios leaderboard player role exists'
     });

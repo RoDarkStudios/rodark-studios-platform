@@ -155,6 +155,7 @@ async function ensureDiscordBotControlSchema() {
             leaderboard_role_sync_interval_minutes integer not null default 5,
             leaderboard_role_id text,
             leaderboard_role_name text not null default 'Leaderboard Player',
+            leaderboard_role_hoist boolean not null default false,
             updated_at timestamptz not null default now(),
             updated_by_user_id text,
             updated_by_username text
@@ -269,6 +270,11 @@ async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         alter table discord_bot_control
         add column if not exists leaderboard_role_name text not null default 'Leaderboard Player'
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_hoist boolean not null default false
     `);
 
     await postgresQuery(`
@@ -431,7 +437,8 @@ function mapRowToDiscordBotControl(row) {
             topSize: Number(row.leaderboard_role_top_size) || 100,
             syncIntervalMinutes: Number(row.leaderboard_role_sync_interval_minutes) || 5,
             roleId: row.leaderboard_role_id ? String(row.leaderboard_role_id) : null,
-            roleName: row.leaderboard_role_name ? String(row.leaderboard_role_name) : DEFAULT_LEADERBOARD_ROLE_NAME
+            roleName: row.leaderboard_role_name ? String(row.leaderboard_role_name) : DEFAULT_LEADERBOARD_ROLE_NAME,
+            hoist: Boolean(row.leaderboard_role_hoist)
         }
     };
 }
@@ -469,7 +476,8 @@ async function getDiscordBotControl() {
             leaderboard_role_top_size,
             leaderboard_role_sync_interval_minutes,
             leaderboard_role_id,
-            leaderboard_role_name
+            leaderboard_role_name,
+            leaderboard_role_hoist
         from discord_bot_control
         where id = $1
         limit 1
@@ -571,6 +579,9 @@ async function updateDiscordBotControl(patch, user) {
     const leaderboardRoleName = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleName')
         ? normalizeLeaderboardRoleName(patch.leaderboardRoleName)
         : normalizeLeaderboardRoleName(currentLeaderboardRole.roleName);
+    const leaderboardRoleHoist = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleHoist')
+        ? Boolean(patch.leaderboardRoleHoist)
+        : Boolean(currentLeaderboardRole.hoist);
 
     const result = await postgresQuery(`
         update discord_bot_control
@@ -601,9 +612,10 @@ async function updateDiscordBotControl(patch, user) {
             leaderboard_role_sync_interval_minutes = $21,
             leaderboard_role_id = $22,
             leaderboard_role_name = $23,
+            leaderboard_role_hoist = $24,
             updated_at = now(),
-            updated_by_user_id = $24,
-            updated_by_username = $25,
+            updated_by_user_id = $25,
+            updated_by_username = $26,
             last_error = case when $2 = false then null else last_error end
         where id = $1
         returning
@@ -635,7 +647,8 @@ async function updateDiscordBotControl(patch, user) {
             leaderboard_role_top_size,
             leaderboard_role_sync_interval_minutes,
             leaderboard_role_id,
-            leaderboard_role_name
+            leaderboard_role_name,
+            leaderboard_role_hoist
     `, [
         CONTROL_ID,
         desiredEnabled,
@@ -660,6 +673,7 @@ async function updateDiscordBotControl(patch, user) {
         leaderboardRoleSyncIntervalMinutes,
         leaderboardRoleId,
         leaderboardRoleName,
+        leaderboardRoleHoist,
         user && user.id ? String(user.id) : null,
         user && user.username ? String(user.username) : null
     ]);
@@ -703,7 +717,8 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             leaderboard_role_top_size,
             leaderboard_role_sync_interval_minutes,
             leaderboard_role_id,
-            leaderboard_role_name
+            leaderboard_role_name,
+            leaderboard_role_hoist
     `, [
         CONTROL_ID,
         normalizeOptionalSnowflake(panelMessageId, 'Ticket panel message ID')
@@ -751,7 +766,8 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             leaderboard_role_top_size,
             leaderboard_role_sync_interval_minutes,
             leaderboard_role_id,
-            leaderboard_role_name
+            leaderboard_role_name,
+            leaderboard_role_hoist
     `, [
         CONTROL_ID,
         String(runtimeStatus || 'offline'),
@@ -797,7 +813,8 @@ async function setDiscordLeaderboardRoleId(roleId) {
             leaderboard_role_top_size,
             leaderboard_role_sync_interval_minutes,
             leaderboard_role_id,
-            leaderboard_role_name
+            leaderboard_role_name,
+            leaderboard_role_hoist
     `, [
         CONTROL_ID,
         normalizeOptionalSnowflake(roleId, 'Leaderboard role ID')

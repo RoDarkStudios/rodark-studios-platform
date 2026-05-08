@@ -434,6 +434,10 @@ module.exports = async (req, res) => {
             patch.leaderboardRoleName = leaderboardRole.roleName;
         }
 
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'hoist')) {
+            patch.leaderboardRoleHoist = leaderboardRole.hoist;
+        }
+
         const control = await updateDiscordBotControl(patch, auth.user);
         const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });

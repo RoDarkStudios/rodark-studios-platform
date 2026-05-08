@@ -36,6 +36,7 @@ create table if not exists discord_bot_control (
     leaderboard_role_sync_interval_minutes integer not null default 5,
     leaderboard_role_id text,
     leaderboard_role_name text not null default 'Leaderboard Player',
+    leaderboard_role_hoist boolean not null default false,
     updated_at timestamptz not null default now(),
     updated_by_user_id text,
     updated_by_username text

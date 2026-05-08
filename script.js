@@ -1629,7 +1629,8 @@ function getDiscordLeaderboardRoleControl(control) {
         topSize: 100,
         syncIntervalMinutes: 5,
         roleId: '',
-        roleName: 'Leaderboard Player'
+        roleName: 'Leaderboard Player',
+        hoist: false
     };
 
     if (!control || typeof control !== 'object' || !control.leaderboardRole || typeof control.leaderboardRole !== 'object') {
@@ -1648,7 +1649,8 @@ function getDiscordLeaderboardRoleControl(control) {
         topSize: Number.isFinite(topSize) && topSize >= 1 && topSize <= 100 ? topSize : 100,
         syncIntervalMinutes: Number.isFinite(syncIntervalMinutes) && syncIntervalMinutes >= 1 ? syncIntervalMinutes : 5,
         roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
-        roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName) : 'Leaderboard Player'
+        roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName) : 'Leaderboard Player',
+        hoist: Boolean(leaderboardRole.hoist)
     };
 }
 
@@ -2031,6 +2033,7 @@ function renderDiscordBotControl(control, options) {
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
+    const leaderboardRoleHoistInput = document.getElementById('discord-leaderboard-role-hoist');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
     const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
@@ -2156,6 +2159,9 @@ function renderDiscordBotControl(control, options) {
     }
     if (!preserveLeaderboardRoleForm && leaderboardRoleEnabledInput) {
         leaderboardRoleEnabledInput.checked = leaderboardRoleControl.enabled;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardRoleHoistInput) {
+        leaderboardRoleHoistInput.checked = leaderboardRoleControl.hoist;
     }
     if (!preserveLeaderboardRoleForm && leaderboardDataStoreNameInput) {
         leaderboardDataStoreNameInput.value = leaderboardRoleControl.orderedDataStoreName;
@@ -2334,7 +2340,8 @@ async function saveDiscordLeaderboardRoleConfig(config) {
             keyPrefix: config && config.keyPrefix ? String(config.keyPrefix).trim() : '',
             topSize: config && config.topSize ? Number.parseInt(config.topSize, 10) : 100,
             syncIntervalMinutes: config && config.syncIntervalMinutes ? Number.parseInt(config.syncIntervalMinutes, 10) : 5,
-            roleName: config && config.roleName ? String(config.roleName).trim() : 'Leaderboard Player'
+            roleName: config && config.roleName ? String(config.roleName).trim() : 'Leaderboard Player',
+            hoist: Boolean(config && config.hoist)
         }
     });
 
@@ -2533,6 +2540,7 @@ async function initDiscordBotDashboard() {
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
+    const leaderboardRoleHoistInput = document.getElementById('discord-leaderboard-role-hoist');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
     const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
@@ -2797,6 +2805,9 @@ async function initDiscordBotDashboard() {
     if (leaderboardRoleEnabledInput) {
         leaderboardRoleEnabledInput.addEventListener('change', markLeaderboardRoleFormDirty);
     }
+    if (leaderboardRoleHoistInput) {
+        leaderboardRoleHoistInput.addEventListener('change', markLeaderboardRoleFormDirty);
+    }
     if (leaderboardDataStoreNameInput) {
         leaderboardDataStoreNameInput.addEventListener('input', markLeaderboardRoleFormDirty);
     }
@@ -2963,7 +2974,8 @@ async function initDiscordBotDashboard() {
                     keyPrefix: '',
                     topSize: leaderboardTopSizeInput ? leaderboardTopSizeInput.value : 100,
                     syncIntervalMinutes: leaderboardSyncIntervalInput ? leaderboardSyncIntervalInput.value : 5,
-                    roleName: leaderboardRoleNameInput ? leaderboardRoleNameInput.value : 'Leaderboard Player'
+                    roleName: leaderboardRoleNameInput ? leaderboardRoleNameInput.value : 'Leaderboard Player',
+                    hoist: leaderboardRoleHoistInput ? leaderboardRoleHoistInput.checked : false
                 });
                 dashboard.dataset.leaderboardRoleDirty = 'false';
                 renderDiscordBotControl(control.control, {
