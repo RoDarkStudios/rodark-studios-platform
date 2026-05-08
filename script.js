@@ -1390,11 +1390,99 @@ async function initAdminGameConfigTool() {
     }
 }
 
+function setPlatformSettingsStatus(message, type) {
+    const statusElement = document.getElementById('admin-platform-settings-status');
+    if (!statusElement) {
+        return;
+    }
+
+    if (!message) {
+        statusElement.textContent = '';
+        statusElement.className = 'admin-status info hidden';
+        return;
+    }
+
+    statusElement.textContent = message;
+    statusElement.className = `admin-status ${type || 'info'}`;
+}
+
+async function fetchAdminPlatformSettings() {
+    const response = await fetch('/api/admin/platform-settings', {
+        method: 'GET',
+        credentials: 'include'
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload.error || `Platform settings failed (${response.status})`);
+    }
+
+    return payload.settings || null;
+}
+
+async function saveAdminPlatformSettings(settings) {
+    const payload = await postJson('/api/admin/platform-settings', {
+        openaiModel: settings && settings.openaiModel ? String(settings.openaiModel).trim() : ''
+    });
+
+    return payload.settings || null;
+}
+
+function writePlatformSettingsForm(settings) {
+    const openaiModelInput = document.getElementById('admin-openai-model');
+    if (openaiModelInput) {
+        openaiModelInput.value = settings && settings.openaiModel ? String(settings.openaiModel) : 'gpt-5.4';
+    }
+}
+
+async function loadPlatformSettings() {
+    try {
+        const settings = await fetchAdminPlatformSettings();
+        writePlatformSettingsForm(settings);
+        setPlatformSettingsStatus('', 'info');
+    } catch (error) {
+        setPlatformSettingsStatus(error.message || 'Failed to load platform settings.', 'error');
+    }
+}
+
+function initPlatformSettingsForm() {
+    const section = document.getElementById('admin-platform-settings');
+    const openaiModelInput = document.getElementById('admin-openai-model');
+    const saveButton = document.getElementById('admin-platform-settings-save-btn');
+    if (!section || !openaiModelInput || !saveButton) {
+        return;
+    }
+
+    saveButton.disabled = false;
+    openaiModelInput.addEventListener('input', () => {
+        saveButton.disabled = false;
+    });
+
+    saveButton.addEventListener('click', async () => {
+        saveButton.disabled = true;
+        setPlatformSettingsStatus('Saving platform settings...', 'info');
+
+        try {
+            const settings = await saveAdminPlatformSettings({
+                openaiModel: openaiModelInput.value
+            });
+            writePlatformSettingsForm(settings);
+            setPlatformSettingsStatus('Platform settings saved.', 'success');
+        } catch (error) {
+            saveButton.disabled = false;
+            setPlatformSettingsStatus(error.message || 'Failed to save platform settings.', 'error');
+        }
+    });
+
+    loadPlatformSettings();
+}
+
 async function initAdminToolsDirectory() {
     const toolsList = document.getElementById('admin-tools-list');
     const systemsGateway = document.getElementById('admin-systems-gateway');
     const toolsHeading = document.getElementById('admin-tools-heading');
     const ownedContent = document.getElementById('admin-owned-content');
+    const platformSettings = document.getElementById('admin-platform-settings');
     if (!toolsList && !systemsGateway && !ownedContent) {
         return;
     }
@@ -1414,6 +1502,9 @@ async function initAdminToolsDirectory() {
         }
         if (ownedContent) {
             ownedContent.classList.add('hidden');
+        }
+        if (platformSettings) {
+            platformSettings.classList.add('hidden');
         }
         if (deniedElement) {
             deniedElement.classList.remove('hidden');
@@ -1435,6 +1526,10 @@ async function initAdminToolsDirectory() {
     }
     if (ownedContent) {
         ownedContent.classList.remove('hidden');
+    }
+    if (platformSettings) {
+        platformSettings.classList.remove('hidden');
+        initPlatformSettingsForm();
     }
 }
 
@@ -1522,6 +1617,38 @@ function getDiscordLevelSystemControl(control) {
             ? attachmentUnlockLevel
             : 5,
         mentionLevelUps: control.levelSystem.mentionLevelUps !== false
+    };
+}
+
+function getDiscordLeaderboardRoleControl(control) {
+    const defaults = {
+        enabled: false,
+        orderedDataStoreName: '',
+        orderedDataStoreScope: 'global',
+        keyPrefix: '',
+        topSize: 100,
+        syncIntervalMinutes: 5,
+        roleId: '',
+        roleName: 'Leaderboard Player'
+    };
+
+    if (!control || typeof control !== 'object' || !control.leaderboardRole || typeof control.leaderboardRole !== 'object') {
+        return defaults;
+    }
+
+    const leaderboardRole = control.leaderboardRole;
+    const topSize = Number.parseInt(leaderboardRole.topSize || '100', 10);
+    const syncIntervalMinutes = Number.parseInt(leaderboardRole.syncIntervalMinutes || '5', 10);
+
+    return {
+        enabled: Boolean(leaderboardRole.enabled),
+        orderedDataStoreName: leaderboardRole.orderedDataStoreName ? String(leaderboardRole.orderedDataStoreName) : '',
+        orderedDataStoreScope: leaderboardRole.orderedDataStoreScope ? String(leaderboardRole.orderedDataStoreScope) : 'global',
+        keyPrefix: leaderboardRole.keyPrefix ? String(leaderboardRole.keyPrefix) : '',
+        topSize: Number.isFinite(topSize) && topSize >= 1 && topSize <= 100 ? topSize : 100,
+        syncIntervalMinutes: Number.isFinite(syncIntervalMinutes) && syncIntervalMinutes >= 1 ? syncIntervalMinutes : 5,
+        roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
+        roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName) : 'Leaderboard Player'
     };
 }
 
@@ -1903,15 +2030,26 @@ function renderDiscordBotControl(control, options) {
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
+    const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
+    const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
+    const leaderboardDataStoreScopeInput = document.getElementById('discord-leaderboard-datastore-scope');
+    const leaderboardKeyPrefixInput = document.getElementById('discord-leaderboard-key-prefix');
+    const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
+    const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
+    const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
+    const leaderboardRoleSaveButton = document.getElementById('discord-leaderboard-role-save-btn');
+    const leaderboardRoleSummary = document.getElementById('discord-leaderboard-role-summary');
     const channelLookupSummary = document.getElementById('discord-channel-lookup-summary');
     const formatted = formatDiscordBotStatus(control);
     const preserveGuildForm = Boolean(options && options.preserveGuildForm);
     const preserveStartupSyncForm = Boolean(options && options.preserveStartupSyncForm);
     const preserveTicketSystemForm = Boolean(options && options.preserveTicketSystemForm);
     const preserveLevelSystemForm = Boolean(options && options.preserveLevelSystemForm);
+    const preserveLeaderboardRoleForm = Boolean(options && options.preserveLeaderboardRoleForm);
     const startupSyncControl = getDiscordStartupSyncControl(control);
     const ticketSystemControl = getDiscordTicketSystemControl(control);
     const levelSystemControl = getDiscordLevelSystemControl(control);
+    const leaderboardRoleControl = getDiscordLeaderboardRoleControl(control);
     const requestedChannelLookup = getDiscordChannelLookup(options);
     const requestedRoleLookup = getDiscordRoleLookup(options);
     const shouldKeepExistingChannelLookup = !requestedChannelLookup.channels.length
@@ -2017,6 +2155,36 @@ function renderDiscordBotControl(control, options) {
     }
     if (levelSystemSaveButton) {
         levelSystemSaveButton.disabled = false;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardRoleEnabledInput) {
+        leaderboardRoleEnabledInput.checked = leaderboardRoleControl.enabled;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardDataStoreNameInput) {
+        leaderboardDataStoreNameInput.value = leaderboardRoleControl.orderedDataStoreName;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardDataStoreScopeInput) {
+        leaderboardDataStoreScopeInput.value = leaderboardRoleControl.orderedDataStoreScope;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardKeyPrefixInput) {
+        leaderboardKeyPrefixInput.value = leaderboardRoleControl.keyPrefix;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardTopSizeInput) {
+        leaderboardTopSizeInput.value = String(leaderboardRoleControl.topSize);
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardSyncIntervalInput) {
+        leaderboardSyncIntervalInput.value = String(leaderboardRoleControl.syncIntervalMinutes);
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardRoleNameInput) {
+        leaderboardRoleNameInput.value = leaderboardRoleControl.roleName;
+    }
+    if (leaderboardRoleSummary) {
+        const roleLabel = leaderboardRoleControl.roleId
+            ? `${leaderboardRoleControl.roleName} (${leaderboardRoleControl.roleId})`
+            : `${leaderboardRoleControl.roleName} will be created automatically.`;
+        leaderboardRoleSummary.textContent = `Uses the production universe from Game IDs. Role: ${roleLabel}`;
+    }
+    if (leaderboardRoleSaveButton) {
+        leaderboardRoleSaveButton.disabled = false;
     }
     if (channelLookupSummary) {
         let lookupMessage = '';
@@ -2136,6 +2304,26 @@ async function saveDiscordLevelSystemConfig(config) {
                 : true,
             announcementChannelId: config && config.announcementChannelId ? String(config.announcementChannelId).trim() : '',
             attachmentUnlockLevel: config && config.attachmentUnlockLevel ? Number.parseInt(config.attachmentUnlockLevel, 10) : 5
+        }
+    });
+
+    return {
+        control: payload.control || null,
+        channelLookup: getDiscordChannelLookup(payload),
+        roleLookup: getDiscordRoleLookup(payload)
+    };
+}
+
+async function saveDiscordLeaderboardRoleConfig(config) {
+    const payload = await postJson('/api/admin/discord-bot-control', {
+        leaderboardRole: {
+            enabled: Boolean(config && config.enabled),
+            orderedDataStoreName: config && config.orderedDataStoreName ? String(config.orderedDataStoreName).trim() : '',
+            orderedDataStoreScope: config && config.orderedDataStoreScope ? String(config.orderedDataStoreScope).trim() : 'global',
+            keyPrefix: config && config.keyPrefix ? String(config.keyPrefix).trim() : '',
+            topSize: config && config.topSize ? Number.parseInt(config.topSize, 10) : 100,
+            syncIntervalMinutes: config && config.syncIntervalMinutes ? Number.parseInt(config.syncIntervalMinutes, 10) : 5,
+            roleName: config && config.roleName ? String(config.roleName).trim() : 'Leaderboard Player'
         }
     });
 
@@ -2356,6 +2544,7 @@ async function initDiscordBotDashboard() {
     dashboard.dataset.startupSyncDirty = 'false';
     dashboard.dataset.ticketSystemDirty = 'false';
     dashboard.dataset.levelSystemDirty = 'false';
+    dashboard.dataset.leaderboardRoleDirty = 'false';
     let currentTicketTranscriptId = '';
     let currentTicketTranscripts = [];
     let ticketTranscriptOffset = 0;
@@ -2386,6 +2575,7 @@ async function initDiscordBotDashboard() {
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
                 preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
                 preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
+                preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
                 channelLookup: control.channelLookup,
                 roleLookup: control.roleLookup
             });
@@ -2405,6 +2595,9 @@ async function initDiscordBotDashboard() {
             }
             if (levelSystemSaveButton) {
                 levelSystemSaveButton.disabled = true;
+            }
+            if (leaderboardRoleSaveButton) {
+                leaderboardRoleSaveButton.disabled = true;
             }
             setDiscordBotStatusMessage(error.message || 'Failed to load Discord bot status.', 'error');
         }
@@ -2490,6 +2683,10 @@ async function initDiscordBotDashboard() {
         dashboard.dataset.levelSystemDirty = 'true';
     }
 
+    function markLeaderboardRoleFormDirty() {
+        dashboard.dataset.leaderboardRoleDirty = 'true';
+    }
+
     function getCurrentDiscordChannelMaps() {
         return buildDiscordChannelLookupMaps(discordChannelLookupState);
     }
@@ -2551,6 +2748,27 @@ async function initDiscordBotDashboard() {
     }
     if (levelAttachmentUnlockLevelInput) {
         levelAttachmentUnlockLevelInput.addEventListener('change', markLevelSystemFormDirty);
+    }
+    if (leaderboardRoleEnabledInput) {
+        leaderboardRoleEnabledInput.addEventListener('change', markLeaderboardRoleFormDirty);
+    }
+    if (leaderboardDataStoreNameInput) {
+        leaderboardDataStoreNameInput.addEventListener('input', markLeaderboardRoleFormDirty);
+    }
+    if (leaderboardDataStoreScopeInput) {
+        leaderboardDataStoreScopeInput.addEventListener('input', markLeaderboardRoleFormDirty);
+    }
+    if (leaderboardKeyPrefixInput) {
+        leaderboardKeyPrefixInput.addEventListener('input', markLeaderboardRoleFormDirty);
+    }
+    if (leaderboardTopSizeInput) {
+        leaderboardTopSizeInput.addEventListener('input', markLeaderboardRoleFormDirty);
+    }
+    if (leaderboardSyncIntervalInput) {
+        leaderboardSyncIntervalInput.addEventListener('input', markLeaderboardRoleFormDirty);
+    }
+    if (leaderboardRoleNameInput) {
+        leaderboardRoleNameInput.addEventListener('input', markLeaderboardRoleFormDirty);
     }
     bindDiscordChannelAutocompleteInput(startupRulesChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(startupInfoChannelInput, getCurrentDiscordChannelMaps);
@@ -2689,6 +2907,34 @@ async function initDiscordBotDashboard() {
             } catch (error) {
                 levelSystemSaveButton.disabled = false;
                 setDiscordBotStatusMessage(error.message || 'Failed to save level settings.', 'error');
+            }
+        });
+    }
+
+    if (leaderboardRoleSaveButton) {
+        leaderboardRoleSaveButton.addEventListener('click', async () => {
+            leaderboardRoleSaveButton.disabled = true;
+            setDiscordBotStatusMessage('Saving leaderboard role settings...', 'info');
+
+            try {
+                const control = await saveDiscordLeaderboardRoleConfig({
+                    enabled: leaderboardRoleEnabledInput ? leaderboardRoleEnabledInput.checked : false,
+                    orderedDataStoreName: leaderboardDataStoreNameInput ? leaderboardDataStoreNameInput.value : '',
+                    orderedDataStoreScope: leaderboardDataStoreScopeInput ? leaderboardDataStoreScopeInput.value : 'global',
+                    keyPrefix: leaderboardKeyPrefixInput ? leaderboardKeyPrefixInput.value : '',
+                    topSize: leaderboardTopSizeInput ? leaderboardTopSizeInput.value : 100,
+                    syncIntervalMinutes: leaderboardSyncIntervalInput ? leaderboardSyncIntervalInput.value : 5,
+                    roleName: leaderboardRoleNameInput ? leaderboardRoleNameInput.value : 'Leaderboard Player'
+                });
+                dashboard.dataset.leaderboardRoleDirty = 'false';
+                renderDiscordBotControl(control.control, {
+                    channelLookup: control.channelLookup,
+                    roleLookup: control.roleLookup
+                });
+                setDiscordBotStatusMessage('Leaderboard settings saved. The role will sync while the bot is online.', 'success');
+            } catch (error) {
+                leaderboardRoleSaveButton.disabled = false;
+                setDiscordBotStatusMessage(error.message || 'Failed to save leaderboard settings.', 'error');
             }
         });
     }

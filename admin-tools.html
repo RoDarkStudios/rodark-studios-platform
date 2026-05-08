@@ -62,6 +62,42 @@
                             </a>
                         </section>
 
+                        <section id="admin-platform-settings" class="admin-discord-feature-card hidden" aria-labelledby="admin-platform-settings-heading">
+                            <div class="admin-discord-feature-head">
+                                <div>
+                                    <h2 id="admin-platform-settings-heading" class="admin-tools-heading">Platform Settings</h2>
+                                    <p class="admin-tool-note">
+                                        Store non-secret runtime preferences that should not require changing Railway variables.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="admin-discord-field-grid">
+                                <label class="admin-field">
+                                    <span class="admin-label">OpenAI Model</span>
+                                    <input
+                                        id="admin-openai-model"
+                                        class="admin-input"
+                                        type="text"
+                                        autocomplete="off"
+                                        list="admin-openai-model-options"
+                                        placeholder="gpt-5.4"
+                                    >
+                                </label>
+                            </div>
+
+                            <datalist id="admin-openai-model-options">
+                                <option value="gpt-5.4"></option>
+                                <option value="gpt-5.4-mini"></option>
+                                <option value="gpt-5.5"></option>
+                            </datalist>
+
+                            <button id="admin-platform-settings-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
+                                Save platform settings
+                            </button>
+                            <p id="admin-platform-settings-status" class="admin-status info hidden"></p>
+                        </section>
+
                         <h2 id="admin-tools-heading" class="admin-tools-heading hidden">Workflow Tools</h2>
                         <div id="admin-tools-list" class="admin-tools-list hidden">
                             <a href="/admin/tools/copy-monetization" class="admin-tool-link">

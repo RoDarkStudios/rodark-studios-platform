@@ -313,6 +313,9 @@ module.exports = async (req, res) => {
         const levelSystem = body && typeof body.levelSystem === 'object' && body.levelSystem
             ? body.levelSystem
             : null;
+        const leaderboardRole = body && typeof body.leaderboardRole === 'object' && body.leaderboardRole
+            ? body.leaderboardRole
+            : null;
         const patch = {};
 
         if (body && Object.prototype.hasOwnProperty.call(body, 'desiredEnabled')) {
@@ -371,12 +374,44 @@ module.exports = async (req, res) => {
             patch.levelMentionEnabled = levelSystem.mentionLevelUps;
         }
 
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'enabled')) {
+            patch.leaderboardRoleEnabled = leaderboardRole.enabled;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'orderedDataStoreName')) {
+            patch.leaderboardRoleOrderedDataStoreName = leaderboardRole.orderedDataStoreName;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'orderedDataStoreScope')) {
+            patch.leaderboardRoleOrderedDataStoreScope = leaderboardRole.orderedDataStoreScope;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'keyPrefix')) {
+            patch.leaderboardRoleKeyPrefix = leaderboardRole.keyPrefix;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'topSize')) {
+            patch.leaderboardRoleTopSize = leaderboardRole.topSize;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'syncIntervalMinutes')) {
+            patch.leaderboardRoleSyncIntervalMinutes = leaderboardRole.syncIntervalMinutes;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'roleId')) {
+            patch.leaderboardRoleId = leaderboardRole.roleId;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'roleName')) {
+            patch.leaderboardRoleName = leaderboardRole.roleName;
+        }
+
         const control = await updateDiscordBotControl(patch, auth.user);
         const channelLookup = await getDiscordChannelLookup(control);
         const roleLookup = await getDiscordRoleLookup(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });
     } catch (error) {
-        const statusCode = /required|valid discord id|must be a valid discord id|unlock level/i.test(String(error && error.message || ''))
+        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard/i.test(String(error && error.message || ''))
             ? 400
             : 500;
         return sendJson(res, statusCode, {

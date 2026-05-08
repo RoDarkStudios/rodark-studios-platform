@@ -2,6 +2,7 @@ const { postgresQuery } = require('./postgres');
 
 const CONTROL_ID = 1;
 const LEVEL_ATTACHMENT_UNLOCK_LEVELS = [5, 10, 15, 25, 50, 75, 100];
+const DEFAULT_LEADERBOARD_ROLE_NAME = 'Leaderboard Player';
 
 function toIsoString(value) {
     if (value instanceof Date) {
@@ -62,6 +63,72 @@ function normalizeLevelUnlockLevel(value) {
     return parsedValue;
 }
 
+function normalizeDatastoreName(value) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    if (trimmed.length > 128) {
+        throw new Error('OrderedDataStore name must be 128 characters or fewer');
+    }
+
+    return trimmed;
+}
+
+function normalizeDatastoreScope(value) {
+    const trimmed = String(value || 'global').trim();
+    if (!trimmed) {
+        return 'global';
+    }
+
+    if (trimmed.length > 128) {
+        throw new Error('OrderedDataStore scope must be 128 characters or fewer');
+    }
+
+    return trimmed;
+}
+
+function normalizeLeaderboardKeyPrefix(value) {
+    const trimmed = String(value || '').trim();
+    if (trimmed.length > 64) {
+        throw new Error('Leaderboard key prefix must be 64 characters or fewer');
+    }
+
+    return trimmed;
+}
+
+function normalizeLeaderboardTopSize(value) {
+    const parsedValue = Number.parseInt(value || '100', 10);
+    if (!Number.isFinite(parsedValue) || parsedValue < 1 || parsedValue > 100) {
+        throw new Error('Leaderboard top size must be between 1 and 100');
+    }
+
+    return parsedValue;
+}
+
+function normalizeLeaderboardSyncIntervalMinutes(value) {
+    const parsedValue = Number.parseInt(value || '5', 10);
+    if (!Number.isFinite(parsedValue) || parsedValue < 1 || parsedValue > 1440) {
+        throw new Error('Leaderboard sync interval must be between 1 and 1440 minutes');
+    }
+
+    return parsedValue;
+}
+
+function normalizeLeaderboardRoleName(value) {
+    const trimmed = String(value || DEFAULT_LEADERBOARD_ROLE_NAME).trim();
+    if (!trimmed) {
+        return DEFAULT_LEADERBOARD_ROLE_NAME;
+    }
+
+    if (trimmed.length > 100) {
+        throw new Error('Leaderboard role name must be 100 characters or fewer');
+    }
+
+    return trimmed;
+}
+
 async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         create table if not exists discord_bot_control (
@@ -80,6 +147,14 @@ async function ensureDiscordBotControlSchema() {
             level_announcement_channel_id text,
             level_attachment_unlock_level integer not null default 5,
             level_mention_enabled boolean not null default true,
+            leaderboard_role_enabled boolean not null default false,
+            leaderboard_role_ordered_datastore_name text,
+            leaderboard_role_ordered_datastore_scope text not null default 'global',
+            leaderboard_role_key_prefix text not null default '',
+            leaderboard_role_top_size integer not null default 100,
+            leaderboard_role_sync_interval_minutes integer not null default 5,
+            leaderboard_role_id text,
+            leaderboard_role_name text not null default 'Leaderboard Player',
             updated_at timestamptz not null default now(),
             updated_by_user_id text,
             updated_by_username text
@@ -157,6 +232,46 @@ async function ensureDiscordBotControlSchema() {
     `);
 
     await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_enabled boolean not null default false
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_ordered_datastore_name text
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_ordered_datastore_scope text not null default 'global'
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_key_prefix text not null default ''
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_top_size integer not null default 100
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_sync_interval_minutes integer not null default 5
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_id text
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists leaderboard_role_name text not null default 'Leaderboard Player'
+    `);
+
+    await postgresQuery(`
         create table if not exists discord_bot_member_levels (
             guild_id text not null,
             user_id text not null,
@@ -164,6 +279,19 @@ async function ensureDiscordBotControlSchema() {
             level integer not null default 0,
             last_message_at timestamptz,
             updated_at timestamptz not null default now(),
+            primary key (guild_id, user_id)
+        )
+    `);
+
+    await postgresQuery(`
+        create table if not exists discord_bot_leaderboard_role_assignments (
+            guild_id text not null,
+            user_id text not null,
+            roblox_user_id text not null,
+            role_id text not null,
+            level_value bigint,
+            assigned_at timestamptz not null default now(),
+            last_seen_at timestamptz not null default now(),
             primary key (guild_id, user_id)
         )
     `);
@@ -294,6 +422,16 @@ function mapRowToDiscordBotControl(row) {
             announcementChannelId: row.level_announcement_channel_id ? String(row.level_announcement_channel_id) : null,
             attachmentUnlockLevel: Number(row.level_attachment_unlock_level) || 5,
             mentionLevelUps: row.level_mention_enabled !== false
+        },
+        leaderboardRole: {
+            enabled: Boolean(row.leaderboard_role_enabled),
+            orderedDataStoreName: row.leaderboard_role_ordered_datastore_name ? String(row.leaderboard_role_ordered_datastore_name) : '',
+            orderedDataStoreScope: row.leaderboard_role_ordered_datastore_scope ? String(row.leaderboard_role_ordered_datastore_scope) : 'global',
+            keyPrefix: row.leaderboard_role_key_prefix ? String(row.leaderboard_role_key_prefix) : '',
+            topSize: Number(row.leaderboard_role_top_size) || 100,
+            syncIntervalMinutes: Number(row.leaderboard_role_sync_interval_minutes) || 5,
+            roleId: row.leaderboard_role_id ? String(row.leaderboard_role_id) : null,
+            roleName: row.leaderboard_role_name ? String(row.leaderboard_role_name) : DEFAULT_LEADERBOARD_ROLE_NAME
         }
     };
 }
@@ -323,7 +461,15 @@ async function getDiscordBotControl() {
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
-            level_mention_enabled
+            level_mention_enabled,
+            leaderboard_role_enabled,
+            leaderboard_role_ordered_datastore_name,
+            leaderboard_role_ordered_datastore_scope,
+            leaderboard_role_key_prefix,
+            leaderboard_role_top_size,
+            leaderboard_role_sync_interval_minutes,
+            leaderboard_role_id,
+            leaderboard_role_name
         from discord_bot_control
         where id = $1
         limit 1
@@ -400,6 +546,31 @@ async function updateDiscordBotControl(patch, user) {
     const levelMentionEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'levelMentionEnabled')
         ? Boolean(patch.levelMentionEnabled)
         : (currentControl.levelSystem ? currentControl.levelSystem.mentionLevelUps !== false : true);
+    const currentLeaderboardRole = currentControl.leaderboardRole || {};
+    const leaderboardRoleEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleEnabled')
+        ? Boolean(patch.leaderboardRoleEnabled)
+        : Boolean(currentLeaderboardRole.enabled);
+    const leaderboardRoleOrderedDataStoreName = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleOrderedDataStoreName')
+        ? normalizeDatastoreName(patch.leaderboardRoleOrderedDataStoreName)
+        : (currentLeaderboardRole.orderedDataStoreName ? String(currentLeaderboardRole.orderedDataStoreName) : null);
+    const leaderboardRoleOrderedDataStoreScope = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleOrderedDataStoreScope')
+        ? normalizeDatastoreScope(patch.leaderboardRoleOrderedDataStoreScope)
+        : normalizeDatastoreScope(currentLeaderboardRole.orderedDataStoreScope);
+    const leaderboardRoleKeyPrefix = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleKeyPrefix')
+        ? normalizeLeaderboardKeyPrefix(patch.leaderboardRoleKeyPrefix)
+        : normalizeLeaderboardKeyPrefix(currentLeaderboardRole.keyPrefix);
+    const leaderboardRoleTopSize = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleTopSize')
+        ? normalizeLeaderboardTopSize(patch.leaderboardRoleTopSize)
+        : normalizeLeaderboardTopSize(currentLeaderboardRole.topSize);
+    const leaderboardRoleSyncIntervalMinutes = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleSyncIntervalMinutes')
+        ? normalizeLeaderboardSyncIntervalMinutes(patch.leaderboardRoleSyncIntervalMinutes)
+        : normalizeLeaderboardSyncIntervalMinutes(currentLeaderboardRole.syncIntervalMinutes);
+    const leaderboardRoleId = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleId')
+        ? normalizeOptionalSnowflake(patch.leaderboardRoleId, 'Leaderboard role ID')
+        : (currentLeaderboardRole.roleId ? String(currentLeaderboardRole.roleId) : null);
+    const leaderboardRoleName = patch && Object.prototype.hasOwnProperty.call(patch, 'leaderboardRoleName')
+        ? normalizeLeaderboardRoleName(patch.leaderboardRoleName)
+        : normalizeLeaderboardRoleName(currentLeaderboardRole.roleName);
 
     const result = await postgresQuery(`
         update discord_bot_control
@@ -422,9 +593,17 @@ async function updateDiscordBotControl(patch, user) {
             level_announcement_channel_id = $13,
             level_attachment_unlock_level = $14,
             level_mention_enabled = $15,
+            leaderboard_role_enabled = $16,
+            leaderboard_role_ordered_datastore_name = $17,
+            leaderboard_role_ordered_datastore_scope = $18,
+            leaderboard_role_key_prefix = $19,
+            leaderboard_role_top_size = $20,
+            leaderboard_role_sync_interval_minutes = $21,
+            leaderboard_role_id = $22,
+            leaderboard_role_name = $23,
             updated_at = now(),
-            updated_by_user_id = $16,
-            updated_by_username = $17,
+            updated_by_user_id = $24,
+            updated_by_username = $25,
             last_error = case when $2 = false then null else last_error end
         where id = $1
         returning
@@ -448,7 +627,15 @@ async function updateDiscordBotControl(patch, user) {
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
-            level_mention_enabled
+            level_mention_enabled,
+            leaderboard_role_enabled,
+            leaderboard_role_ordered_datastore_name,
+            leaderboard_role_ordered_datastore_scope,
+            leaderboard_role_key_prefix,
+            leaderboard_role_top_size,
+            leaderboard_role_sync_interval_minutes,
+            leaderboard_role_id,
+            leaderboard_role_name
     `, [
         CONTROL_ID,
         desiredEnabled,
@@ -465,6 +652,14 @@ async function updateDiscordBotControl(patch, user) {
         levelAnnouncementChannelId,
         levelAttachmentUnlockLevel,
         levelMentionEnabled,
+        leaderboardRoleEnabled,
+        leaderboardRoleOrderedDataStoreName,
+        leaderboardRoleOrderedDataStoreScope,
+        leaderboardRoleKeyPrefix,
+        leaderboardRoleTopSize,
+        leaderboardRoleSyncIntervalMinutes,
+        leaderboardRoleId,
+        leaderboardRoleName,
         user && user.id ? String(user.id) : null,
         user && user.username ? String(user.username) : null
     ]);
@@ -500,7 +695,15 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
-            level_mention_enabled
+            level_mention_enabled,
+            leaderboard_role_enabled,
+            leaderboard_role_ordered_datastore_name,
+            leaderboard_role_ordered_datastore_scope,
+            leaderboard_role_key_prefix,
+            leaderboard_role_top_size,
+            leaderboard_role_sync_interval_minutes,
+            leaderboard_role_id,
+            leaderboard_role_name
     `, [
         CONTROL_ID,
         normalizeOptionalSnowflake(panelMessageId, 'Ticket panel message ID')
@@ -540,11 +743,64 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
-            level_mention_enabled
+            level_mention_enabled,
+            leaderboard_role_enabled,
+            leaderboard_role_ordered_datastore_name,
+            leaderboard_role_ordered_datastore_scope,
+            leaderboard_role_key_prefix,
+            leaderboard_role_top_size,
+            leaderboard_role_sync_interval_minutes,
+            leaderboard_role_id,
+            leaderboard_role_name
     `, [
         CONTROL_ID,
         String(runtimeStatus || 'offline'),
         lastError ? String(lastError).slice(0, 1000) : null
+    ]);
+
+    return mapRowToDiscordBotControl(result.rows[0]);
+}
+
+async function setDiscordLeaderboardRoleId(roleId) {
+    await ensureDiscordBotControlSchema();
+
+    const result = await postgresQuery(`
+        update discord_bot_control
+        set leaderboard_role_id = $2
+        where id = $1
+        returning
+            desired_enabled,
+            runtime_status,
+            last_seen_at,
+            last_error,
+            updated_at,
+            updated_by_user_id,
+            updated_by_username,
+            guild_id,
+            content_rules_channel_id,
+            content_info_channel_id,
+            content_roles_channel_id,
+            content_staff_info_channel_id,
+            content_game_test_info_channel_id,
+            tickets_category_channel_id,
+            tickets_panel_channel_id,
+            tickets_panel_message_id,
+            tickets_helper_role_ids,
+            level_system_enabled,
+            level_announcement_channel_id,
+            level_attachment_unlock_level,
+            level_mention_enabled,
+            leaderboard_role_enabled,
+            leaderboard_role_ordered_datastore_name,
+            leaderboard_role_ordered_datastore_scope,
+            leaderboard_role_key_prefix,
+            leaderboard_role_top_size,
+            leaderboard_role_sync_interval_minutes,
+            leaderboard_role_id,
+            leaderboard_role_name
+    `, [
+        CONTROL_ID,
+        normalizeOptionalSnowflake(roleId, 'Leaderboard role ID')
     ]);
 
     return mapRowToDiscordBotControl(result.rows[0]);
@@ -555,5 +811,6 @@ module.exports = {
     getDiscordBotControl,
     updateDiscordBotControl,
     setDiscordTicketPanelMessageId,
-    setDiscordBotRuntimeStatus
+    setDiscordBotRuntimeStatus,
+    setDiscordLeaderboardRoleId
 };

@@ -5,6 +5,11 @@ const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
+const {
+    getLeaderboardRoleSyncKey,
+    resetLeaderboardRoleSyncState,
+    syncLeaderboardRoleIfNeeded
+} = require('./leaderboard-role');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
@@ -16,6 +21,8 @@ let lastTicketPanelSyncKey = '';
 let lastTicketPanelSyncAt = 0;
 let lastLevelSystemSyncKey = '';
 let lastLevelSystemSyncAt = 0;
+let lastLeaderboardRoleSyncKey = '';
+let lastLeaderboardRoleSyncAt = 0;
 
 function getTicketPanelSyncKey(control) {
     const ticketSystem = getTicketSystemControl(control);
@@ -68,6 +75,24 @@ async function syncLevelSystemIfNeeded(nextClient, control, options) {
     lastLevelSystemSyncAt = now;
 }
 
+async function syncLeaderboardRoleSettingsIfNeeded(nextClient, control, options) {
+    if (!nextClient || !nextClient.isReady()) {
+        return;
+    }
+
+    const syncKey = getLeaderboardRoleSyncKey(control);
+    const force = Boolean(options && options.force);
+    const now = Date.now();
+    if (!force && syncKey === lastLeaderboardRoleSyncKey && now - lastLeaderboardRoleSyncAt < 60 * 1000) {
+        await syncLeaderboardRoleIfNeeded(nextClient, control);
+        return;
+    }
+
+    await syncLeaderboardRoleIfNeeded(nextClient, control, { force: true });
+    lastLeaderboardRoleSyncKey = syncKey;
+    lastLeaderboardRoleSyncAt = now;
+}
+
 function createClient() {
     const nextClient = new Client({
         intents: [
@@ -89,6 +114,7 @@ function createClient() {
             await syncTicketPanelIfNeeded(nextClient, control, { force: true });
             await syncLevelSystemIfNeeded(nextClient, control, { force: true });
             await ensureChannelPurgeCommand(nextClient, control, { force: true });
+            await syncLeaderboardRoleSettingsIfNeeded(nextClient, control, { force: true });
             await setDiscordBotRuntimeStatus('online', null);
         } catch (error) {
             console.error('Discord startup sync failed:', error);
@@ -199,6 +225,9 @@ async function disconnectBot() {
     lastTicketPanelSyncAt = 0;
     lastLevelSystemSyncKey = '';
     lastLevelSystemSyncAt = 0;
+    lastLeaderboardRoleSyncKey = '';
+    lastLeaderboardRoleSyncAt = 0;
+    resetLeaderboardRoleSyncState();
     currentControl = null;
     console.log('Discord bot is offline.');
 }
@@ -212,6 +241,7 @@ async function syncBotState() {
             await syncTicketPanelIfNeeded(client, control);
             await syncLevelSystemIfNeeded(client, control);
             await ensureChannelPurgeCommand(client, control);
+            await syncLeaderboardRoleSettingsIfNeeded(client, control);
         }
         return;
     }

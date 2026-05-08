@@ -42,6 +42,8 @@ ROBLOX_GROUP_ID=5545660
 ROBLOX_OAUTH_REDIRECT_URI=https://your-railway-or-custom-domain/api/auth/callback
 ```
 
+Non-secret platform preferences, such as the OpenAI model name, are managed from `/admin/tools` rather than Railway variables.
+
 ## Roblox OAuth
 
 In the Roblox OAuth app settings, add the Railway callback URL:
@@ -77,5 +79,9 @@ Run the Discord bot as a second Railway service from this same GitHub repo.
 - Required variables:
   - `DATABASE_URL` as a reference to Railway Postgres
   - `DISCORD_BOT_TOKEN`
+  - `ROBLOX_OPEN_CLOUD_API_KEY` if leaderboard role sync is enabled
+  - `BLOXLINK_API_KEY` if leaderboard role sync is enabled
 
 The website dashboard at `/admin/discord-bot` sets the desired bot state in Postgres. The bot service reads that state and connects or disconnects from Discord.
+
+For the leaderboard role sync, the Roblox Open Cloud key must include `universe.ordered-data-store.scope.entry:read`. The dashboard stores the OrderedDataStore name, scope, key prefix, top count, and sync interval; the bot creates a `Leaderboard Player` role automatically unless one already exists.

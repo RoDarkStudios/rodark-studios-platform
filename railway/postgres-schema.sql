@@ -28,10 +28,30 @@ create table if not exists discord_bot_control (
     level_announcement_channel_id text,
     level_attachment_unlock_level integer not null default 5,
     level_mention_enabled boolean not null default true,
+    leaderboard_role_enabled boolean not null default false,
+    leaderboard_role_ordered_datastore_name text,
+    leaderboard_role_ordered_datastore_scope text not null default 'global',
+    leaderboard_role_key_prefix text not null default '',
+    leaderboard_role_top_size integer not null default 100,
+    leaderboard_role_sync_interval_minutes integer not null default 5,
+    leaderboard_role_id text,
+    leaderboard_role_name text not null default 'Leaderboard Player',
     updated_at timestamptz not null default now(),
     updated_by_user_id text,
     updated_by_username text
 );
+
+create table if not exists admin_platform_settings (
+    id smallint primary key check (id = 1),
+    openai_model text not null default 'gpt-5.4',
+    updated_by_user_id text,
+    updated_by_username text,
+    updated_at timestamptz not null default now()
+);
+
+insert into admin_platform_settings (id)
+values (1)
+on conflict (id) do nothing;
 
 insert into discord_bot_control (id)
 values (1)
@@ -100,5 +120,16 @@ create table if not exists discord_bot_member_levels (
     level integer not null default 0,
     last_message_at timestamptz,
     updated_at timestamptz not null default now(),
+    primary key (guild_id, user_id)
+);
+
+create table if not exists discord_bot_leaderboard_role_assignments (
+    guild_id text not null,
+    user_id text not null,
+    roblox_user_id text not null,
+    role_id text not null,
+    level_value bigint,
+    assigned_at timestamptz not null default now(),
+    last_seen_at timestamptz not null default now(),
     primary key (guild_id, user_id)
 );
