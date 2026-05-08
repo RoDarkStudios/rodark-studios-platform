@@ -24,6 +24,8 @@ create table if not exists discord_bot_control (
     tickets_panel_channel_id text,
     tickets_panel_message_id text,
     tickets_helper_role_ids text[] not null default '{}',
+    bug_payouts_channel_id text,
+    bug_payouts_allowed_role_ids text[] not null default '{}',
     level_system_enabled boolean not null default false,
     level_announcement_channel_id text,
     level_attachment_unlock_level integer not null default 5,

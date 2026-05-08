@@ -3,6 +3,7 @@ const { getDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_li
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
+const { ensureBugPayoutCommand, handleAddPayoutInteraction } = require('./bug-payouts');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 const {
@@ -114,6 +115,7 @@ function createClient() {
             await syncTicketPanelIfNeeded(nextClient, control, { force: true });
             await syncLevelSystemIfNeeded(nextClient, control, { force: true });
             await ensureChannelPurgeCommand(nextClient, control, { force: true });
+            await ensureBugPayoutCommand(nextClient, control, { force: true });
             await syncLeaderboardRoleSettingsIfNeeded(nextClient, control, { force: true });
             await setDiscordBotRuntimeStatus('online', null);
         } catch (error) {
@@ -134,6 +136,12 @@ function createClient() {
 
             const purgeHandled = await handleChannelPurgeInteraction(interaction);
             if (purgeHandled) {
+                await setDiscordBotRuntimeStatus('online', null);
+                return;
+            }
+
+            const payoutHandled = await handleAddPayoutInteraction(interaction, control);
+            if (payoutHandled) {
                 await setDiscordBotRuntimeStatus('online', null);
             }
         } catch (error) {
@@ -241,6 +249,7 @@ async function syncBotState() {
             await syncTicketPanelIfNeeded(client, control);
             await syncLevelSystemIfNeeded(client, control);
             await ensureChannelPurgeCommand(client, control);
+            await ensureBugPayoutCommand(client, control);
             await syncLeaderboardRoleSettingsIfNeeded(client, control);
         }
         return;

@@ -71,6 +71,9 @@
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-leaderboard">
                                         Leaderboard
                                     </button>
+                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-payouts">
+                                        Payouts
+                                    </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-transcripts">
                                         Transcripts
                                     </button>
@@ -416,6 +419,56 @@
 
                                     <button id="discord-leaderboard-role-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
                                         Save leaderboard settings
+                                    </button>
+                                </section>
+
+                                <section id="discord-tab-payouts" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-bug-payouts-title" hidden>
+                                    <div class="admin-discord-feature-head">
+                                        <div>
+                                            <h2 id="discord-bug-payouts-title" class="admin-tool-title">Bug Payout Entries</h2>
+                                            <p class="admin-tool-note">
+                                                Configure where /add-payout posts pending Robux reward entries. Administrators can always use the command.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <label class="admin-field">
+                                        <span class="admin-label">Payout Channel</span>
+                                        <input
+                                            id="discord-bug-payouts-channel-id"
+                                            class="admin-input"
+                                            type="text"
+                                            autocomplete="off"
+                                            list="discord-text-channel-options"
+                                            placeholder="Search Discord channels"
+                                        >
+                                    </label>
+
+                                    <label class="admin-field admin-ticket-role-field">
+                                        <span class="admin-label">Allowed Command Roles</span>
+                                        <div class="admin-inline-actions">
+                                            <input
+                                                id="discord-bug-payouts-role-input"
+                                                class="admin-input admin-inline-input"
+                                                type="text"
+                                                autocomplete="off"
+                                                list="discord-role-options"
+                                                placeholder="Search Discord roles"
+                                            >
+                                            <button id="discord-bug-payouts-role-add-btn" class="btn btn-secondary admin-compact-btn" type="button">
+                                                Add role
+                                            </button>
+                                        </div>
+                                    </label>
+
+                                    <div id="discord-bug-payouts-role-list" class="admin-selected-list" data-empty-label="No payout command roles selected." aria-live="polite"></div>
+
+                                    <p class="admin-tool-note">
+                                        Selected roles can use /add-payout in addition to anyone with Administrator permission.
+                                    </p>
+
+                                    <button id="discord-bug-payouts-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
+                                        Save payout settings
                                     </button>
                                 </section>
 

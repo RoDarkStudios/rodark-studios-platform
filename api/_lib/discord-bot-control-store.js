@@ -234,6 +234,12 @@ async function ensureDiscordBotControlSchema() {
             content_roles_channel_id text,
             content_staff_info_channel_id text,
             content_game_test_info_channel_id text,
+            tickets_category_channel_id text,
+            tickets_panel_channel_id text,
+            tickets_panel_message_id text,
+            tickets_helper_role_ids text[] not null default '{}',
+            bug_payouts_channel_id text,
+            bug_payouts_allowed_role_ids text[] not null default '{}',
             level_system_enabled boolean not null default false,
             level_announcement_channel_id text,
             level_attachment_unlock_level integer not null default 5,
@@ -305,6 +311,16 @@ async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         alter table discord_bot_control
         add column if not exists tickets_helper_role_ids text[] not null default '{}'
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists bug_payouts_channel_id text
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists bug_payouts_allowed_role_ids text[] not null default '{}'
     `);
 
     await postgresQuery(`
@@ -538,6 +554,12 @@ function mapRowToDiscordBotControl(row) {
                 ? row.tickets_helper_role_ids.map((value) => String(value)).filter(Boolean)
                 : []
         },
+        bugPayouts: {
+            channelId: row.bug_payouts_channel_id ? String(row.bug_payouts_channel_id) : null,
+            allowedRoleIds: Array.isArray(row.bug_payouts_allowed_role_ids)
+                ? row.bug_payouts_allowed_role_ids.map((value) => String(value)).filter(Boolean)
+                : []
+        },
         levelSystem: {
             enabled: Boolean(row.level_system_enabled),
             announcementChannelId: row.level_announcement_channel_id ? String(row.level_announcement_channel_id) : null,
@@ -584,6 +606,8 @@ async function getDiscordBotControl() {
             tickets_panel_channel_id,
             tickets_panel_message_id,
             tickets_helper_role_ids,
+            bug_payouts_channel_id,
+            bug_payouts_allowed_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
@@ -663,6 +687,16 @@ async function updateDiscordBotControl(patch, user) {
         : (currentControl.ticketSystem && Array.isArray(currentControl.ticketSystem.helperRoleIds)
             ? currentControl.ticketSystem.helperRoleIds.map((value) => String(value)).filter(Boolean)
             : []);
+    const bugPayoutsChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'bugPayoutsChannelId')
+        ? normalizeOptionalSnowflake(patch.bugPayoutsChannelId, 'Bug payouts channel ID')
+        : (currentControl.bugPayouts && currentControl.bugPayouts.channelId
+            ? String(currentControl.bugPayouts.channelId)
+            : null);
+    const bugPayoutsAllowedRoleIds = patch && Object.prototype.hasOwnProperty.call(patch, 'bugPayoutsAllowedRoleIds')
+        ? normalizeOptionalSnowflakeArray(patch.bugPayoutsAllowedRoleIds, 'Bug payout command role ID')
+        : (currentControl.bugPayouts && Array.isArray(currentControl.bugPayouts.allowedRoleIds)
+            ? currentControl.bugPayouts.allowedRoleIds.map((value) => String(value)).filter(Boolean)
+            : []);
     const levelSystemEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'levelSystemEnabled')
         ? Boolean(patch.levelSystemEnabled)
         : Boolean(currentControl.levelSystem && currentControl.levelSystem.enabled);
@@ -727,6 +761,8 @@ async function updateDiscordBotControl(patch, user) {
             tickets_category_channel_id = $9,
             tickets_panel_channel_id = $10,
             tickets_helper_role_ids = $11,
+            bug_payouts_channel_id = $27,
+            bug_payouts_allowed_role_ids = $28,
             tickets_panel_message_id = case
                 when tickets_panel_channel_id is distinct from $10 then null
                 else tickets_panel_message_id
@@ -745,22 +781,22 @@ async function updateDiscordBotControl(patch, user) {
             leaderboard_role_name = $23,
             leaderboard_role_hoist = $24,
             leaderboard_role_icon_content_type = case
-                when $27 = true then $29
-                when $28 = true then null
+                when $29 = true then $31
+                when $30 = true then null
                 else leaderboard_role_icon_content_type
             end,
             leaderboard_role_icon_data = case
-                when $27 = true then $30
-                when $28 = true then null
+                when $29 = true then $32
+                when $30 = true then null
                 else leaderboard_role_icon_data
             end,
             leaderboard_role_icon_sha256 = case
-                when $27 = true then $31
-                when $28 = true then null
+                when $29 = true then $33
+                when $30 = true then null
                 else leaderboard_role_icon_sha256
             end,
             leaderboard_role_icon_updated_at = case
-                when $27 = true or $28 = true then now()
+                when $29 = true or $30 = true then now()
                 else leaderboard_role_icon_updated_at
             end,
             updated_at = now(),
@@ -786,6 +822,8 @@ async function updateDiscordBotControl(patch, user) {
             tickets_panel_channel_id,
             tickets_panel_message_id,
             tickets_helper_role_ids,
+            bug_payouts_channel_id,
+            bug_payouts_allowed_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
@@ -830,6 +868,8 @@ async function updateDiscordBotControl(patch, user) {
         leaderboardRoleHoist,
         user && user.id ? String(user.id) : null,
         user && user.username ? String(user.username) : null,
+        bugPayoutsChannelId,
+        bugPayoutsAllowedRoleIds,
         leaderboardRoleIconUpdate,
         leaderboardRoleIconClear,
         leaderboardRoleIconUpload ? leaderboardRoleIconUpload.contentType : null,
@@ -865,6 +905,8 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             tickets_panel_channel_id,
             tickets_panel_message_id,
             tickets_helper_role_ids,
+            bug_payouts_channel_id,
+            bug_payouts_allowed_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
@@ -918,6 +960,8 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             tickets_panel_channel_id,
             tickets_panel_message_id,
             tickets_helper_role_ids,
+            bug_payouts_channel_id,
+            bug_payouts_allowed_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
@@ -969,6 +1013,8 @@ async function setDiscordLeaderboardRoleId(roleId) {
             tickets_panel_channel_id,
             tickets_panel_message_id,
             tickets_helper_role_ids,
+            bug_payouts_channel_id,
+            bug_payouts_allowed_role_ids,
             level_system_enabled,
             level_announcement_channel_id,
             level_attachment_unlock_level,
