@@ -375,6 +375,7 @@ async function syncGameTestInfoChannel(channel, customEmojis) {
             {
                 name: 'Robux Rewards',
                 value: [
+                    'Rewards only apply to valid **test game** bugs.',
                     `Minor bug: ${customEmojis.Robux} **50**`,
                     `Medium bug: ${customEmojis.Robux} **200**`,
                     `Critical bug: ${customEmojis.Robux} **5,000**`
@@ -384,6 +385,7 @@ async function syncGameTestInfoChannel(channel, customEmojis) {
             {
                 name: 'Important',
                 value: [
+                    '**Live game** bugs do not qualify for rewards.',
                     'Only the first valid report for a bug will receive a reward.',
                     'You must have been in the Roblox group for at least 2 weeks to receive a payout.',
                     `If your bug report qualifies for a reward, notify an ${getRoleMention(guild, 'Owner')}.`
