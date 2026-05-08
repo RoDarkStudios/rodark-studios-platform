@@ -2540,6 +2540,14 @@ async function initDiscordBotDashboard() {
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
+    const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
+    const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
+    const leaderboardDataStoreScopeInput = document.getElementById('discord-leaderboard-datastore-scope');
+    const leaderboardKeyPrefixInput = document.getElementById('discord-leaderboard-key-prefix');
+    const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
+    const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
+    const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
+    const leaderboardRoleSaveButton = document.getElementById('discord-leaderboard-role-save-btn');
     const ticketTranscriptsRefreshButton = document.getElementById('discord-ticket-transcripts-refresh-btn');
     const ticketTranscriptsLoadMoreButton = document.getElementById('discord-ticket-transcripts-load-more-btn');
     const ticketTranscriptsList = document.getElementById('discord-ticket-transcripts-list');
