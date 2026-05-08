@@ -366,6 +366,39 @@ async function syncLeaderboardRoleDisplaySetting(role, leaderboardRole) {
     });
 }
 
+function getLeaderboardRoleTargetPosition(role) {
+    const guild = role && role.guild;
+    if (!guild || !guild.roles || !guild.roles.cache) {
+        return 1;
+    }
+
+    const memberRole = guild.roles.cache.find((candidate) => {
+        if (!candidate || candidate.id === role.id || candidate.id === guild.id) {
+            return false;
+        }
+
+        const normalizedName = String(candidate.name || '').trim().toLowerCase();
+        return normalizedName === 'member' || normalizedName === 'members';
+    });
+
+    return Math.max(1, (memberRole ? memberRole.position : 0) + 1);
+}
+
+async function syncLeaderboardRolePosition(role) {
+    if (!role || typeof role.setPosition !== 'function') {
+        return;
+    }
+
+    const targetPosition = getLeaderboardRoleTargetPosition(role);
+    if (role.position === targetPosition) {
+        return;
+    }
+
+    await role.setPosition(targetPosition, {
+        reason: 'Keep RoDark Studios leaderboard role near the bottom of the role list'
+    });
+}
+
 async function ensureLeaderboardRole(guild, leaderboardRole) {
     await guild.roles.fetch().catch(() => null);
 
@@ -374,6 +407,9 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
         if (configuredRole) {
             await syncLeaderboardRoleDisplaySetting(configuredRole, leaderboardRole).catch((error) => {
                 console.error('[leaderboard-role] Failed to sync role hoist setting:', error);
+            });
+            await syncLeaderboardRolePosition(configuredRole).catch((error) => {
+                console.error('[leaderboard-role] Failed to sync role position:', error);
             });
             await syncLeaderboardRoleIcon(configuredRole).catch((error) => {
                 console.warn('[leaderboard-role] Failed to sync configured role icon:', error);
@@ -393,6 +429,9 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
         await syncLeaderboardRoleDisplaySetting(existingRole, leaderboardRole).catch((error) => {
             console.error('[leaderboard-role] Failed to sync role hoist setting:', error);
         });
+        await syncLeaderboardRolePosition(existingRole).catch((error) => {
+            console.error('[leaderboard-role] Failed to sync role position:', error);
+        });
 
         if (String(existingRole.id) !== String(leaderboardRole.roleId || '')) {
             await setDiscordLeaderboardRoleId(existingRole.id).catch(() => null);
@@ -411,6 +450,9 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
         reason: 'Ensure RoDark Studios leaderboard player role exists'
     });
     await setDiscordLeaderboardRoleId(createdRole.id).catch(() => null);
+    await syncLeaderboardRolePosition(createdRole).catch((error) => {
+        console.error('[leaderboard-role] Failed to sync role position:', error);
+    });
     await syncLeaderboardRoleIcon(createdRole).catch((error) => {
         console.warn('[leaderboard-role] Failed to sync created role icon:', error);
     });
