@@ -12,6 +12,7 @@ const {
 const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const CHANNEL_LOOKUP_CACHE_TTL_MS = 60 * 1000;
+const DISCORD_LOOKUP_TIMEOUT_MS = Number.parseInt(process.env.DISCORD_LOOKUP_TIMEOUT_MS || '5000', 10);
 const channelLookupCache = new Map();
 const channelLookupInflight = new Map();
 const roleLookupCache = new Map();
@@ -27,7 +28,9 @@ async function discordApiGet(pathname) {
         headers: {
             Authorization: `Bot ${DISCORD_BOT_TOKEN}`
         },
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(Number.isFinite(DISCORD_LOOKUP_TIMEOUT_MS) && DISCORD_LOOKUP_TIMEOUT_MS >= 1000
+            ? DISCORD_LOOKUP_TIMEOUT_MS
+            : 5000)
     });
 
     const payload = await response.json().catch(() => ({}));
@@ -264,6 +267,18 @@ async function getDiscordRoleLookup(control) {
     }
 }
 
+async function getDiscordLookupPayload(control) {
+    const [channelLookup, roleLookup] = await Promise.all([
+        getDiscordChannelLookup(control),
+        getDiscordRoleLookup(control)
+    ]);
+
+    return {
+        channelLookup,
+        roleLookup
+    };
+}
+
 module.exports = async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'POST') {
         return methodNotAllowed(req, res, ['GET', 'POST']);
@@ -294,8 +309,7 @@ module.exports = async (req, res) => {
             }
 
             const control = await getDiscordBotControl();
-            const channelLookup = await getDiscordChannelLookup(control);
-            const roleLookup = await getDiscordRoleLookup(control);
+            const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
             return sendJson(res, 200, {
                 control,
                 channelLookup,
@@ -407,8 +421,7 @@ module.exports = async (req, res) => {
         }
 
         const control = await updateDiscordBotControl(patch, auth.user);
-        const channelLookup = await getDiscordChannelLookup(control);
-        const roleLookup = await getDiscordRoleLookup(control);
+        const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });
     } catch (error) {
         const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard/i.test(String(error && error.message || ''))
