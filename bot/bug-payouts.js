@@ -344,6 +344,7 @@ async function handleBugPayoutReaction(reaction, user, control) {
 
     const embed = buildPaidBugPayoutEmbed(existingEmbed, user);
     await message.edit({ embeds: [embed] });
+    await reaction.users.remove(user.id).catch(() => {});
     return true;
 }
 
