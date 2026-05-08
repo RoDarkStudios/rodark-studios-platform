@@ -5,7 +5,8 @@ const {
     SlashCommandBuilder
 } = require('discord.js');
 
-const ADD_PAYOUT_COMMAND_NAME = 'add-payout';
+const ADD_PAYOUT_COMMAND_NAME = 'bug-payout';
+const LEGACY_ADD_PAYOUT_COMMAND_NAME = 'add-payout';
 const COMMAND_SYNC_TTL_MS = 5 * 60 * 1000;
 const PAYOUT_EMBED_COLOR = 0xf97316;
 const BUG_REWARD_BY_SEVERITY = {
@@ -93,6 +94,13 @@ async function ensureBugPayoutCommand(client, control, options) {
         }
 
         const existingCommand = commands.find((command) => command.name === ADD_PAYOUT_COMMAND_NAME);
+        const legacyCommand = commands.find((command) => command.name === LEGACY_ADD_PAYOUT_COMMAND_NAME);
+        if (legacyCommand) {
+            await legacyCommand.delete().catch((error) => {
+                console.error(`[bug-payouts] Failed to delete legacy /${LEGACY_ADD_PAYOUT_COMMAND_NAME}:`, error);
+            });
+        }
+
         if (existingCommand) {
             await existingCommand.edit(commandData).catch((error) => {
                 console.error(`[bug-payouts] Failed to update /${ADD_PAYOUT_COMMAND_NAME}:`, error);

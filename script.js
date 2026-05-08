@@ -3120,7 +3120,7 @@ async function initDiscordBotDashboard() {
                     channelLookup: control.channelLookup,
                     roleLookup: control.roleLookup
                 });
-                setDiscordBotStatusMessage('Payout settings saved. /add-payout will use this channel and role list.', 'success');
+                setDiscordBotStatusMessage('Payout settings saved. /bug-payout will use this channel and role list.', 'success');
             } catch (error) {
                 bugPayoutsSaveButton.disabled = false;
                 setDiscordBotStatusMessage(error.message || 'Failed to save payout settings.', 'error');
