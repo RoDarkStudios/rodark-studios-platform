@@ -301,6 +301,13 @@ async function handleAddPayoutInteraction(interaction, control) {
             users: [targetUser.id]
         }
     });
+    await payoutMessage.edit({
+        content: '',
+        embeds: [embed],
+        allowedMentions: { parse: [] }
+    }).catch((error) => {
+        console.error('[bug-payouts] Failed to clear payout ping text:', error);
+    });
 
     await interaction.editReply(`Added payout entry in ${payoutChannel.toString()}: ${payoutMessage.url}`);
     return true;
