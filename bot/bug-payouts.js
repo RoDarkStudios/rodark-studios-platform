@@ -294,6 +294,7 @@ async function handleAddPayoutInteraction(interaction, control) {
 
     const embed = buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescription);
     const payoutMessage = await payoutChannel.send({
+        content: `${targetUser.toString()} bug payout pending.`,
         embeds: [embed],
         allowedMentions: {
             parse: [],
