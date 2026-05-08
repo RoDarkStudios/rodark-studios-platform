@@ -8,6 +8,11 @@ const {
 const ADD_PAYOUT_COMMAND_NAME = 'add-payout';
 const COMMAND_SYNC_TTL_MS = 5 * 60 * 1000;
 const PAYOUT_EMBED_COLOR = 0xf97316;
+const BUG_REWARD_BY_SEVERITY = {
+    minor: 50,
+    moderate: 200,
+    critical: 5000
+};
 
 let lastCommandSyncAt = 0;
 let lastCommandSyncGuildIds = '';
@@ -46,11 +51,14 @@ function buildAddPayoutCommandData() {
             .setName('user')
             .setDescription('Discord user who should receive the payout')
             .setRequired(true))
-        .addIntegerOption((option) => option
-            .setName('robux')
-            .setDescription('Robux amount for this single bug')
-            .setMinValue(1)
-            .setMaxValue(1000000)
+        .addStringOption((option) => option
+            .setName('severity')
+            .setDescription('Bug severity used to calculate the Robux payout')
+            .addChoices(
+                { name: 'Minor - 50 Robux', value: 'minor' },
+                { name: 'Moderate - 200 Robux', value: 'moderate' },
+                { name: 'Critical - 5,000 Robux', value: 'critical' }
+            )
             .setRequired(true))
         .addStringOption((option) => option
             .setName('bug')
@@ -139,7 +147,12 @@ function formatDiscordTimestamp(date) {
     return `<t:${seconds}:f>`;
 }
 
-function buildBugPayoutEmbed(interaction, targetUser, robux, bugDescription) {
+function formatSeverity(value) {
+    const normalizedValue = String(value || '').trim().toLowerCase();
+    return normalizedValue ? normalizedValue[0].toUpperCase() + normalizedValue.slice(1) : 'Unknown';
+}
+
+function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescription) {
     const createdAt = new Date();
     return new EmbedBuilder()
         .setTitle('Pending Bug Payout')
@@ -157,9 +170,14 @@ function buildBugPayoutEmbed(interaction, targetUser, robux, bugDescription) {
                 inline: true
             },
             {
+                name: 'Severity',
+                value: formatSeverity(severity),
+                inline: true
+            },
+            {
                 name: 'Added By',
                 value: `${interaction.user.toString()}\n\`${interaction.user.tag || interaction.user.id}\``,
-                inline: true
+                inline: false
             },
             {
                 name: 'Bug',
@@ -226,10 +244,16 @@ async function handleAddPayoutInteraction(interaction, control) {
     await interaction.deferReply({ ephemeral: true });
 
     const targetUser = interaction.options.getUser('user', true);
-    const robux = interaction.options.getInteger('robux', true);
+    const severity = String(interaction.options.getString('severity', true) || '').trim().toLowerCase();
+    const robux = BUG_REWARD_BY_SEVERITY[severity];
     const bugDescription = String(interaction.options.getString('bug', true) || '').trim();
 
-    const embed = buildBugPayoutEmbed(interaction, targetUser, robux, bugDescription);
+    if (!robux) {
+        await interaction.editReply('Choose a valid severity: minor, moderate, or critical.');
+        return true;
+    }
+
+    const embed = buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescription);
     const payoutMessage = await payoutChannel.send({
         embeds: [embed],
         allowedMentions: { parse: [] }
