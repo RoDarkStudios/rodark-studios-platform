@@ -319,7 +319,8 @@ async function syncStaffInfoChannel(channel) {
                     `1. **Bug report follow-up** - Watch <#${BUG_REPORT_CHANNEL_ID}> and <#${TESTING_BUG_REPORT_CHANNEL_ID}>. If a report is vague, promptly ask for what happened, how to reproduce it, screenshots or video, and an F9 developer console screenshot if errors may be involved.`,
                     `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs owner or developer help, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
                     '3. **Community help** - Stay up to date on how the game works, answer general questions, help people out, and keep an active, helpful community presence.',
-                    '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.'
+                    '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.',
+                    '5. **Bug payouts** - For valid test-game reward bugs, use `/bug-payout` once per bug and choose minor, moderate, or critical. Live-game bugs do not qualify for payouts.'
                 ].join('\n'),
                 inline: false
             },
