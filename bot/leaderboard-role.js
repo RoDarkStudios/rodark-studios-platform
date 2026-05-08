@@ -12,9 +12,14 @@ const DEFAULT_SYNC_INTERVAL_MINUTES = 5;
 const BLOXLINK_API_BASE_URL = String(process.env.BLOXLINK_API_BASE_URL || 'https://api.blox.link/v4').replace(/\/+$/g, '');
 const BLOXLINK_API_KEY = String(process.env.BLOXLINK_API_KEY || '').trim();
 const BLOXLINK_LOOKUP_CACHE_TTL_MS = Number.parseInt(process.env.BLOXLINK_LOOKUP_CACHE_TTL_MINUTES || '10', 10) * 60 * 1000;
+const BLOXLINK_LOOKUPS_PER_SYNC = Math.max(1, Math.min(100, Number.parseInt(process.env.BLOXLINK_LOOKUPS_PER_SYNC || '10', 10) || 10));
+const BLOXLINK_LOOKUP_DELAY_MS = Math.max(0, Number.parseInt(process.env.BLOXLINK_LOOKUP_DELAY_MS || '750', 10) || 750);
+const BLOXLINK_RATE_LIMIT_BACKOFF_MS = Math.max(60 * 1000, Number.parseInt(process.env.BLOXLINK_RATE_LIMIT_BACKOFF_MS || '300000', 10) || 300000);
 
 let lastSyncAtByGuildId = new Map();
 let bloxlinkLookupCache = new Map();
+let bloxlinkLookupCursorByGuildId = new Map();
+let bloxlinkRateLimitedUntil = 0;
 
 function getLeaderboardRoleControl(control) {
     const leaderboardRole = control && control.leaderboardRole && typeof control.leaderboardRole === 'object'
@@ -108,6 +113,10 @@ function summarizeOrderedEntry(row) {
         valueType: typeof row.value,
         value: row.value
     }).slice(0, 500);
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function extractOrderedEntries(payload, keyPrefix) {
@@ -213,6 +222,11 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
         return cached.discordIds;
     }
 
+    if (Date.now() < bloxlinkRateLimitedUntil) {
+        const waitSeconds = Math.ceil((bloxlinkRateLimitedUntil - Date.now()) / 1000);
+        throw new Error(`Bloxlink rate limited; retrying in ${waitSeconds}s`);
+    }
+
     const response = await fetch(`${BLOXLINK_API_BASE_URL}/public/guilds/${encodeURIComponent(guildId)}/roblox-to-discord/${encodeURIComponent(robloxUserId)}`, {
         method: 'GET',
         headers: {
@@ -223,6 +237,16 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+        if (response.status === 429) {
+            const retryAfterHeader = response.headers && response.headers.get ? response.headers.get('retry-after') : '';
+            const retryAfterSeconds = Number(retryAfterHeader);
+            const backoffMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+                ? Math.ceil(retryAfterSeconds * 1000)
+                : BLOXLINK_RATE_LIMIT_BACKOFF_MS;
+            bloxlinkRateLimitedUntil = Date.now() + backoffMs;
+            throw new Error(`Bloxlink rate limited; retrying in ${Math.ceil(backoffMs / 1000)}s`);
+        }
+
         if (response.status === 404) {
             bloxlinkLookupCache.set(cacheKey, {
                 fetchedAt: Date.now(),
@@ -243,6 +267,21 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
         discordIds
     });
     return discordIds;
+}
+
+function getLookupBatch(guildId, topEntries) {
+    if (!Array.isArray(topEntries) || topEntries.length <= BLOXLINK_LOOKUPS_PER_SYNC) {
+        return topEntries;
+    }
+
+    const start = bloxlinkLookupCursorByGuildId.get(guildId) || 0;
+    const batch = [];
+    for (let offset = 0; offset < BLOXLINK_LOOKUPS_PER_SYNC; offset += 1) {
+        batch.push(topEntries[(start + offset) % topEntries.length]);
+    }
+
+    bloxlinkLookupCursorByGuildId.set(guildId, (start + BLOXLINK_LOOKUPS_PER_SYNC) % topEntries.length);
+    return batch;
 }
 
 async function ensureLeaderboardRole(guild, leaderboardRole) {
@@ -354,19 +393,45 @@ async function syncLeaderboardRoleForGuild(guild, control) {
     const role = await ensureLeaderboardRole(guild, leaderboardRole);
     const topEntries = await fetchTopLeaderboardEntries(leaderboardRole);
     console.log(`[leaderboard-role] Read ${topEntries.length} top Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} from OrderedDataStore "${leaderboardRole.orderedDataStoreName}".`);
+    const lookupEntries = getLookupBatch(guild.id, topEntries);
+    if (lookupEntries.length < topEntries.length) {
+        console.log(`[leaderboard-role] Looking up ${lookupEntries.length}/${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} this cycle to respect Bloxlink rate limits.`);
+    }
     const desiredByUserId = new Map();
+    let rateLimited = false;
 
-    for (const entry of topEntries) {
-        const discordIds = await lookupDiscordIdsForRobloxUser(guild.id, entry.robloxUserId);
+    for (const entry of lookupEntries) {
+        let discordIds = [];
+        try {
+            discordIds = await lookupDiscordIdsForRobloxUser(guild.id, entry.robloxUserId);
+        } catch (error) {
+            const message = String(error && error.message ? error.message : error);
+            if (/rate limited/i.test(message)) {
+                rateLimited = true;
+                console.warn(`[leaderboard-role] ${message}`);
+                break;
+            }
+
+            console.error(`[leaderboard-role] Bloxlink lookup failed for Roblox ${entry.robloxUserId}:`, error);
+            continue;
+        }
         for (const discordId of discordIds) {
             desiredByUserId.set(discordId, {
                 robloxUserId: entry.robloxUserId,
                 levelValue: entry.levelValue
             });
         }
+
+        if (BLOXLINK_LOOKUP_DELAY_MS > 0) {
+            await sleep(BLOXLINK_LOOKUP_DELAY_MS);
+        }
     }
 
-    console.log(`[leaderboard-role] Bloxlink resolved ${desiredByUserId.size} Discord member${desiredByUserId.size === 1 ? '' : 's'} from ${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'}.`);
+    console.log(`[leaderboard-role] Bloxlink resolved ${desiredByUserId.size} Discord member${desiredByUserId.size === 1 ? '' : 's'} from ${lookupEntries.length} checked Roblox entr${lookupEntries.length === 1 ? 'y' : 'ies'}.`);
+
+    if (rateLimited && desiredByUserId.size === 0) {
+        return;
+    }
 
     const existingAssignments = await getExistingAssignments(guild.id);
     let addedOrConfirmedCount = 0;
@@ -429,6 +494,8 @@ async function syncLeaderboardRoleIfNeeded(client, control, options) {
 function resetLeaderboardRoleSyncState() {
     lastSyncAtByGuildId = new Map();
     bloxlinkLookupCache = new Map();
+    bloxlinkLookupCursorByGuildId = new Map();
+    bloxlinkRateLimitedUntil = 0;
 }
 
 module.exports = {
