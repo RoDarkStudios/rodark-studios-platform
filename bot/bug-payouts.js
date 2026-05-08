@@ -171,7 +171,6 @@ function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescri
     return new EmbedBuilder()
         .setTitle('Pending Bug Payout')
         .setColor(PAYOUT_EMBED_COLOR)
-        .setDescription(`${robuxEmoji} One bug payout entry is pending.`)
         .addFields(
             {
                 name: 'Tester',
@@ -213,12 +212,11 @@ function isPendingBugPayoutEmbed(embed) {
     return embed && embed.title === 'Pending Bug Payout';
 }
 
-function buildPaidBugPayoutEmbed(guild, existingEmbed, paidByUser) {
-    const robuxEmoji = getRobuxEmoji(guild);
+function buildPaidBugPayoutEmbed(existingEmbed, paidByUser) {
     const embed = EmbedBuilder.from(existingEmbed)
         .setTitle('Paid Bug Payout')
         .setColor(PAID_PAYOUT_EMBED_COLOR)
-        .setDescription(`${robuxEmoji} This bug payout has been paid.`);
+        .setDescription(null);
 
     const data = embed.toJSON();
     const fields = Array.isArray(data.fields)
@@ -344,7 +342,7 @@ async function handleBugPayoutReaction(reaction, user, control) {
         return true;
     }
 
-    const embed = buildPaidBugPayoutEmbed(message.guild, existingEmbed, user);
+    const embed = buildPaidBugPayoutEmbed(existingEmbed, user);
     await message.edit({ embeds: [embed] });
     return true;
 }
