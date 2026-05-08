@@ -1,7 +1,10 @@
 const { Routes } = require('discord.js');
 const { postgresQuery } = require('../api/_lib/postgres');
 const { getStoredGameConfig } = require('../api/_lib/admin-game-config-store');
-const { listOrderedDataStoreEntries } = require('../api/_lib/roblox-open-cloud');
+const {
+    listOrderedDataStoreEntries,
+    listOrderedDataStoreEntriesLegacy
+} = require('../api/_lib/roblox-open-cloud');
 const { setDiscordLeaderboardRoleId } = require('../api/_lib/discord-bot-control-store');
 
 const DEFAULT_ROLE_NAME = 'Leaderboard Player';
@@ -77,8 +80,38 @@ function normalizeLevelValue(value) {
     return null;
 }
 
+function getOrderedRowsFromPayload(payload) {
+    if (Array.isArray(payload && payload.entries)) {
+        return payload.entries;
+    }
+    if (Array.isArray(payload && payload.orderedDataStoreEntries)) {
+        return payload.orderedDataStoreEntries;
+    }
+    if (Array.isArray(payload && payload.data)) {
+        return payload.data;
+    }
+
+    return [];
+}
+
+function summarizeOrderedEntry(row) {
+    if (!row || typeof row !== 'object') {
+        return String(row || '');
+    }
+
+    return JSON.stringify({
+        keys: Object.keys(row).slice(0, 10),
+        id: row.id || null,
+        key: row.key || null,
+        name: row.name || null,
+        path: row.path || null,
+        valueType: typeof row.value,
+        value: row.value
+    }).slice(0, 500);
+}
+
 function extractOrderedEntries(payload, keyPrefix) {
-    const rows = Array.isArray(payload && payload.entries) ? payload.entries : [];
+    const rows = getOrderedRowsFromPayload(payload);
     const entries = [];
 
     for (const row of rows) {
@@ -104,7 +137,10 @@ async function fetchTopLeaderboardEntries(leaderboardRole) {
         throw new Error('Production universe ID is not configured');
     }
 
-    const payload = await listOrderedDataStoreEntries({
+    console.log(`[leaderboard-role] Querying production universe ${gameConfig.productionUniverseId}, OrderedDataStore "${leaderboardRole.orderedDataStoreName}", scope "${leaderboardRole.orderedDataStoreScope}".`);
+
+    let source = 'cloud-v2';
+    let payload = await listOrderedDataStoreEntries({
         universeId: gameConfig.productionUniverseId,
         orderedDataStoreId: leaderboardRole.orderedDataStoreName,
         scopeId: leaderboardRole.orderedDataStoreScope,
@@ -112,7 +148,35 @@ async function fetchTopLeaderboardEntries(leaderboardRole) {
         orderBy: 'value desc'
     });
 
-    return extractOrderedEntries(payload, leaderboardRole.keyPrefix).slice(0, leaderboardRole.topSize);
+    let rows = getOrderedRowsFromPayload(payload);
+    if (rows.length === 0) {
+        try {
+            const legacyPayload = await listOrderedDataStoreEntriesLegacy({
+                universeId: gameConfig.productionUniverseId,
+                orderedDataStoreId: leaderboardRole.orderedDataStoreName,
+                scopeId: leaderboardRole.orderedDataStoreScope,
+                maxPageSize: leaderboardRole.topSize,
+                orderBy: 'desc'
+            });
+            const legacyRows = getOrderedRowsFromPayload(legacyPayload);
+            if (legacyRows.length > 0) {
+                source = 'ordered-data-stores-v1';
+                payload = legacyPayload;
+                rows = legacyRows;
+            }
+        } catch (error) {
+            console.error(`[leaderboard-role] Legacy OrderedDataStore fallback failed: ${String(error.message || error)}`);
+        }
+    }
+
+    const entries = extractOrderedEntries(payload, leaderboardRole.keyPrefix).slice(0, leaderboardRole.topSize);
+    const payloadKeys = payload && typeof payload === 'object' ? Object.keys(payload).join(',') : '';
+    console.log(`[leaderboard-role] ${source} returned ${rows.length} raw row(s), parsed ${entries.length}. Payload keys: ${payloadKeys || 'none'}.`);
+    if (rows.length > 0 && entries.length === 0) {
+        console.log(`[leaderboard-role] First raw OrderedDataStore row: ${summarizeOrderedEntry(rows[0])}`);
+    }
+
+    return entries;
 }
 
 function extractDiscordIdsFromBloxlinkPayload(payload) {
