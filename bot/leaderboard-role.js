@@ -46,13 +46,18 @@ function getLeaderboardRoleControl(control) {
         syncIntervalMinutes,
         roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
         roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName).trim() : DEFAULT_ROLE_NAME,
-        hoist: Boolean(leaderboardRole.hoist)
+        hoist: Boolean(leaderboardRole.hoist),
+        iconDataUrl: leaderboardRole.iconDataUrl ? String(leaderboardRole.iconDataUrl) : '',
+        iconSha256: leaderboardRole.iconSha256 ? String(leaderboardRole.iconSha256) : ''
     };
 }
 
 function getLeaderboardRoleSyncKey(control) {
     const leaderboardRole = getLeaderboardRoleControl(control);
-    return JSON.stringify(leaderboardRole);
+    return JSON.stringify({
+        ...leaderboardRole,
+        iconDataUrl: leaderboardRole.iconDataUrl ? '[uploaded]' : ''
+    });
 }
 
 function normalizeRobloxUserIdFromEntryKey(entryKey, keyPrefix) {
@@ -293,7 +298,11 @@ function getLookupBatch(guildId, topEntries) {
     return batch;
 }
 
-async function getLeaderboardRoleIconDataUri() {
+async function getLeaderboardRoleIconDataUri(leaderboardRole) {
+    if (leaderboardRole && leaderboardRole.iconDataUrl) {
+        return String(leaderboardRole.iconDataUrl);
+    }
+
     if (cachedLeaderboardRoleIconDataUri) {
         return cachedLeaderboardRoleIconDataUri;
     }
@@ -311,15 +320,26 @@ function guildSupportsRoleIcons(guild) {
     return guild.features.includes('ROLE_ICONS');
 }
 
-async function syncLeaderboardRoleIcon(role) {
+function getLeaderboardRoleIconSyncKey(role, leaderboardRole) {
+    const fingerprint = leaderboardRole && leaderboardRole.iconSha256
+        ? String(leaderboardRole.iconSha256)
+        : 'default';
+
+    return `${role.id}:${fingerprint}`;
+}
+
+async function syncLeaderboardRoleIcon(role, leaderboardRole) {
     if (!role || !role.id || !role.guild) {
         return;
     }
-    if (role.managed || role.icon || roleIconSyncAttemptedByRoleId.has(role.id)) {
+
+    const hasUploadedIcon = Boolean(leaderboardRole && leaderboardRole.iconDataUrl);
+    const syncKey = getLeaderboardRoleIconSyncKey(role, leaderboardRole);
+    if (role.managed || roleIconSyncAttemptedByRoleId.has(syncKey) || (!hasUploadedIcon && role.icon)) {
         return;
     }
 
-    roleIconSyncAttemptedByRoleId.add(role.id);
+    roleIconSyncAttemptedByRoleId.add(syncKey);
 
     if (!guildSupportsRoleIcons(role.guild)) {
         console.warn('[leaderboard-role] Discord server does not advertise ROLE_ICONS, so the leaderboard role icon was not applied.');
@@ -330,7 +350,7 @@ async function syncLeaderboardRoleIcon(role) {
         return;
     }
 
-    const icon = await getLeaderboardRoleIconDataUri();
+    const icon = await getLeaderboardRoleIconDataUri(leaderboardRole);
     const response = await fetch(`${DISCORD_API_BASE_URL}/guilds/${encodeURIComponent(role.guild.id)}/roles/${encodeURIComponent(role.id)}`, {
         method: 'PATCH',
         headers: {
@@ -411,7 +431,7 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
             await syncLeaderboardRolePosition(configuredRole).catch((error) => {
                 console.error('[leaderboard-role] Failed to sync role position:', error);
             });
-            await syncLeaderboardRoleIcon(configuredRole).catch((error) => {
+            await syncLeaderboardRoleIcon(configuredRole, leaderboardRole).catch((error) => {
                 console.warn('[leaderboard-role] Failed to sync configured role icon:', error);
             });
             return configuredRole;
@@ -436,7 +456,7 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
         if (String(existingRole.id) !== String(leaderboardRole.roleId || '')) {
             await setDiscordLeaderboardRoleId(existingRole.id).catch(() => null);
         }
-        await syncLeaderboardRoleIcon(existingRole).catch((error) => {
+        await syncLeaderboardRoleIcon(existingRole, leaderboardRole).catch((error) => {
             console.warn('[leaderboard-role] Failed to sync existing role icon:', error);
         });
         return existingRole;
@@ -453,7 +473,7 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
     await syncLeaderboardRolePosition(createdRole).catch((error) => {
         console.error('[leaderboard-role] Failed to sync role position:', error);
     });
-    await syncLeaderboardRoleIcon(createdRole).catch((error) => {
+    await syncLeaderboardRoleIcon(createdRole, leaderboardRole).catch((error) => {
         console.warn('[leaderboard-role] Failed to sync created role icon:', error);
     });
     return createdRole;

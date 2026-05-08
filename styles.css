@@ -1342,6 +1342,44 @@ body {
     gap: 0.45rem;
 }
 
+.admin-role-icon-upload {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 0.9rem;
+}
+
+.admin-role-icon-preview {
+    display: grid;
+    place-items: center;
+    flex: 0 0 58px;
+    width: 58px;
+    height: 58px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+    background: rgba(10, 10, 10, 0.55);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    line-height: 1.1;
+    text-align: center;
+    overflow: hidden;
+}
+
+.admin-role-icon-preview img {
+    max-width: 48px;
+    max-height: 48px;
+    object-fit: contain;
+}
+
+.admin-role-icon-field {
+    flex: 1 1 260px;
+}
+
+.admin-role-icon-status {
+    margin-bottom: 0;
+    font-size: 0.82rem;
+}
+
 .admin-ticket-role-field {
     margin-top: 0.9rem;
 }

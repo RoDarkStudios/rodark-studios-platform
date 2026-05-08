@@ -438,11 +438,19 @@ module.exports = async (req, res) => {
             patch.leaderboardRoleHoist = leaderboardRole.hoist;
         }
 
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'iconDataUrl')) {
+            patch.leaderboardRoleIconDataUrl = leaderboardRole.iconDataUrl;
+        }
+
+        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'clearIcon')) {
+            patch.leaderboardRoleIconClear = leaderboardRole.clearIcon;
+        }
+
         const control = await updateDiscordBotControl(patch, auth.user);
         const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });
     } catch (error) {
-        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard/i.test(String(error && error.message || ''))
+        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard|role icon|uploaded image/i.test(String(error && error.message || ''))
             ? 400
             : 500;
         return sendJson(res, statusCode, {

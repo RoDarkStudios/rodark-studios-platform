@@ -37,6 +37,10 @@ create table if not exists discord_bot_control (
     leaderboard_role_id text,
     leaderboard_role_name text not null default 'Leaderboard Player',
     leaderboard_role_hoist boolean not null default false,
+    leaderboard_role_icon_content_type text,
+    leaderboard_role_icon_data bytea,
+    leaderboard_role_icon_sha256 text,
+    leaderboard_role_icon_updated_at timestamptz,
     updated_at timestamptz not null default now(),
     updated_by_user_id text,
     updated_by_username text

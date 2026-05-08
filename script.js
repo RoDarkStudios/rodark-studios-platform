@@ -1630,7 +1630,9 @@ function getDiscordLeaderboardRoleControl(control) {
         syncIntervalMinutes: 5,
         roleId: '',
         roleName: 'Leaderboard Player',
-        hoist: false
+        hoist: false,
+        iconDataUrl: '',
+        iconUpdatedAt: ''
     };
 
     if (!control || typeof control !== 'object' || !control.leaderboardRole || typeof control.leaderboardRole !== 'object') {
@@ -1650,8 +1652,42 @@ function getDiscordLeaderboardRoleControl(control) {
         syncIntervalMinutes: Number.isFinite(syncIntervalMinutes) && syncIntervalMinutes >= 1 ? syncIntervalMinutes : 5,
         roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
         roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName) : 'Leaderboard Player',
-        hoist: Boolean(leaderboardRole.hoist)
+        hoist: Boolean(leaderboardRole.hoist),
+        iconDataUrl: leaderboardRole.iconDataUrl ? String(leaderboardRole.iconDataUrl) : '',
+        iconUpdatedAt: leaderboardRole.iconUpdatedAt ? String(leaderboardRole.iconUpdatedAt) : ''
     };
+}
+
+const DISCORD_LEADERBOARD_ROLE_ICON_MAX_BYTES = 256 * 1024;
+const DISCORD_LEADERBOARD_ROLE_ICON_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp'
+]);
+
+function readDiscordLeaderboardRoleIconFile(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) {
+            resolve('');
+            return;
+        }
+
+        if (!DISCORD_LEADERBOARD_ROLE_ICON_TYPES.has(String(file.type || '').toLowerCase())) {
+            reject(new Error('Choose a PNG, JPG, GIF, or WebP role icon.'));
+            return;
+        }
+
+        if (file.size > DISCORD_LEADERBOARD_ROLE_ICON_MAX_BYTES) {
+            reject(new Error('Role icon must be 256 KB or smaller.'));
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.addEventListener('load', () => resolve(String(reader.result || '')));
+        reader.addEventListener('error', () => reject(new Error('Failed to read role icon file.')));
+        reader.readAsDataURL(file);
+    });
 }
 
 function getDiscordChannelLookup(payload) {
@@ -2038,6 +2074,10 @@ function renderDiscordBotControl(control, options) {
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
     const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
     const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
+    const leaderboardRoleIconInput = document.getElementById('discord-leaderboard-role-icon');
+    const leaderboardRoleIconPreview = document.getElementById('discord-leaderboard-role-icon-preview');
+    const leaderboardRoleIconEmpty = document.getElementById('discord-leaderboard-role-icon-empty');
+    const leaderboardRoleIconStatus = document.getElementById('discord-leaderboard-role-icon-status');
     const leaderboardRoleSaveButton = document.getElementById('discord-leaderboard-role-save-btn');
     const leaderboardRoleSummary = document.getElementById('discord-leaderboard-role-summary');
     const channelLookupSummary = document.getElementById('discord-channel-lookup-summary');
@@ -2174,6 +2214,21 @@ function renderDiscordBotControl(control, options) {
     }
     if (!preserveLeaderboardRoleForm && leaderboardRoleNameInput) {
         leaderboardRoleNameInput.value = leaderboardRoleControl.roleName;
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardRoleIconInput) {
+        leaderboardRoleIconInput.value = '';
+        leaderboardRoleIconInput.dataset.iconDataUrl = '';
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardRoleIconPreview && leaderboardRoleIconEmpty) {
+        const iconDataUrl = leaderboardRoleControl.iconDataUrl || '';
+        leaderboardRoleIconPreview.src = iconDataUrl;
+        leaderboardRoleIconPreview.hidden = !iconDataUrl;
+        leaderboardRoleIconEmpty.hidden = Boolean(iconDataUrl);
+    }
+    if (!preserveLeaderboardRoleForm && leaderboardRoleIconStatus) {
+        leaderboardRoleIconStatus.textContent = leaderboardRoleControl.iconDataUrl
+            ? 'Custom icon saved. Choose a new file to replace it.'
+            : 'PNG, JPG, GIF, or WebP. Max 256 KB.';
     }
     if (leaderboardRoleSummary) {
         const roleLabel = leaderboardRoleControl.roleId
@@ -2332,17 +2387,23 @@ async function saveDiscordLevelSystemConfig(config) {
 }
 
 async function saveDiscordLeaderboardRoleConfig(config) {
+    const leaderboardRole = {
+        enabled: Boolean(config && config.enabled),
+        orderedDataStoreName: config && config.orderedDataStoreName ? String(config.orderedDataStoreName).trim() : '',
+        orderedDataStoreScope: config && config.orderedDataStoreScope ? String(config.orderedDataStoreScope).trim() : 'global',
+        keyPrefix: config && config.keyPrefix ? String(config.keyPrefix).trim() : '',
+        topSize: config && config.topSize ? Number.parseInt(config.topSize, 10) : 100,
+        syncIntervalMinutes: config && config.syncIntervalMinutes ? Number.parseInt(config.syncIntervalMinutes, 10) : 5,
+        roleName: config && config.roleName ? String(config.roleName).trim() : 'Leaderboard Player',
+        hoist: Boolean(config && config.hoist)
+    };
+
+    if (config && config.iconDataUrl) {
+        leaderboardRole.iconDataUrl = String(config.iconDataUrl);
+    }
+
     const payload = await postJson('/api/admin/discord-bot-control', {
-        leaderboardRole: {
-            enabled: Boolean(config && config.enabled),
-            orderedDataStoreName: config && config.orderedDataStoreName ? String(config.orderedDataStoreName).trim() : '',
-            orderedDataStoreScope: config && config.orderedDataStoreScope ? String(config.orderedDataStoreScope).trim() : 'global',
-            keyPrefix: config && config.keyPrefix ? String(config.keyPrefix).trim() : '',
-            topSize: config && config.topSize ? Number.parseInt(config.topSize, 10) : 100,
-            syncIntervalMinutes: config && config.syncIntervalMinutes ? Number.parseInt(config.syncIntervalMinutes, 10) : 5,
-            roleName: config && config.roleName ? String(config.roleName).trim() : 'Leaderboard Player',
-            hoist: Boolean(config && config.hoist)
-        }
+        leaderboardRole
     });
 
     return {
@@ -2545,6 +2606,10 @@ async function initDiscordBotDashboard() {
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
     const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
     const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
+    const leaderboardRoleIconInput = document.getElementById('discord-leaderboard-role-icon');
+    const leaderboardRoleIconPreview = document.getElementById('discord-leaderboard-role-icon-preview');
+    const leaderboardRoleIconEmpty = document.getElementById('discord-leaderboard-role-icon-empty');
+    const leaderboardRoleIconStatus = document.getElementById('discord-leaderboard-role-icon-status');
     const leaderboardRoleSaveButton = document.getElementById('discord-leaderboard-role-save-btn');
     const ticketTranscriptsRefreshButton = document.getElementById('discord-ticket-transcripts-refresh-btn');
     const ticketTranscriptsLoadMoreButton = document.getElementById('discord-ticket-transcripts-load-more-btn');
@@ -2820,6 +2885,39 @@ async function initDiscordBotDashboard() {
     if (leaderboardRoleNameInput) {
         leaderboardRoleNameInput.addEventListener('input', markLeaderboardRoleFormDirty);
     }
+    if (leaderboardRoleIconInput) {
+        leaderboardRoleIconInput.addEventListener('change', async () => {
+            const file = leaderboardRoleIconInput.files && leaderboardRoleIconInput.files[0]
+                ? leaderboardRoleIconInput.files[0]
+                : null;
+
+            if (!file) {
+                leaderboardRoleIconInput.dataset.iconDataUrl = '';
+                return;
+            }
+
+            try {
+                const iconDataUrl = await readDiscordLeaderboardRoleIconFile(file);
+                leaderboardRoleIconInput.dataset.iconDataUrl = iconDataUrl;
+                if (leaderboardRoleIconPreview && leaderboardRoleIconEmpty) {
+                    leaderboardRoleIconPreview.src = iconDataUrl;
+                    leaderboardRoleIconPreview.hidden = false;
+                    leaderboardRoleIconEmpty.hidden = true;
+                }
+                if (leaderboardRoleIconStatus) {
+                    leaderboardRoleIconStatus.textContent = `${file.name} selected. Save settings to apply it.`;
+                }
+                markLeaderboardRoleFormDirty();
+            } catch (error) {
+                leaderboardRoleIconInput.value = '';
+                leaderboardRoleIconInput.dataset.iconDataUrl = '';
+                if (leaderboardRoleIconStatus) {
+                    leaderboardRoleIconStatus.textContent = error.message || 'Invalid role icon.';
+                }
+                setDiscordBotStatusMessage(error.message || 'Invalid role icon.', 'error');
+            }
+        });
+    }
     bindDiscordChannelAutocompleteInput(startupRulesChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(startupInfoChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(startupRolesChannelInput, getCurrentDiscordChannelMaps);
@@ -2975,7 +3073,8 @@ async function initDiscordBotDashboard() {
                     topSize: leaderboardTopSizeInput ? leaderboardTopSizeInput.value : 100,
                     syncIntervalMinutes: leaderboardSyncIntervalInput ? leaderboardSyncIntervalInput.value : 5,
                     roleName: leaderboardRoleNameInput ? leaderboardRoleNameInput.value : 'Leaderboard Player',
-                    hoist: leaderboardRoleHoistInput ? leaderboardRoleHoistInput.checked : false
+                    hoist: leaderboardRoleHoistInput ? leaderboardRoleHoistInput.checked : false,
+                    iconDataUrl: leaderboardRoleIconInput ? leaderboardRoleIconInput.dataset.iconDataUrl : ''
                 });
                 dashboard.dataset.leaderboardRoleDirty = 'false';
                 renderDiscordBotControl(control.control, {
