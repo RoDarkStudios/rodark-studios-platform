@@ -1,3 +1,5 @@
+const fs = require('fs/promises');
+const path = require('path');
 const { postgresQuery } = require('../api/_lib/postgres');
 const { getStoredGameConfig } = require('../api/_lib/admin-game-config-store');
 const {
@@ -17,12 +19,15 @@ const BLOXLINK_RATE_LIMIT_BACKOFF_MS = Math.max(60 * 1000, Number.parseInt(proce
 const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const DISCORD_ROLE_REQUEST_DELAY_MS = Math.max(0, Number.parseInt(process.env.DISCORD_ROLE_REQUEST_DELAY_MS || '500', 10) || 500);
+const LEADERBOARD_ROLE_ICON_PATH = path.join(__dirname, 'assets', 'discord', 'role-icons', 'leaderboard-player.png');
 
 let lastSyncAtByGuildId = new Map();
 let bloxlinkLookupCache = new Map();
 let bloxlinkLookupCursorByGuildId = new Map();
 let bloxlinkRateLimitedUntil = 0;
 let leaderboardSyncInFlightByGuildId = new Set();
+let cachedLeaderboardRoleIconDataUri = null;
+let roleIconSyncAttemptedByRoleId = new Set();
 
 function getLeaderboardRoleControl(control) {
     const leaderboardRole = control && control.leaderboardRole && typeof control.leaderboardRole === 'object'
@@ -288,12 +293,91 @@ function getLookupBatch(guildId, topEntries) {
     return batch;
 }
 
+async function getLeaderboardRoleIconDataUri() {
+    if (cachedLeaderboardRoleIconDataUri) {
+        return cachedLeaderboardRoleIconDataUri;
+    }
+
+    const icon = await fs.readFile(LEADERBOARD_ROLE_ICON_PATH);
+    cachedLeaderboardRoleIconDataUri = `data:image/png;base64,${icon.toString('base64')}`;
+    return cachedLeaderboardRoleIconDataUri;
+}
+
+function guildSupportsRoleIcons(guild) {
+    if (!guild || !Array.isArray(guild.features)) {
+        return true;
+    }
+
+    return guild.features.includes('ROLE_ICONS');
+}
+
+async function syncLeaderboardRoleIcon(role) {
+    if (!role || !role.id || !role.guild) {
+        return;
+    }
+    if (role.managed || role.icon || roleIconSyncAttemptedByRoleId.has(role.id)) {
+        return;
+    }
+
+    roleIconSyncAttemptedByRoleId.add(role.id);
+
+    if (!guildSupportsRoleIcons(role.guild)) {
+        console.warn('[leaderboard-role] Discord server does not advertise ROLE_ICONS, so the leaderboard role icon was not applied.');
+        return;
+    }
+    if (!DISCORD_BOT_TOKEN) {
+        console.warn('[leaderboard-role] DISCORD_BOT_TOKEN is missing, so the leaderboard role icon was not applied.');
+        return;
+    }
+
+    const icon = await getLeaderboardRoleIconDataUri();
+    const response = await fetch(`${DISCORD_API_BASE_URL}/guilds/${encodeURIComponent(role.guild.id)}/roles/${encodeURIComponent(role.id)}`, {
+        method: 'PATCH',
+        headers: {
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+            'Content-Type': 'application/json',
+            'X-Audit-Log-Reason': encodeURIComponent('Set RoDark Studios leaderboard role icon')
+        },
+        body: JSON.stringify({ icon }),
+        signal: AbortSignal.timeout(15000)
+    });
+
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = payload && payload.message
+            ? String(payload.message)
+            : `Discord role icon request failed (${response.status})`;
+        console.warn(`[leaderboard-role] Failed to apply leaderboard role icon: ${message}`);
+        return;
+    }
+
+    await role.guild.roles.fetch(role.id).catch(() => null);
+    console.log(`[leaderboard-role] Applied icon to leaderboard role "${role.name}".`);
+}
+
+async function syncLeaderboardRoleDisplaySetting(role, leaderboardRole) {
+    if (!role || role.hoist === Boolean(leaderboardRole.hoist)) {
+        return;
+    }
+
+    await role.edit({
+        hoist: Boolean(leaderboardRole.hoist),
+        reason: 'Sync RoDark Studios leaderboard role display setting'
+    });
+}
+
 async function ensureLeaderboardRole(guild, leaderboardRole) {
     await guild.roles.fetch().catch(() => null);
 
     if (leaderboardRole.roleId) {
         const configuredRole = guild.roles.cache.get(leaderboardRole.roleId);
         if (configuredRole) {
+            await syncLeaderboardRoleDisplaySetting(configuredRole, leaderboardRole).catch((error) => {
+                console.error('[leaderboard-role] Failed to sync role hoist setting:', error);
+            });
+            await syncLeaderboardRoleIcon(configuredRole).catch((error) => {
+                console.warn('[leaderboard-role] Failed to sync configured role icon:', error);
+            });
             return configuredRole;
         }
     }
@@ -306,18 +390,16 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
     ));
 
     if (existingRole) {
-        if (existingRole.hoist !== Boolean(leaderboardRole.hoist)) {
-            await existingRole.edit({
-                hoist: Boolean(leaderboardRole.hoist),
-                reason: 'Sync RoDark Studios leaderboard role display setting'
-            }).catch((error) => {
-                console.error('[leaderboard-role] Failed to sync role hoist setting:', error);
-            });
-        }
+        await syncLeaderboardRoleDisplaySetting(existingRole, leaderboardRole).catch((error) => {
+            console.error('[leaderboard-role] Failed to sync role hoist setting:', error);
+        });
 
         if (String(existingRole.id) !== String(leaderboardRole.roleId || '')) {
             await setDiscordLeaderboardRoleId(existingRole.id).catch(() => null);
         }
+        await syncLeaderboardRoleIcon(existingRole).catch((error) => {
+            console.warn('[leaderboard-role] Failed to sync existing role icon:', error);
+        });
         return existingRole;
     }
 
@@ -329,6 +411,9 @@ async function ensureLeaderboardRole(guild, leaderboardRole) {
         reason: 'Ensure RoDark Studios leaderboard player role exists'
     });
     await setDiscordLeaderboardRoleId(createdRole.id).catch(() => null);
+    await syncLeaderboardRoleIcon(createdRole).catch((error) => {
+        console.warn('[leaderboard-role] Failed to sync created role icon:', error);
+    });
     return createdRole;
 }
 
