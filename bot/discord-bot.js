@@ -1,9 +1,9 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { getDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_lib/discord-bot-control-store');
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
-const { ensureBugPayoutCommand, handleAddPayoutInteraction } = require('./bug-payouts');
+const { ensureBugPayoutCommand, handleAddPayoutInteraction, handleBugPayoutReaction } = require('./bug-payouts');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 const {
@@ -99,7 +99,13 @@ function createClient() {
         intents: [
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.GuildMessageReactions,
             GatewayIntentBits.MessageContent
+        ],
+        partials: [
+            Partials.Message,
+            Partials.Channel,
+            Partials.Reaction
         ]
     });
 
@@ -173,6 +179,20 @@ function createClient() {
             }
         } catch (error) {
             console.error('Discord level system message handling failed:', error);
+            await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
+        }
+    });
+
+    nextClient.on('messageReactionAdd', async (reaction, user) => {
+        try {
+            const control = currentControl || await getDiscordBotControl();
+            currentControl = control;
+            const handled = await handleBugPayoutReaction(reaction, user, control);
+            if (handled) {
+                await setDiscordBotRuntimeStatus('online', null);
+            }
+        } catch (error) {
+            console.error('Discord bug payout reaction handling failed:', error);
             await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
         }
     });

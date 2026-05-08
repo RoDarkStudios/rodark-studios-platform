@@ -9,6 +9,8 @@ const ADD_PAYOUT_COMMAND_NAME = 'bug-payout';
 const LEGACY_ADD_PAYOUT_COMMAND_NAME = 'add-payout';
 const COMMAND_SYNC_TTL_MS = 5 * 60 * 1000;
 const PAYOUT_EMBED_COLOR = 0xf97316;
+const PAID_PAYOUT_EMBED_COLOR = 0x22c55e;
+const PAYOUT_PAID_REACTION = '✅';
 const BUG_REWARD_BY_SEVERITY = {
     minor: 50,
     moderate: 200,
@@ -199,6 +201,39 @@ function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescri
         );
 }
 
+async function getReactionMember(reaction, user) {
+    if (!reaction || !reaction.message || !reaction.message.guild || !user) {
+        return null;
+    }
+
+    return reaction.message.guild.members.fetch(user.id).catch(() => null);
+}
+
+function isPendingBugPayoutEmbed(embed) {
+    return embed && embed.title === 'Pending Bug Payout';
+}
+
+function buildPaidBugPayoutEmbed(guild, existingEmbed, paidByUser) {
+    const robuxEmoji = getRobuxEmoji(guild);
+    const embed = EmbedBuilder.from(existingEmbed)
+        .setTitle('Paid Bug Payout')
+        .setColor(PAID_PAYOUT_EMBED_COLOR)
+        .setDescription(`${robuxEmoji} This bug payout has been paid.`);
+
+    const data = embed.toJSON();
+    const fields = Array.isArray(data.fields)
+        ? data.fields.filter((field) => field && field.name !== 'Paid By')
+        : [];
+
+    fields.push({
+        name: 'Paid By',
+        value: `${paidByUser.toString()}\n\`${paidByUser.tag || paidByUser.id}\``,
+        inline: false
+    });
+
+    return embed.setFields(fields);
+}
+
 async function replyToPayoutInteraction(interaction, content) {
     if (!interaction || !interaction.isRepliable || !interaction.isRepliable()) {
         return;
@@ -269,8 +304,54 @@ async function handleAddPayoutInteraction(interaction, control) {
     return true;
 }
 
+async function handleBugPayoutReaction(reaction, user, control) {
+    if (!reaction || !user || user.bot) {
+        return false;
+    }
+
+    if (!reaction.emoji || reaction.emoji.name !== PAYOUT_PAID_REACTION) {
+        return false;
+    }
+
+    if (reaction.partial) {
+        await reaction.fetch().catch(() => null);
+    }
+
+    const message = reaction.message && reaction.message.partial
+        ? await reaction.message.fetch().catch(() => null)
+        : reaction.message;
+    if (!message || !message.guild) {
+        return false;
+    }
+
+    const bugPayouts = getBugPayoutsControl(control);
+    if (!bugPayouts.channelId || String(message.channelId) !== String(bugPayouts.channelId)) {
+        return false;
+    }
+
+    if (!message.author || !message.client || String(message.author.id) !== String(message.client.user.id)) {
+        return false;
+    }
+
+    const existingEmbed = message.embeds && message.embeds[0] ? message.embeds[0] : null;
+    if (!isPendingBugPayoutEmbed(existingEmbed)) {
+        return false;
+    }
+
+    const member = await getReactionMember(reaction, user);
+    if (!memberCanAddBugPayout(member, bugPayouts.allowedRoleIds)) {
+        await reaction.users.remove(user.id).catch(() => {});
+        return true;
+    }
+
+    const embed = buildPaidBugPayoutEmbed(message.guild, existingEmbed, user);
+    await message.edit({ embeds: [embed] });
+    return true;
+}
+
 module.exports = {
     ensureBugPayoutCommand,
     getBugPayoutsControl,
-    handleAddPayoutInteraction
+    handleAddPayoutInteraction,
+    handleBugPayoutReaction
 };
