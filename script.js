@@ -2225,7 +2225,8 @@ function setDiscordBotStatusMessage(message, type) {
 async function fetchDiscordBotControl() {
     const response = await fetch('/api/admin/discord-bot-control', {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
+        signal: AbortSignal.timeout(12000)
     });
 
     const payload = await response.json().catch(() => ({}));

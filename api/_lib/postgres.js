@@ -17,6 +17,9 @@ function getPostgresPool() {
     const { Pool } = require('pg');
     pool = new Pool({
         connectionString,
+        connectionTimeoutMillis: 5000,
+        query_timeout: 10000,
+        statement_timeout: 10000,
         ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
             ? false
             : { rejectUnauthorized: false }
