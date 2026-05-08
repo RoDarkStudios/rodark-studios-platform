@@ -309,6 +309,20 @@ module.exports = async (req, res) => {
             }
 
             const control = await getDiscordBotControl();
+            if (req.query && req.query.includeLookups === '0') {
+                return sendJson(res, 200, {
+                    control,
+                    channelLookup: {
+                        guildId: control && control.guildId ? String(control.guildId) : '',
+                        channels: []
+                    },
+                    roleLookup: {
+                        guildId: control && control.guildId ? String(control.guildId) : '',
+                        roles: []
+                    }
+                });
+            }
+
             const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
             return sendJson(res, 200, {
                 control,

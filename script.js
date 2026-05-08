@@ -2222,12 +2222,30 @@ function setDiscordBotStatusMessage(message, type) {
     statusElement.className = `admin-status ${type || 'info'}`;
 }
 
-async function fetchDiscordBotControl() {
-    const response = await fetch('/api/admin/discord-bot-control', {
-        method: 'GET',
-        credentials: 'include',
-        signal: AbortSignal.timeout(12000)
+function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+        controller.abort();
+    }, Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : 12000);
+    const settings = {
+        ...(options || {}),
+        signal: controller.signal
+    };
+
+    return fetch(url, settings).finally(() => {
+        window.clearTimeout(timeoutId);
     });
+}
+
+async function fetchDiscordBotControl(options) {
+    const includeLookups = Boolean(options && options.includeLookups);
+    const requestUrl = includeLookups
+        ? '/api/admin/discord-bot-control'
+        : '/api/admin/discord-bot-control?includeLookups=0';
+    const response = await fetchWithTimeout(requestUrl, {
+        method: 'GET',
+        credentials: 'include'
+    }, includeLookups ? 8000 : 12000);
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -2550,6 +2568,8 @@ async function initDiscordBotDashboard() {
     let currentTicketTranscripts = [];
     let ticketTranscriptOffset = 0;
     let hasMoreTicketTranscripts = false;
+    let discordLookupRefreshPending = false;
+    let discordLookupRefreshAt = 0;
 
     function activateDiscordDashboardTab(targetId) {
         const tabButtons = Array.from(dashboard.querySelectorAll('[data-discord-tab-target]'));
@@ -2570,7 +2590,7 @@ async function initDiscordBotDashboard() {
 
     async function refreshControl() {
         try {
-            const control = await fetchDiscordBotControl();
+            const control = await fetchDiscordBotControl({ includeLookups: false });
             renderDiscordBotControl(control.control, {
                 preserveGuildForm: dashboard.dataset.guildDirty === 'true',
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
@@ -2601,6 +2621,32 @@ async function initDiscordBotDashboard() {
                 leaderboardRoleSaveButton.disabled = true;
             }
             setDiscordBotStatusMessage(error.message || 'Failed to load Discord bot status.', 'error');
+        }
+    }
+
+    async function refreshDiscordLookups() {
+        const now = Date.now();
+        if (discordLookupRefreshPending || now - discordLookupRefreshAt < 60 * 1000) {
+            return;
+        }
+
+        discordLookupRefreshPending = true;
+        try {
+            const control = await fetchDiscordBotControl({ includeLookups: true });
+            discordLookupRefreshAt = Date.now();
+            renderDiscordBotControl(control.control, {
+                preserveGuildForm: dashboard.dataset.guildDirty === 'true',
+                preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
+                preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
+                preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
+                preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
+                channelLookup: control.channelLookup,
+                roleLookup: control.roleLookup
+            });
+        } catch (error) {
+            setDiscordBotStatusMessage('Discord channel/role lookup is unavailable. Status and manual ID entry still work.', 'error');
+        } finally {
+            discordLookupRefreshPending = false;
         }
     }
 
@@ -2981,6 +3027,7 @@ async function initDiscordBotDashboard() {
     }
 
     await refreshControl();
+    refreshDiscordLookups();
     await refreshTicketTranscripts();
     window.setInterval(refreshControl, 5000);
 }
