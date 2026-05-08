@@ -16,11 +16,13 @@ const BLOXLINK_LOOKUP_DELAY_MS = Math.max(0, Number.parseInt(process.env.BLOXLIN
 const BLOXLINK_RATE_LIMIT_BACKOFF_MS = Math.max(60 * 1000, Number.parseInt(process.env.BLOXLINK_RATE_LIMIT_BACKOFF_MS || '300000', 10) || 300000);
 const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
+const DISCORD_ROLE_REQUEST_DELAY_MS = Math.max(0, Number.parseInt(process.env.DISCORD_ROLE_REQUEST_DELAY_MS || '500', 10) || 500);
 
 let lastSyncAtByGuildId = new Map();
 let bloxlinkLookupCache = new Map();
 let bloxlinkLookupCursorByGuildId = new Map();
 let bloxlinkRateLimitedUntil = 0;
+let leaderboardSyncInFlightByGuildId = new Set();
 
 function getLeaderboardRoleControl(control) {
     const leaderboardRole = control && control.leaderboardRole && typeof control.leaderboardRole === 'object'
@@ -397,10 +399,16 @@ async function discordRoleRequest(method, guildId, userId, roleId, reason) {
 
 async function addRoleToMember(guild, userId, roleId) {
     await discordRoleRequest('PUT', guild.id, userId, roleId, 'Top player on Coding Simulator 2 leaderboard');
+    if (DISCORD_ROLE_REQUEST_DELAY_MS > 0) {
+        await sleep(DISCORD_ROLE_REQUEST_DELAY_MS);
+    }
 }
 
 async function removeRoleFromMember(guild, userId, roleId) {
     await discordRoleRequest('DELETE', guild.id, userId, roleId, 'No longer in Coding Simulator 2 leaderboard top list');
+    if (DISCORD_ROLE_REQUEST_DELAY_MS > 0) {
+        await sleep(DISCORD_ROLE_REQUEST_DELAY_MS);
+    }
 }
 
 async function syncLeaderboardRoleForGuild(guild, control) {
@@ -415,6 +423,7 @@ async function syncLeaderboardRoleForGuild(guild, control) {
     const role = await ensureLeaderboardRole(guild, leaderboardRole);
     const topEntries = await fetchTopLeaderboardEntries(leaderboardRole);
     console.log(`[leaderboard-role] Read ${topEntries.length} top Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} from OrderedDataStore "${leaderboardRole.orderedDataStoreName}".`);
+    const topRobloxUserIds = new Set(topEntries.map((entry) => String(entry.robloxUserId)));
     const lookupEntries = getLookupBatch(guild.id, topEntries);
     if (lookupEntries.length < topEntries.length) {
         console.log(`[leaderboard-role] Looking up ${lookupEntries.length}/${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} this cycle to respect Bloxlink rate limits.`);
@@ -458,6 +467,8 @@ async function syncLeaderboardRoleForGuild(guild, control) {
     const existingAssignments = await getExistingAssignments(guild.id);
     let addedOrConfirmedCount = 0;
     let failedAddCount = 0;
+    let removedCount = 0;
+    let failedRemoveCount = 0;
 
     for (const [userId, desired] of desiredByUserId.entries()) {
         try {
@@ -471,17 +482,24 @@ async function syncLeaderboardRoleForGuild(guild, control) {
     }
 
     for (const assignment of existingAssignments) {
-        if (desiredByUserId.has(assignment.userId)) {
+        if (topRobloxUserIds.has(String(assignment.robloxUserId))) {
             continue;
         }
 
-        await removeRoleFromMember(guild, assignment.userId, assignment.roleId || role.id).catch((error) => {
+        let removed = false;
+        await removeRoleFromMember(guild, assignment.userId, assignment.roleId || role.id).then(() => {
+            removed = true;
+        }).catch((error) => {
+            failedRemoveCount += 1;
             console.error(`[leaderboard-role] Failed to remove role from ${assignment.userId}:`, error);
         });
-        await deleteAssignment(guild.id, assignment.userId);
+        if (removed) {
+            removedCount += 1;
+            await deleteAssignment(guild.id, assignment.userId);
+        }
     }
 
-    console.log(`[leaderboard-role] Synced ${addedOrConfirmedCount} Discord member(s) for ${guild.name}. Failed adds: ${failedAddCount}.`);
+    console.log(`[leaderboard-role] Synced ${addedOrConfirmedCount} Discord member(s) for ${guild.name}. Failed adds: ${failedAddCount}. Removed: ${removedCount}. Failed removes: ${failedRemoveCount}.`);
 }
 
 async function syncLeaderboardRoleIfNeeded(client, control, options) {
@@ -502,14 +520,23 @@ async function syncLeaderboardRoleIfNeeded(client, control, options) {
     }
 
     for (const guild of targetGuilds) {
+        if (leaderboardSyncInFlightByGuildId.has(guild.id)) {
+            continue;
+        }
+
         const lastSync = lastSyncAtByGuildId.get(guild.id) || 0;
         const intervalMs = leaderboardRole.syncIntervalMinutes * 60 * 1000;
         if (!force && now - lastSync < intervalMs) {
             continue;
         }
 
-        await syncLeaderboardRoleForGuild(guild, control);
-        lastSyncAtByGuildId.set(guild.id, Date.now());
+        leaderboardSyncInFlightByGuildId.add(guild.id);
+        try {
+            await syncLeaderboardRoleForGuild(guild, control);
+            lastSyncAtByGuildId.set(guild.id, Date.now());
+        } finally {
+            leaderboardSyncInFlightByGuildId.delete(guild.id);
+        }
     }
 }
 
@@ -518,6 +545,7 @@ function resetLeaderboardRoleSyncState() {
     bloxlinkLookupCache = new Map();
     bloxlinkLookupCursorByGuildId = new Map();
     bloxlinkRateLimitedUntil = 0;
+    leaderboardSyncInFlightByGuildId = new Set();
 }
 
 module.exports = {
