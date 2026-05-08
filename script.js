@@ -2108,13 +2108,18 @@ function renderDiscordBotControl(control, options) {
     const preserveBugPayoutsForm = Boolean(options && options.preserveBugPayoutsForm);
     const preserveLevelSystemForm = Boolean(options && options.preserveLevelSystemForm);
     const preserveLeaderboardRoleForm = Boolean(options && options.preserveLeaderboardRoleForm);
+    const preserveLookupData = Boolean(options && options.preserveLookupData);
     const startupSyncControl = getDiscordStartupSyncControl(control);
     const ticketSystemControl = getDiscordTicketSystemControl(control);
     const bugPayoutsControl = getDiscordBugPayoutsControl(control);
     const levelSystemControl = getDiscordLevelSystemControl(control);
     const leaderboardRoleControl = getDiscordLeaderboardRoleControl(control);
-    const requestedChannelLookup = getDiscordChannelLookup(options);
-    const requestedRoleLookup = getDiscordRoleLookup(options);
+    const requestedChannelLookup = preserveLookupData
+        ? discordChannelLookupState
+        : getDiscordChannelLookup(options);
+    const requestedRoleLookup = preserveLookupData
+        ? discordRoleLookupState
+        : getDiscordRoleLookup(options);
     const shouldKeepExistingChannelLookup = !requestedChannelLookup.channels.length
         && Array.isArray(discordChannelLookupState.channels)
         && discordChannelLookupState.channels.length > 0;
@@ -2722,8 +2727,7 @@ async function initDiscordBotDashboard() {
                 preserveBugPayoutsForm: dashboard.dataset.bugPayoutsDirty === 'true',
                 preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
                 preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
-                channelLookup: control.channelLookup,
-                roleLookup: control.roleLookup
+                preserveLookupData: true
             });
             setDiscordBotStatusMessage('', 'info');
         } catch (error) {
