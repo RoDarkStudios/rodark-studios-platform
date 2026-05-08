@@ -150,22 +150,26 @@ function memberCanAddBugPayout(member, allowedRoleIds) {
         && member.roles.cache.some((role) => role && allowedRoleIdSet.has(String(role.id)));
 }
 
-function formatDiscordTimestamp(date) {
-    const seconds = Math.floor(date.getTime() / 1000);
-    return `<t:${seconds}:f>`;
-}
-
 function formatSeverity(value) {
     const normalizedValue = String(value || '').trim().toLowerCase();
     return normalizedValue ? normalizedValue[0].toUpperCase() + normalizedValue.slice(1) : 'Unknown';
 }
 
+function getRobuxEmoji(guild) {
+    const emoji = guild
+        && guild.emojis
+        && guild.emojis.cache
+        && guild.emojis.cache.find((candidate) => candidate && candidate.name === 'Robux');
+
+    return emoji ? emoji.toString() : 'Robux';
+}
+
 function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescription) {
-    const createdAt = new Date();
+    const robuxEmoji = getRobuxEmoji(interaction.guild);
     return new EmbedBuilder()
         .setTitle('Pending Bug Payout')
         .setColor(PAYOUT_EMBED_COLOR)
-        .setDescription('One bug payout entry is pending.')
+        .setDescription(`${robuxEmoji} One bug payout entry is pending.`)
         .addFields(
             {
                 name: 'Tester',
@@ -174,7 +178,7 @@ function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescri
             },
             {
                 name: 'Robux',
-                value: `**${Number(robux).toLocaleString('en-US')}**`,
+                value: `${robuxEmoji} **${Number(robux).toLocaleString('en-US')}**`,
                 inline: true
             },
             {
@@ -191,14 +195,8 @@ function buildBugPayoutEmbed(interaction, targetUser, severity, robux, bugDescri
                 name: 'Bug',
                 value: String(bugDescription),
                 inline: false
-            },
-            {
-                name: 'Created',
-                value: formatDiscordTimestamp(createdAt),
-                inline: false
             }
-        )
-        .setTimestamp(createdAt);
+        );
 }
 
 async function replyToPayoutInteraction(interaction, content) {
