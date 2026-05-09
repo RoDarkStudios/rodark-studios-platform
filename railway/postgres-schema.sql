@@ -20,6 +20,7 @@ create table if not exists discord_bot_control (
     content_roles_channel_id text,
     content_staff_info_channel_id text,
     content_game_test_info_channel_id text,
+    game_updates_channel_id text,
     tickets_category_channel_id text,
     tickets_panel_channel_id text,
     tickets_panel_message_id text,

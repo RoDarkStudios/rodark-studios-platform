@@ -68,6 +68,9 @@
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-levels">
                                         Levels
                                     </button>
+                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-updates">
+                                        Updates
+                                    </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-leaderboard">
                                         Leaderboard
                                     </button>
@@ -320,6 +323,66 @@
                                     <button id="discord-level-system-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
                                         Save level settings
                                     </button>
+                                </section>
+
+                                <section id="discord-tab-updates" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-game-updates-title" hidden>
+                                    <div class="admin-discord-feature-head">
+                                        <div>
+                                            <h2 id="discord-game-updates-title" class="admin-tool-title">Game Updates</h2>
+                                            <p class="admin-tool-note">
+                                                Send structured game update announcements to one selected channel.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="admin-discord-field-grid">
+                                        <label class="admin-field">
+                                            <span class="admin-label">Game Updates Channel</span>
+                                            <input
+                                                id="discord-game-updates-channel-id"
+                                                class="admin-input"
+                                                type="text"
+                                                autocomplete="off"
+                                                list="discord-text-channel-options"
+                                                placeholder="Search Discord channels"
+                                            >
+                                        </label>
+
+                                        <label class="admin-field">
+                                            <span class="admin-label">Announcement Title</span>
+                                            <input
+                                                id="discord-game-update-title"
+                                                class="admin-input"
+                                                type="text"
+                                                maxlength="120"
+                                                autocomplete="off"
+                                                placeholder="Update title"
+                                            >
+                                        </label>
+                                    </div>
+
+                                    <label class="admin-field admin-discord-announcement-body">
+                                        <span class="admin-label">Announcement Body</span>
+                                        <textarea
+                                            id="discord-game-update-body"
+                                            class="admin-textarea"
+                                            maxlength="3500"
+                                            placeholder="What changed in this update?"
+                                        ></textarea>
+                                    </label>
+
+                                    <p class="admin-tool-note">
+                                        The dashboard adds the production Play now link automatically and the bot reacts with five preset emojis.
+                                    </p>
+
+                                    <div class="admin-inline-actions">
+                                        <button id="discord-game-updates-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
+                                            Save updates channel
+                                        </button>
+                                        <button id="discord-game-update-send-btn" class="btn btn-primary admin-submit-btn" type="button" disabled>
+                                            Send update announcement
+                                        </button>
+                                    </div>
                                 </section>
 
                                 <section id="discord-tab-leaderboard" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-leaderboard-role-title" hidden>

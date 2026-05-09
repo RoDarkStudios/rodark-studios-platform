@@ -1389,6 +1389,10 @@ body {
     margin-top: 0.9rem;
 }
 
+.admin-discord-announcement-body {
+    margin-top: 0.9rem;
+}
+
 .admin-selected-list {
     display: flex;
     flex-wrap: wrap;

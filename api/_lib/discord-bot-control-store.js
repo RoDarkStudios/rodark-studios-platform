@@ -234,6 +234,7 @@ async function ensureDiscordBotControlSchema() {
             content_roles_channel_id text,
             content_staff_info_channel_id text,
             content_game_test_info_channel_id text,
+            game_updates_channel_id text,
             tickets_category_channel_id text,
             tickets_panel_channel_id text,
             tickets_panel_message_id text,
@@ -289,6 +290,11 @@ async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         alter table discord_bot_control
         add column if not exists content_game_test_info_channel_id text
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists game_updates_channel_id text
     `);
 
     await postgresQuery(`
@@ -534,6 +540,9 @@ function mapRowToDiscordBotControl(row) {
             staffInfoChannelId: row.content_staff_info_channel_id ? String(row.content_staff_info_channel_id) : null,
             gameTestInfoChannelId: row.content_game_test_info_channel_id ? String(row.content_game_test_info_channel_id) : null
         },
+        gameUpdates: {
+            channelId: row.game_updates_channel_id ? String(row.game_updates_channel_id) : null
+        },
         ticketSystem: {
             categoryChannelId: row.tickets_category_channel_id ? String(row.tickets_category_channel_id) : null,
             panelChannelId: row.tickets_panel_channel_id ? String(row.tickets_panel_channel_id) : null,
@@ -584,6 +593,7 @@ async function getDiscordBotControl() {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
+            game_updates_channel_id,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -651,6 +661,11 @@ async function updateDiscordBotControl(patch, user) {
         ? normalizeOptionalSnowflake(patch.contentGameTestInfoChannelId, 'Game test info channel ID')
         : (currentControl.startupContentSync && currentControl.startupContentSync.gameTestInfoChannelId
             ? String(currentControl.startupContentSync.gameTestInfoChannelId)
+            : null);
+    const gameUpdatesChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'gameUpdatesChannelId')
+        ? normalizeOptionalSnowflake(patch.gameUpdatesChannelId, 'Game updates channel ID')
+        : (currentControl.gameUpdates && currentControl.gameUpdates.channelId
+            ? String(currentControl.gameUpdates.channelId)
             : null);
     const ticketsCategoryChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'ticketsCategoryChannelId')
         ? normalizeOptionalSnowflake(patch.ticketsCategoryChannelId, 'Tickets category ID')
@@ -728,6 +743,7 @@ async function updateDiscordBotControl(patch, user) {
             content_roles_channel_id = $6,
             content_staff_info_channel_id = $7,
             content_game_test_info_channel_id = $8,
+            game_updates_channel_id = $32,
             tickets_category_channel_id = $9,
             tickets_panel_channel_id = $10,
             tickets_helper_role_ids = $11,
@@ -786,6 +802,7 @@ async function updateDiscordBotControl(patch, user) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
+            game_updates_channel_id,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -838,7 +855,8 @@ async function updateDiscordBotControl(patch, user) {
         leaderboardRoleIconClear,
         leaderboardRoleIconUpload ? leaderboardRoleIconUpload.contentType : null,
         leaderboardRoleIconUpload ? leaderboardRoleIconUpload.data : null,
-        leaderboardRoleIconUpload ? leaderboardRoleIconUpload.sha256 : null
+        leaderboardRoleIconUpload ? leaderboardRoleIconUpload.sha256 : null,
+        gameUpdatesChannelId
     ]);
 
     return mapRowToDiscordBotControl(result.rows[0]);
@@ -865,6 +883,7 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
+            game_updates_channel_id,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -918,6 +937,7 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
+            game_updates_channel_id,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -969,6 +989,7 @@ async function setDiscordLeaderboardRoleId(roleId) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
+            game_updates_channel_id,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,

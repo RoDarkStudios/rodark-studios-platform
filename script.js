@@ -1620,6 +1620,18 @@ function getDiscordLevelSystemControl(control) {
     };
 }
 
+function getDiscordGameUpdatesControl(control) {
+    if (!control || typeof control !== 'object' || !control.gameUpdates || typeof control.gameUpdates !== 'object') {
+        return {
+            channelId: ''
+        };
+    }
+
+    return {
+        channelId: control.gameUpdates.channelId ? String(control.gameUpdates.channelId) : ''
+    };
+}
+
 function getDiscordLeaderboardRoleControl(control) {
     const defaults = {
         enabled: false,
@@ -2065,6 +2077,9 @@ function renderDiscordBotControl(control, options) {
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
+    const gameUpdatesChannelInput = document.getElementById('discord-game-updates-channel-id');
+    const gameUpdatesSaveButton = document.getElementById('discord-game-updates-save-btn');
+    const gameUpdateSendButton = document.getElementById('discord-game-update-send-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
     const leaderboardRoleHoistInput = document.getElementById('discord-leaderboard-role-hoist');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
@@ -2082,11 +2097,13 @@ function renderDiscordBotControl(control, options) {
     const preserveStartupSyncForm = Boolean(options && options.preserveStartupSyncForm);
     const preserveTicketSystemForm = Boolean(options && options.preserveTicketSystemForm);
     const preserveLevelSystemForm = Boolean(options && options.preserveLevelSystemForm);
+    const preserveGameUpdatesForm = Boolean(options && options.preserveGameUpdatesForm);
     const preserveLeaderboardRoleForm = Boolean(options && options.preserveLeaderboardRoleForm);
     const preserveLookupData = Boolean(options && options.preserveLookupData);
     const startupSyncControl = getDiscordStartupSyncControl(control);
     const ticketSystemControl = getDiscordTicketSystemControl(control);
     const levelSystemControl = getDiscordLevelSystemControl(control);
+    const gameUpdatesControl = getDiscordGameUpdatesControl(control);
     const leaderboardRoleControl = getDiscordLeaderboardRoleControl(control);
     const requestedChannelLookup = preserveLookupData
         ? discordChannelLookupState
@@ -2195,6 +2212,15 @@ function renderDiscordBotControl(control, options) {
     }
     if (levelSystemSaveButton) {
         levelSystemSaveButton.disabled = false;
+    }
+    if (!preserveGameUpdatesForm && gameUpdatesChannelInput) {
+        setDiscordChannelInputDisplayValue(gameUpdatesChannelInput, gameUpdatesControl.channelId, channelMaps);
+    }
+    if (gameUpdatesSaveButton) {
+        gameUpdatesSaveButton.disabled = false;
+    }
+    if (gameUpdateSendButton) {
+        gameUpdateSendButton.disabled = false;
     }
     if (!preserveLeaderboardRoleForm && leaderboardRoleEnabledInput) {
         leaderboardRoleEnabledInput.checked = leaderboardRoleControl.enabled;
@@ -2379,6 +2405,38 @@ async function saveDiscordLevelSystemConfig(config) {
         control: payload.control || null,
         channelLookup: getDiscordChannelLookup(payload),
         roleLookup: getDiscordRoleLookup(payload)
+    };
+}
+
+async function saveDiscordGameUpdatesConfig(config) {
+    const payload = await postJson('/api/admin/discord-bot-control', {
+        gameUpdates: {
+            channelId: config && config.channelId ? String(config.channelId).trim() : ''
+        }
+    });
+
+    return {
+        control: payload.control || null,
+        channelLookup: getDiscordChannelLookup(payload),
+        roleLookup: getDiscordRoleLookup(payload)
+    };
+}
+
+async function sendDiscordGameUpdateAnnouncement(config) {
+    const payload = await postJson('/api/admin/discord-bot-control', {
+        operation: 'game-update:send',
+        gameUpdateAnnouncement: {
+            channelId: config && config.channelId ? String(config.channelId).trim() : '',
+            title: config && config.title ? String(config.title).trim() : '',
+            body: config && config.body ? String(config.body).trim() : ''
+        }
+    });
+
+    return {
+        control: payload.control || null,
+        channelLookup: getDiscordChannelLookup(payload),
+        roleLookup: getDiscordRoleLookup(payload),
+        announcement: payload.announcement || null
     };
 }
 
@@ -2595,6 +2653,11 @@ async function initDiscordBotDashboard() {
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
+    const gameUpdatesChannelInput = document.getElementById('discord-game-updates-channel-id');
+    const gameUpdatesSaveButton = document.getElementById('discord-game-updates-save-btn');
+    const gameUpdateTitleInput = document.getElementById('discord-game-update-title');
+    const gameUpdateBodyInput = document.getElementById('discord-game-update-body');
+    const gameUpdateSendButton = document.getElementById('discord-game-update-send-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
     const leaderboardRoleHoistInput = document.getElementById('discord-leaderboard-role-hoist');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
@@ -2628,6 +2691,7 @@ async function initDiscordBotDashboard() {
     dashboard.dataset.startupSyncDirty = 'false';
     dashboard.dataset.ticketSystemDirty = 'false';
     dashboard.dataset.levelSystemDirty = 'false';
+    dashboard.dataset.gameUpdatesDirty = 'false';
     dashboard.dataset.leaderboardRoleDirty = 'false';
     let currentTicketTranscriptId = '';
     let currentTicketTranscripts = [];
@@ -2661,6 +2725,7 @@ async function initDiscordBotDashboard() {
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
                 preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
                 preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
+                preserveGameUpdatesForm: dashboard.dataset.gameUpdatesDirty === 'true',
                 preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
                 preserveLookupData: true
             });
@@ -2680,6 +2745,12 @@ async function initDiscordBotDashboard() {
             }
             if (levelSystemSaveButton) {
                 levelSystemSaveButton.disabled = true;
+            }
+            if (gameUpdatesSaveButton) {
+                gameUpdatesSaveButton.disabled = true;
+            }
+            if (gameUpdateSendButton) {
+                gameUpdateSendButton.disabled = true;
             }
             if (leaderboardRoleSaveButton) {
                 leaderboardRoleSaveButton.disabled = true;
@@ -2703,6 +2774,7 @@ async function initDiscordBotDashboard() {
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
                 preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
                 preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
+                preserveGameUpdatesForm: dashboard.dataset.gameUpdatesDirty === 'true',
                 preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
                 channelLookup: control.channelLookup,
                 roleLookup: control.roleLookup
@@ -2794,6 +2866,10 @@ async function initDiscordBotDashboard() {
         dashboard.dataset.levelSystemDirty = 'true';
     }
 
+    function markGameUpdatesFormDirty() {
+        dashboard.dataset.gameUpdatesDirty = 'true';
+    }
+
     function markLeaderboardRoleFormDirty() {
         dashboard.dataset.leaderboardRoleDirty = 'true';
     }
@@ -2860,6 +2936,9 @@ async function initDiscordBotDashboard() {
     if (levelAttachmentUnlockLevelInput) {
         levelAttachmentUnlockLevelInput.addEventListener('change', markLevelSystemFormDirty);
     }
+    if (gameUpdatesChannelInput) {
+        gameUpdatesChannelInput.addEventListener('input', markGameUpdatesFormDirty);
+    }
     if (leaderboardRoleEnabledInput) {
         leaderboardRoleEnabledInput.addEventListener('change', markLeaderboardRoleFormDirty);
     }
@@ -2871,9 +2950,6 @@ async function initDiscordBotDashboard() {
     }
     if (leaderboardTopSizeInput) {
         leaderboardTopSizeInput.addEventListener('input', markLeaderboardRoleFormDirty);
-    }
-    if (leaderboardSyncIntervalInput) {
-        leaderboardSyncIntervalInput.addEventListener('input', markLeaderboardRoleFormDirty);
     }
     if (leaderboardRoleNameInput) {
         leaderboardRoleNameInput.addEventListener('input', markLeaderboardRoleFormDirty);
@@ -2919,6 +2995,7 @@ async function initDiscordBotDashboard() {
     bindDiscordChannelAutocompleteInput(ticketCategoryChannelInput, getCurrentDiscordCategoryMaps);
     bindDiscordChannelAutocompleteInput(ticketPanelChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(levelAnnouncementChannelInput, getCurrentDiscordChannelMaps);
+    bindDiscordChannelAutocompleteInput(gameUpdatesChannelInput, getCurrentDiscordChannelMaps);
 
     if (ticketHelperRoleAddButton) {
         ticketHelperRoleAddButton.addEventListener('click', () => {
@@ -3048,6 +3125,64 @@ async function initDiscordBotDashboard() {
             } catch (error) {
                 levelSystemSaveButton.disabled = false;
                 setDiscordBotStatusMessage(error.message || 'Failed to save level settings.', 'error');
+            }
+        });
+    }
+
+    if (gameUpdatesSaveButton) {
+        gameUpdatesSaveButton.addEventListener('click', async () => {
+            gameUpdatesSaveButton.disabled = true;
+            setDiscordBotStatusMessage('Saving game updates channel...', 'info');
+
+            try {
+                const control = await saveDiscordGameUpdatesConfig({
+                    channelId: gameUpdatesChannelInput ? resolveDiscordChannelInputValue(gameUpdatesChannelInput, getCurrentDiscordChannelMaps()) : ''
+                });
+                dashboard.dataset.gameUpdatesDirty = 'false';
+                renderDiscordBotControl(control.control, {
+                    channelLookup: control.channelLookup,
+                    roleLookup: control.roleLookup
+                });
+                setDiscordBotStatusMessage('Game updates channel saved.', 'success');
+            } catch (error) {
+                gameUpdatesSaveButton.disabled = false;
+                setDiscordBotStatusMessage(error.message || 'Failed to save game updates channel.', 'error');
+            }
+        });
+    }
+
+    if (gameUpdateSendButton) {
+        gameUpdateSendButton.addEventListener('click', async () => {
+            gameUpdateSendButton.disabled = true;
+            setDiscordBotStatusMessage('Sending game update announcement...', 'info');
+
+            try {
+                const control = await sendDiscordGameUpdateAnnouncement({
+                    channelId: gameUpdatesChannelInput ? resolveDiscordChannelInputValue(gameUpdatesChannelInput, getCurrentDiscordChannelMaps()) : '',
+                    title: gameUpdateTitleInput ? gameUpdateTitleInput.value : '',
+                    body: gameUpdateBodyInput ? gameUpdateBodyInput.value : ''
+                });
+                dashboard.dataset.gameUpdatesDirty = 'false';
+                if (gameUpdateTitleInput) {
+                    gameUpdateTitleInput.value = '';
+                }
+                if (gameUpdateBodyInput) {
+                    gameUpdateBodyInput.value = '';
+                }
+                renderDiscordBotControl(control.control, {
+                    channelLookup: control.channelLookup,
+                    roleLookup: control.roleLookup
+                });
+                const announcement = control.announcement || {};
+                const channelLabel = announcement.channelName ? `#${announcement.channelName}` : 'the selected channel';
+                const messageUrl = announcement.messageUrl ? ` ${announcement.messageUrl}` : '';
+                setDiscordBotStatusMessage(`Game update announcement sent to ${channelLabel}.${messageUrl}`, 'success');
+            } catch (error) {
+                gameUpdateSendButton.disabled = false;
+                const detail = error && error.data && error.data.details
+                    ? String(error.data.details)
+                    : '';
+                setDiscordBotStatusMessage(detail || error.message || 'Failed to send game update announcement.', 'error');
             }
         });
     }

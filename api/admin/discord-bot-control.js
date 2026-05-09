@@ -4,6 +4,7 @@ const {
     getDiscordBotControl,
     updateDiscordBotControl
 } = require('../_lib/discord-bot-control-store');
+const { getStoredGameConfig } = require('../_lib/admin-game-config-store');
 const {
     getDiscordTicketTranscript,
     listDiscordTicketTranscripts
@@ -13,21 +14,29 @@ const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const CHANNEL_LOOKUP_CACHE_TTL_MS = 60 * 1000;
 const DISCORD_LOOKUP_TIMEOUT_MS = Number.parseInt(process.env.DISCORD_LOOKUP_TIMEOUT_MS || '5000', 10);
+const DISCORD_ANNOUNCEMENT_REACTIONS = ['🔥', '🎉', '👀', '❤️', '💯'];
+const DISCORD_ADD_REACTIONS_PERMISSION = 1n << 6n;
+const MAX_ANNOUNCEMENT_TITLE_LENGTH = 120;
+const MAX_ANNOUNCEMENT_BODY_LENGTH = 3500;
 const channelLookupCache = new Map();
 const channelLookupInflight = new Map();
 const roleLookupCache = new Map();
 const roleLookupInflight = new Map();
 
-async function discordApiGet(pathname) {
+async function discordApiRequest(pathname, options) {
     if (!DISCORD_BOT_TOKEN) {
-        throw new Error('DISCORD_BOT_TOKEN is not configured for Discord channel lookup');
+        throw new Error('DISCORD_BOT_TOKEN is not configured for Discord bot actions');
     }
 
+    const settings = options || {};
     const response = await fetch(`${DISCORD_API_BASE_URL}${pathname}`, {
-        method: 'GET',
+        method: settings.method || 'GET',
         headers: {
-            Authorization: `Bot ${DISCORD_BOT_TOKEN}`
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+            ...(settings.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(settings.headers || {})
         },
+        body: settings.body ? JSON.stringify(settings.body) : undefined,
         signal: AbortSignal.timeout(Number.isFinite(DISCORD_LOOKUP_TIMEOUT_MS) && DISCORD_LOOKUP_TIMEOUT_MS >= 1000
             ? DISCORD_LOOKUP_TIMEOUT_MS
             : 5000)
@@ -41,6 +50,24 @@ async function discordApiGet(pathname) {
     return payload;
 }
 
+async function discordApiGet(pathname) {
+    return discordApiRequest(pathname);
+}
+
+async function discordApiPut(pathname, body) {
+    return discordApiRequest(pathname, {
+        method: 'PUT',
+        body
+    });
+}
+
+async function discordApiPost(pathname, body) {
+    return discordApiRequest(pathname, {
+        method: 'POST',
+        body
+    });
+}
+
 function getGuildDiscoveryChannelIds(control) {
     const startup = control && control.startupContentSync && typeof control.startupContentSync === 'object'
         ? control.startupContentSync
@@ -52,6 +79,7 @@ function getGuildDiscoveryChannelIds(control) {
         startup.rolesChannelId,
         startup.staffInfoChannelId,
         startup.gameTestInfoChannelId,
+        control && control.gameUpdates ? control.gameUpdates.channelId : null,
         control && control.ticketSystem ? control.ticketSystem.categoryChannelId : null,
         control && control.ticketSystem ? control.ticketSystem.panelChannelId : null,
         control && control.levelSystem ? control.levelSystem.announcementChannelId : null
@@ -279,6 +307,198 @@ async function getDiscordLookupPayload(control) {
     };
 }
 
+function parseDiscordSnowflake(value, fieldName) {
+    const trimmed = String(value || '').trim();
+    if (!/^\d{5,25}$/.test(trimmed)) {
+        throw new Error(`${fieldName} must be a valid Discord ID`);
+    }
+
+    return trimmed;
+}
+
+function normalizeAnnouncementText(value, fieldName, maxLength) {
+    const normalized = String(value || '').replace(/\r\n/g, '\n').trim();
+    if (!normalized) {
+        throw new Error(`${fieldName} is required`);
+    }
+
+    if (normalized.length > maxLength) {
+        throw new Error(`${fieldName} must be ${maxLength} characters or fewer`);
+    }
+
+    return normalized;
+}
+
+function stripTrailingPlayNow(value) {
+    return String(value || '')
+        .replace(/\n{0,3}\s*(?:\*\*)?Play now(?:\*\*)?\s*:?\s+https?:\/\/\S+\s*$/i, '')
+        .trim();
+}
+
+async function fetchProductionGameLink() {
+    const gameConfig = await getStoredGameConfig();
+    const universeId = Number(gameConfig && gameConfig.productionUniverseId);
+    if (!Number.isFinite(universeId) || universeId <= 0) {
+        throw new Error('Production universe ID is not configured');
+    }
+
+    const endpoint = new URL('https://games.roblox.com/v1/games');
+    endpoint.searchParams.set('universeIds', String(universeId));
+    const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json'
+        },
+        signal: AbortSignal.timeout(8000)
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(`Roblox game lookup failed (${response.status})`);
+    }
+
+    const row = Array.isArray(payload && payload.data) ? payload.data[0] : null;
+    const rootPlaceId = Number(row && row.rootPlaceId);
+    if (!Number.isFinite(rootPlaceId) || rootPlaceId <= 0) {
+        throw new Error('Production game root place ID was not returned by Roblox');
+    }
+
+    return {
+        universeId,
+        rootPlaceId,
+        name: row && row.name ? String(row.name) : 'Production game',
+        url: `https://www.roblox.com/games/${encodeURIComponent(String(rootPlaceId))}`
+    };
+}
+
+function applyAddReactionsDeny(channel) {
+    const guildId = channel && channel.guild_id ? String(channel.guild_id) : '';
+    const overwrites = Array.isArray(channel && channel.permission_overwrites)
+        ? channel.permission_overwrites
+        : [];
+    const everyoneOverwrite = overwrites.find((overwrite) => {
+        return String(overwrite && overwrite.id) === guildId && Number(overwrite && overwrite.type) === 0;
+    }) || {};
+    const currentAllow = BigInt(String(everyoneOverwrite.allow || '0'));
+    const currentDeny = BigInt(String(everyoneOverwrite.deny || '0'));
+    const nextAllow = currentAllow & ~DISCORD_ADD_REACTIONS_PERMISSION;
+    const nextDeny = currentDeny | DISCORD_ADD_REACTIONS_PERMISSION;
+
+    return {
+        changed: nextAllow !== currentAllow || nextDeny !== currentDeny,
+        allow: nextAllow.toString(),
+        deny: nextDeny.toString()
+    };
+}
+
+async function ensureGameUpdatesChannelReactionPolicy(channelId) {
+    const channel = await discordApiGet(`/channels/${encodeURIComponent(channelId)}`);
+    const channelType = Number(channel && channel.type);
+    if (![0, 5].includes(channelType)) {
+        throw new Error('Game updates channel must be a Discord text or announcement channel');
+    }
+
+    const guildId = channel && channel.guild_id ? String(channel.guild_id) : '';
+    if (!guildId) {
+        throw new Error('Game updates channel must belong to a Discord server');
+    }
+
+    const permissionUpdate = applyAddReactionsDeny(channel);
+    if (permissionUpdate.changed) {
+        await discordApiPut(`/channels/${encodeURIComponent(channelId)}/permissions/${encodeURIComponent(guildId)}`, {
+            type: 0,
+            allow: permissionUpdate.allow,
+            deny: permissionUpdate.deny
+        });
+    }
+
+    return {
+        guildId,
+        channelName: channel && channel.name ? String(channel.name) : '',
+        reactionRestrictionApplied: true
+    };
+}
+
+async function addAnnouncementReactions(channelId, messageId) {
+    if (!messageId) {
+        throw new Error('Discord did not return an announcement message ID');
+    }
+
+    for (const emoji of DISCORD_ANNOUNCEMENT_REACTIONS) {
+        await discordApiPut(
+            `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}/@me`,
+            null
+        );
+    }
+}
+
+async function sendGameUpdateAnnouncement(body, user) {
+    const announcement = body && typeof body.gameUpdateAnnouncement === 'object' && body.gameUpdateAnnouncement
+        ? body.gameUpdateAnnouncement
+        : {};
+    const currentControl = await getDiscordBotControl();
+    const channelId = parseDiscordSnowflake(
+        announcement.channelId || (currentControl && currentControl.gameUpdates && currentControl.gameUpdates.channelId),
+        'Game updates channel ID'
+    );
+    const title = normalizeAnnouncementText(
+        announcement.title,
+        'Announcement title',
+        MAX_ANNOUNCEMENT_TITLE_LENGTH
+    );
+    const bodyText = stripTrailingPlayNow(normalizeAnnouncementText(
+        announcement.body,
+        'Announcement body',
+        MAX_ANNOUNCEMENT_BODY_LENGTH
+    ));
+    if (!bodyText) {
+        throw new Error('Announcement body is required');
+    }
+
+    const [playLink, channelPolicy] = await Promise.all([
+        fetchProductionGameLink(),
+        ensureGameUpdatesChannelReactionPolicy(channelId)
+    ]);
+    const description = `${bodyText}\n\n**Play now:** ${playLink.url}`;
+    if (description.length > 4096) {
+        throw new Error('Announcement body is too long once the Play now link is added');
+    }
+
+    const message = await discordApiPost(`/channels/${encodeURIComponent(channelId)}/messages`, {
+        embeds: [
+            {
+                title,
+                description,
+                color: 0xf97316,
+                timestamp: new Date().toISOString(),
+                footer: {
+                    text: 'RoDark Studios Game Update'
+                }
+            }
+        ],
+        allowed_mentions: {
+            parse: []
+        }
+    });
+
+    await addAnnouncementReactions(channelId, String(message && message.id));
+    const control = await updateDiscordBotControl({ gameUpdatesChannelId: channelId }, user);
+
+    return {
+        control,
+        announcement: {
+            channelId,
+            channelName: channelPolicy.channelName,
+            messageId: message && message.id ? String(message.id) : '',
+            messageUrl: `https://discord.com/channels/${channelPolicy.guildId}/${channelId}/${message && message.id ? String(message.id) : ''}`,
+            reactions: DISCORD_ANNOUNCEMENT_REACTIONS,
+            playUrl: playLink.url,
+            productionUniverseId: playLink.universeId,
+            productionRootPlaceId: playLink.rootPlaceId,
+            reactionRestrictionApplied: channelPolicy.reactionRestrictionApplied
+        }
+    };
+}
+
 module.exports = async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'POST') {
         return methodNotAllowed(req, res, ['GET', 'POST']);
@@ -332,8 +552,23 @@ module.exports = async (req, res) => {
         }
 
         const body = await readJsonBody(req);
+        const operation = String(body && body.operation ? body.operation : '').trim().toLowerCase();
+        if (operation === 'game-update:send') {
+            const payload = await sendGameUpdateAnnouncement(body, auth.user);
+            const { channelLookup, roleLookup } = await getDiscordLookupPayload(payload.control);
+            return sendJson(res, 200, {
+                control: payload.control,
+                channelLookup,
+                roleLookup,
+                announcement: payload.announcement
+            });
+        }
+
         const startupContentSync = body && typeof body.startupContentSync === 'object' && body.startupContentSync
             ? body.startupContentSync
+            : null;
+        const gameUpdates = body && typeof body.gameUpdates === 'object' && body.gameUpdates
+            ? body.gameUpdates
             : null;
         const ticketSystem = body && typeof body.ticketSystem === 'object' && body.ticketSystem
             ? body.ticketSystem
@@ -372,6 +607,10 @@ module.exports = async (req, res) => {
 
         if (startupContentSync && Object.prototype.hasOwnProperty.call(startupContentSync, 'gameTestInfoChannelId')) {
             patch.contentGameTestInfoChannelId = startupContentSync.gameTestInfoChannelId;
+        }
+
+        if (gameUpdates && Object.prototype.hasOwnProperty.call(gameUpdates, 'channelId')) {
+            patch.gameUpdatesChannelId = gameUpdates.channelId;
         }
 
         if (ticketSystem && Object.prototype.hasOwnProperty.call(ticketSystem, 'categoryChannelId')) {
@@ -446,7 +685,7 @@ module.exports = async (req, res) => {
         const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });
     } catch (error) {
-        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard|role icon|uploaded image/i.test(String(error && error.message || ''))
+        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard|role icon|uploaded image|announcement|game updates channel|production universe/i.test(String(error && error.message || ''))
             ? 400
             : 500;
         return sendJson(res, statusCode, {
