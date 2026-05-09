@@ -2160,9 +2160,11 @@ function renderDiscordBotControl(control, options) {
     const textChannels = channelLookup.channels.filter((channel) => channel.type === 0 || channel.type === 5);
     const categoryChannels = channelLookup.channels.filter((channel) => channel.type === 4);
 
-    fillDiscordChannelDatalist('discord-text-channel-options', textChannels);
-    fillDiscordChannelDatalist('discord-category-channel-options', categoryChannels);
-    fillDiscordRoleDatalist('discord-role-options', roleLookup.roles);
+    if (!preserveLookupData) {
+        fillDiscordChannelDatalist('discord-text-channel-options', textChannels);
+        fillDiscordChannelDatalist('discord-category-channel-options', categoryChannels);
+        fillDiscordRoleDatalist('discord-role-options', roleLookup.roles);
+    }
 
     if (statusDot) {
         statusDot.className = `admin-discord-status-dot ${formatted.dotClass}`.trim();
@@ -2744,14 +2746,16 @@ async function initDiscordBotDashboard() {
 
     async function refreshControl() {
         try {
+            const activeElement = document.activeElement;
+            const isEditingDiscordForm = Boolean(activeElement && dashboard.contains(activeElement) && activeElement.matches('input, select, textarea'));
             const control = await fetchDiscordBotControl({ includeLookups: false });
             renderDiscordBotControl(control.control, {
-                preserveGuildForm: dashboard.dataset.guildDirty === 'true',
-                preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
-                preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
-                preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
-                preserveGameUpdatesForm: dashboard.dataset.gameUpdatesDirty === 'true',
-                preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
+                preserveGuildForm: isEditingDiscordForm || dashboard.dataset.guildDirty === 'true',
+                preserveStartupSyncForm: isEditingDiscordForm || dashboard.dataset.startupSyncDirty === 'true',
+                preserveTicketSystemForm: isEditingDiscordForm || dashboard.dataset.ticketSystemDirty === 'true',
+                preserveLevelSystemForm: isEditingDiscordForm || dashboard.dataset.levelSystemDirty === 'true',
+                preserveGameUpdatesForm: isEditingDiscordForm || dashboard.dataset.gameUpdatesDirty === 'true',
+                preserveLeaderboardRoleForm: isEditingDiscordForm || dashboard.dataset.leaderboardRoleDirty === 'true',
                 preserveLookupData: true
             });
             setDiscordBotStatusMessage('', 'info');
