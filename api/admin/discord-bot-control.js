@@ -18,6 +18,8 @@ const DISCORD_ANNOUNCEMENT_REACTIONS = ['🔥', '🎉', '👀', '❤️', '💯'
 const DISCORD_ADD_REACTIONS_PERMISSION = 1n << 6n;
 const MAX_ANNOUNCEMENT_TITLE_LENGTH = 120;
 const MAX_ANNOUNCEMENT_BODY_LENGTH = 3500;
+const DISCORD_REACTION_DELAY_MS = 350;
+const DISCORD_REACTION_MAX_ATTEMPTS = 4;
 const channelLookupCache = new Map();
 const channelLookupInflight = new Map();
 const roleLookupCache = new Map();
@@ -44,7 +46,10 @@ async function discordApiRequest(pathname, options) {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(payload && payload.message ? payload.message : `Discord API failed (${response.status})`);
+        const error = new Error(payload && payload.message ? payload.message : `Discord API failed (${response.status})`);
+        error.status = response.status;
+        error.payload = payload;
+        throw error;
     }
 
     return payload;
@@ -66,6 +71,10 @@ async function discordApiPost(pathname, body) {
         method: 'POST',
         body
     });
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getGuildDiscoveryChannelIds(control) {
@@ -423,12 +432,54 @@ async function addAnnouncementReactions(channelId, messageId) {
         throw new Error('Discord did not return an announcement message ID');
     }
 
+    const addedReactions = [];
+    const failedReactions = [];
     for (const emoji of DISCORD_ANNOUNCEMENT_REACTIONS) {
-        await discordApiPut(
-            `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}/@me`,
-            null
-        );
+        let added = false;
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= DISCORD_REACTION_MAX_ATTEMPTS; attempt += 1) {
+            try {
+                await discordApiPut(
+                    `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}/@me`,
+                    null
+                );
+                added = true;
+                addedReactions.push(emoji);
+                break;
+            } catch (error) {
+                lastError = error;
+                const retryAfterSeconds = Number(error && error.payload && error.payload.retry_after);
+                const retryAfterMs = Number.isFinite(retryAfterSeconds)
+                    ? Math.ceil(retryAfterSeconds * 1000)
+                    : 0;
+                const shouldRetry = Number(error && error.status) === 429 || attempt < 2;
+                if (!shouldRetry || attempt >= DISCORD_REACTION_MAX_ATTEMPTS) {
+                    break;
+                }
+
+                await sleep(Math.max(DISCORD_REACTION_DELAY_MS, Math.min(retryAfterMs || DISCORD_REACTION_DELAY_MS, 5000)));
+            }
+        }
+
+        if (!added) {
+            failedReactions.push({
+                emoji,
+                error: lastError && lastError.message ? String(lastError.message) : 'Unknown Discord reaction error'
+            });
+        }
+
+        await sleep(DISCORD_REACTION_DELAY_MS);
     }
+
+    if (failedReactions.length) {
+        console.warn('[discord-game-updates] Failed to add some announcement reactions:', failedReactions);
+    }
+
+    return {
+        addedReactions,
+        failedReactions
+    };
 }
 
 async function sendGameUpdateAnnouncement(body, user) {
@@ -480,7 +531,7 @@ async function sendGameUpdateAnnouncement(body, user) {
         }
     });
 
-    await addAnnouncementReactions(channelId, String(message && message.id));
+    const reactionResult = await addAnnouncementReactions(channelId, String(message && message.id));
     const control = await updateDiscordBotControl({ gameUpdatesChannelId: channelId }, user);
 
     return {
@@ -491,6 +542,8 @@ async function sendGameUpdateAnnouncement(body, user) {
             messageId: message && message.id ? String(message.id) : '',
             messageUrl: `https://discord.com/channels/${channelPolicy.guildId}/${channelId}/${message && message.id ? String(message.id) : ''}`,
             reactions: DISCORD_ANNOUNCEMENT_REACTIONS,
+            addedReactions: reactionResult.addedReactions,
+            failedReactions: reactionResult.failedReactions,
             playUrl: playLink.url,
             productionUniverseId: playLink.universeId,
             productionRootPlaceId: playLink.rootPlaceId,
