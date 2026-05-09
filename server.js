@@ -11,6 +11,7 @@ const verifyComplete = require('./api/verify/complete');
 const verifyDiscordCallback = require('./api/verify/discord-callback');
 const verifyDiscordLogin = require('./api/verify/discord-login');
 const verifyStatus = require('./api/verify/status');
+const verifyUnlink = require('./api/verify/unlink');
 const robloxAvatarHeadshot = require('./api/roblox/avatar-headshot');
 const robloxGameIcon = require('./api/roblox/game-icon');
 const robloxGames = require('./api/roblox/games');
@@ -83,6 +84,7 @@ const apiRoutes = {
     '/api/verify/discord/callback': verifyDiscordCallback,
     '/api/verify/discord/login': verifyDiscordLogin,
     '/api/verify/status': verifyStatus,
+    '/api/verify/unlink': verifyUnlink,
     '/api/roblox/avatar-headshot': robloxAvatarHeadshot,
     '/api/roblox/game-icon': robloxGameIcon,
     '/api/roblox/games': robloxGames,

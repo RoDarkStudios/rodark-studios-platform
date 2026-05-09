@@ -1944,6 +1944,33 @@ body {
     color: var(--text-secondary);
 }
 
+.verify-unlink-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.verify-unlink-btn:hover {
+    border-color: rgba(248, 113, 113, 0.5);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fca5a5;
+}
+
+.verify-unlink-btn[hidden] {
+    display: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .hamburger {

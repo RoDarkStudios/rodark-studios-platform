@@ -125,7 +125,34 @@ async function getDiscordIdsByRobloxUserIds(robloxUserIds) {
     return mapped;
 }
 
+async function deleteDiscordRobloxVerification({ robloxUserId, discordUserId }) {
+    const conditions = [];
+    const params = [];
+
+    if (robloxUserId) {
+        params.push(String(robloxUserId));
+        conditions.push(`roblox_user_id = $${params.length}`);
+    }
+    if (discordUserId) {
+        params.push(String(discordUserId));
+        conditions.push(`discord_user_id = $${params.length}`);
+    }
+
+    if (!conditions.length) {
+        return 0;
+    }
+
+    await ensureDiscordRobloxVerificationSchema();
+    const result = await postgresQuery(`
+        delete from discord_roblox_verifications
+        where ${conditions.join(' or ')}
+    `, params);
+
+    return Number(result.rowCount) || 0;
+}
+
 module.exports = {
+    deleteDiscordRobloxVerification,
     ensureDiscordRobloxVerificationSchema,
     getDiscordIdsByRobloxUserIds,
     getVerificationByDiscordUserId,

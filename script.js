@@ -216,6 +216,7 @@ function renderWebsiteVerifyStatus(status) {
     const discordButton = document.getElementById('verify-discord-btn');
     const robloxButton = document.getElementById('verify-roblox-btn');
     const completeButton = document.getElementById('verify-complete-btn');
+    const unlinkButton = document.getElementById('verify-unlink-btn');
     const result = document.getElementById('verify-result');
     if (!discordStatus || !robloxStatus || !result) {
         return;
@@ -256,6 +257,9 @@ function renderWebsiteVerifyStatus(status) {
         completeButton.disabled = !Boolean(status && status.canComplete);
         completeButton.hidden = Boolean(isCurrentVerified);
     }
+    if (unlinkButton) {
+        unlinkButton.hidden = !Boolean(isKnownVerified);
+    }
 
     if (isCurrentVerified) {
         result.textContent = `Verified: ${getVerifyDisplayName(discordUser)} is linked to @${robloxUser.username}. Leaderboard role sync will use this link on the next run.`;
@@ -277,8 +281,10 @@ async function initWebsiteVerifyPage() {
     const discordButton = document.getElementById('verify-discord-btn');
     const robloxButton = document.getElementById('verify-roblox-btn');
     const completeButton = document.getElementById('verify-complete-btn');
+    const unlinkButton = document.getElementById('verify-unlink-btn');
     const result = document.getElementById('verify-result');
     let completing = false;
+    let unlinking = false;
 
     async function completeVerification() {
         if (completing) {
@@ -332,6 +338,41 @@ async function initWebsiteVerifyPage() {
 
     if (completeButton) {
         completeButton.addEventListener('click', completeVerification);
+    }
+
+    if (unlinkButton) {
+        unlinkButton.addEventListener('click', async () => {
+            if (unlinking) {
+                return;
+            }
+
+            const confirmed = window.confirm('Unlink your Discord and Roblox accounts from RoDark Studios verification?');
+            if (!confirmed) {
+                return;
+            }
+
+            unlinking = true;
+            unlinkButton.disabled = true;
+            if (result) {
+                result.textContent = 'Unlinking accounts...';
+            }
+
+            try {
+                await postJson('/api/verify/unlink', {});
+                const nextStatus = await fetchWebsiteVerifyStatus();
+                renderWebsiteVerifyStatus(nextStatus);
+                if (result) {
+                    result.textContent = 'Accounts unlinked. Connect Discord and sign in with Roblox to verify again.';
+                }
+            } catch (error) {
+                if (result) {
+                    result.textContent = error.message || 'Failed to unlink accounts.';
+                }
+            } finally {
+                unlinking = false;
+                unlinkButton.disabled = false;
+            }
+        });
     }
 
     await refreshStatus();
