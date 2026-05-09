@@ -99,10 +99,10 @@ function setAuthUi(user) {
 
 async function fetchAdminStatus() {
     try {
-        const response = await fetch('/api/auth/admin', {
+        const response = await fetchWithTimeout('/api/auth/admin', {
             method: 'GET',
             credentials: 'include'
-        });
+        }, 8000);
 
         if (!response.ok) {
             return { isAdmin: false };
@@ -165,6 +165,22 @@ async function handleSignOut() {
     } finally {
         await refreshAuthUi();
         navSignoutBtn.disabled = false;
+    }
+}
+
+function setDiscordBotStatusCard(title, detail, dotClass) {
+    const statusDot = document.getElementById('discord-bot-status-dot');
+    const statusTitle = document.getElementById('discord-bot-status-title');
+    const statusDetail = document.getElementById('discord-bot-status-detail');
+
+    if (statusDot) {
+        statusDot.className = `admin-discord-status-dot ${dotClass || ''}`.trim();
+    }
+    if (statusTitle) {
+        statusTitle.textContent = title || 'Discord bot status';
+    }
+    if (statusDetail) {
+        statusDetail.textContent = detail || '';
     }
 }
 
@@ -2731,6 +2747,11 @@ async function initDiscordBotDashboard() {
             });
             setDiscordBotStatusMessage('', 'info');
         } catch (error) {
+            setDiscordBotStatusCard(
+                'Discord bot: unavailable',
+                error.message || 'Failed to load Discord bot status.',
+                'error'
+            );
             if (toggleButton) {
                 toggleButton.disabled = true;
             }
@@ -3592,7 +3613,17 @@ document.addEventListener('DOMContentLoaded', function() {
     initAdminDescriptionSyncTool();
     initAdminLiveConfigSyncTool();
     initAdminGameConfigTool();
-    initDiscordBotDashboard();
+    initDiscordBotDashboard().catch((error) => {
+        setDiscordBotStatusCard(
+            'Discord bot: unavailable',
+            error && error.message ? error.message : 'Failed to initialize Discord bot dashboard.',
+            'error'
+        );
+        setDiscordBotStatusMessage(
+            error && error.message ? error.message : 'Failed to initialize Discord bot dashboard.',
+            'error'
+        );
+    });
 
     // Calculate and display ages
     const myronAge = calculateAge('2008-05-31');
