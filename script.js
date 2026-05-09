@@ -1627,7 +1627,6 @@ function getDiscordLeaderboardRoleControl(control) {
         orderedDataStoreScope: 'global',
         keyPrefix: '',
         topSize: 100,
-        syncIntervalMinutes: 5,
         roleId: '',
         roleName: 'Leaderboard Player',
         hoist: false,
@@ -1641,7 +1640,6 @@ function getDiscordLeaderboardRoleControl(control) {
 
     const leaderboardRole = control.leaderboardRole;
     const topSize = Number.parseInt(leaderboardRole.topSize || '100', 10);
-    const syncIntervalMinutes = Number.parseInt(leaderboardRole.syncIntervalMinutes || '5', 10);
 
     return {
         enabled: Boolean(leaderboardRole.enabled),
@@ -1649,7 +1647,6 @@ function getDiscordLeaderboardRoleControl(control) {
         orderedDataStoreScope: leaderboardRole.orderedDataStoreScope ? String(leaderboardRole.orderedDataStoreScope) : 'global',
         keyPrefix: leaderboardRole.keyPrefix ? String(leaderboardRole.keyPrefix) : '',
         topSize: Number.isFinite(topSize) && topSize >= 1 && topSize <= 100 ? topSize : 100,
-        syncIntervalMinutes: Number.isFinite(syncIntervalMinutes) && syncIntervalMinutes >= 1 ? syncIntervalMinutes : 5,
         roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
         roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName) : 'Leaderboard Player',
         hoist: Boolean(leaderboardRole.hoist),
@@ -2072,7 +2069,6 @@ function renderDiscordBotControl(control, options) {
     const leaderboardRoleHoistInput = document.getElementById('discord-leaderboard-role-hoist');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
-    const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
     const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
     const leaderboardRoleIconInput = document.getElementById('discord-leaderboard-role-icon');
     const leaderboardRoleIconPreview = document.getElementById('discord-leaderboard-role-icon-preview');
@@ -2211,9 +2207,6 @@ function renderDiscordBotControl(control, options) {
     }
     if (!preserveLeaderboardRoleForm && leaderboardTopSizeInput) {
         leaderboardTopSizeInput.value = String(leaderboardRoleControl.topSize);
-    }
-    if (!preserveLeaderboardRoleForm && leaderboardSyncIntervalInput) {
-        leaderboardSyncIntervalInput.value = String(leaderboardRoleControl.syncIntervalMinutes);
     }
     if (!preserveLeaderboardRoleForm && leaderboardRoleNameInput) {
         leaderboardRoleNameInput.value = leaderboardRoleControl.roleName;
@@ -2396,7 +2389,6 @@ async function saveDiscordLeaderboardRoleConfig(config) {
         orderedDataStoreScope: config && config.orderedDataStoreScope ? String(config.orderedDataStoreScope).trim() : 'global',
         keyPrefix: config && config.keyPrefix ? String(config.keyPrefix).trim() : '',
         topSize: config && config.topSize ? Number.parseInt(config.topSize, 10) : 100,
-        syncIntervalMinutes: config && config.syncIntervalMinutes ? Number.parseInt(config.syncIntervalMinutes, 10) : 5,
         roleName: config && config.roleName ? String(config.roleName).trim() : 'Leaderboard Player',
         hoist: Boolean(config && config.hoist)
     };
@@ -2607,7 +2599,6 @@ async function initDiscordBotDashboard() {
     const leaderboardRoleHoistInput = document.getElementById('discord-leaderboard-role-hoist');
     const leaderboardDataStoreNameInput = document.getElementById('discord-leaderboard-datastore-name');
     const leaderboardTopSizeInput = document.getElementById('discord-leaderboard-top-size');
-    const leaderboardSyncIntervalInput = document.getElementById('discord-leaderboard-sync-interval');
     const leaderboardRoleNameInput = document.getElementById('discord-leaderboard-role-name');
     const leaderboardRoleIconInput = document.getElementById('discord-leaderboard-role-icon');
     const leaderboardRoleIconPreview = document.getElementById('discord-leaderboard-role-icon-preview');
@@ -3073,7 +3064,6 @@ async function initDiscordBotDashboard() {
                     orderedDataStoreScope: 'global',
                     keyPrefix: '',
                     topSize: leaderboardTopSizeInput ? leaderboardTopSizeInput.value : 100,
-                    syncIntervalMinutes: leaderboardSyncIntervalInput ? leaderboardSyncIntervalInput.value : 5,
                     roleName: leaderboardRoleNameInput ? leaderboardRoleNameInput.value : 'Leaderboard Player',
                     hoist: leaderboardRoleHoistInput ? leaderboardRoleHoistInput.checked : false,
                     iconDataUrl: leaderboardRoleIconInput ? leaderboardRoleIconInput.dataset.iconDataUrl : ''

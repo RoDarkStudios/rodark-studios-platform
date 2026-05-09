@@ -422,10 +422,6 @@ module.exports = async (req, res) => {
             patch.leaderboardRoleTopSize = leaderboardRole.topSize;
         }
 
-        if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'syncIntervalMinutes')) {
-            patch.leaderboardRoleSyncIntervalMinutes = leaderboardRole.syncIntervalMinutes;
-        }
-
         if (leaderboardRole && Object.prototype.hasOwnProperty.call(leaderboardRole, 'roleId')) {
             patch.leaderboardRoleId = leaderboardRole.roleId;
         }

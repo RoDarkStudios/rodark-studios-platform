@@ -38,7 +38,6 @@ function getLeaderboardRoleControl(control) {
         : {};
 
     const topSize = Math.max(1, Math.min(100, Number.parseInt(leaderboardRole.topSize || '100', 10) || 100));
-    const syncIntervalMinutes = Math.max(1, Number.parseInt(leaderboardRole.syncIntervalMinutes || DEFAULT_SYNC_INTERVAL_MINUTES, 10) || DEFAULT_SYNC_INTERVAL_MINUTES);
 
     return {
         enabled: Boolean(leaderboardRole.enabled),
@@ -46,7 +45,7 @@ function getLeaderboardRoleControl(control) {
         orderedDataStoreScope: leaderboardRole.orderedDataStoreScope ? String(leaderboardRole.orderedDataStoreScope).trim() : 'global',
         keyPrefix: leaderboardRole.keyPrefix ? String(leaderboardRole.keyPrefix).trim() : '',
         topSize,
-        syncIntervalMinutes,
+        syncIntervalMinutes: DEFAULT_SYNC_INTERVAL_MINUTES,
         roleId: leaderboardRole.roleId ? String(leaderboardRole.roleId) : '',
         roleName: leaderboardRole.roleName ? String(leaderboardRole.roleName).trim() : DEFAULT_ROLE_NAME,
         hoist: Boolean(leaderboardRole.hoist),
