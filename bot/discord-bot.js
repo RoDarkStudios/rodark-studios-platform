@@ -84,7 +84,7 @@ async function syncLeaderboardRoleSettingsIfNeeded(nextClient, control, options)
     const syncKey = getLeaderboardRoleSyncKey(control);
     const force = Boolean(options && options.force);
     const now = Date.now();
-    if (!force && syncKey === lastLeaderboardRoleSyncKey && now - lastLeaderboardRoleSyncAt < 60 * 1000) {
+    if (!force && syncKey === lastLeaderboardRoleSyncKey) {
         await syncLeaderboardRoleIfNeeded(nextClient, control);
         return;
     }
