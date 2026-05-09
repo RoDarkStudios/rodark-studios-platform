@@ -7,6 +7,7 @@ const {
     listOrderedDataStoreEntriesLegacy
 } = require('../api/_lib/roblox-open-cloud');
 const { setDiscordLeaderboardRoleId } = require('../api/_lib/discord-bot-control-store');
+const { getDiscordIdsByRobloxUserIds } = require('../api/_lib/discord-roblox-verification-store');
 
 const DEFAULT_ROLE_NAME = 'Leaderboard Player';
 const DEFAULT_SYNC_INTERVAL_MINUTES = 5;
@@ -748,25 +749,54 @@ async function syncLeaderboardRoleForGuild(guild, control) {
     }
 
     const role = await ensureLeaderboardRole(guild, leaderboardRole);
-    const activeBackoffMs = getBloxlinkBackoffRemainingMs();
-    if (activeBackoffMs > 0) {
-        console.warn(`[leaderboard-role] Bloxlink backoff active; skipping leaderboard lookup for ${Math.ceil(activeBackoffMs / 1000)}s.`);
-        return { rateLimited: true, retryAfterMs: activeBackoffMs };
-    }
-
     const topEntries = await fetchTopLeaderboardEntries(leaderboardRole);
     console.log(`[leaderboard-role] Read ${topEntries.length} top Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} from OrderedDataStore "${leaderboardRole.orderedDataStoreName}".`);
     const topRobloxUserIds = new Set(topEntries.map((entry) => String(entry.robloxUserId)));
-    const lookupBatch = getLookupBatch(guild.id, topEntries);
-    const lookupEntries = lookupBatch.entries;
-    if (lookupEntries.length < topEntries.length) {
-        console.log(`[leaderboard-role] Looking up ${lookupEntries.length}/${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} this cycle to respect Bloxlink rate limits.`);
-    }
     const desiredByUserId = new Map();
     let rateLimited = false;
     let processedLookupCount = 0;
     let completedLookupCount = 0;
     let retryAfterMs = 0;
+
+    let websiteVerificationMap = new Map();
+    try {
+        websiteVerificationMap = await getDiscordIdsByRobloxUserIds(Array.from(topRobloxUserIds));
+    } catch (error) {
+        console.error('[leaderboard-role] Website verification lookup failed:', error);
+    }
+
+    let websiteVerifiedMemberCount = 0;
+    for (const entry of topEntries) {
+        const discordIds = websiteVerificationMap.get(String(entry.robloxUserId)) || [];
+        for (const discordId of discordIds) {
+            desiredByUserId.set(discordId, {
+                robloxUserId: entry.robloxUserId,
+                levelValue: entry.levelValue
+            });
+            websiteVerifiedMemberCount += 1;
+        }
+    }
+    if (websiteVerificationMap.size > 0) {
+        console.log(`[leaderboard-role] Website verification resolved ${websiteVerifiedMemberCount} Discord member${websiteVerifiedMemberCount === 1 ? '' : 's'} from ${websiteVerificationMap.size} Roblox entr${websiteVerificationMap.size === 1 ? 'y' : 'ies'}.`);
+    }
+
+    const activeBackoffMs = getBloxlinkBackoffRemainingMs();
+    const bloxlinkLookupCandidates = activeBackoffMs > 0
+        ? []
+        : topEntries.filter((entry) => !websiteVerificationMap.has(String(entry.robloxUserId)));
+    if (activeBackoffMs > 0) {
+        rateLimited = true;
+        retryAfterMs = activeBackoffMs;
+        console.warn(`[leaderboard-role] Bloxlink backoff active; using website verifications only for ${Math.ceil(activeBackoffMs / 1000)}s.`);
+    }
+
+    const lookupBatch = getLookupBatch(guild.id, bloxlinkLookupCandidates);
+    const lookupEntries = lookupBatch.entries;
+    if (lookupEntries.length < bloxlinkLookupCandidates.length) {
+        console.log(`[leaderboard-role] Looking up ${lookupEntries.length}/${bloxlinkLookupCandidates.length} unverified Roblox entr${bloxlinkLookupCandidates.length === 1 ? 'y' : 'ies'} this cycle to respect Bloxlink rate limits.`);
+    } else if (lookupEntries.length > 0) {
+        console.log(`[leaderboard-role] Looking up ${lookupEntries.length}/${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} with Bloxlink fallback.`);
+    }
 
     for (const entry of lookupEntries) {
         let discordIds = [];
@@ -807,7 +837,9 @@ async function syncLeaderboardRoleForGuild(guild, control) {
 
     advanceLookupCursor(guild.id, lookupBatch, completedLookupCount);
 
-    console.log(`[leaderboard-role] Bloxlink resolved ${desiredByUserId.size} Discord member${desiredByUserId.size === 1 ? '' : 's'} from ${processedLookupCount} checked Roblox entr${processedLookupCount === 1 ? 'y' : 'ies'}.`);
+    const totalResolvedMembers = desiredByUserId.size;
+    const bloxlinkResolvedMembers = Math.max(0, totalResolvedMembers - websiteVerifiedMemberCount);
+    console.log(`[leaderboard-role] Bloxlink resolved ${bloxlinkResolvedMembers} Discord member${bloxlinkResolvedMembers === 1 ? '' : 's'} from ${processedLookupCount} checked Roblox entr${processedLookupCount === 1 ? 'y' : 'ies'}.`);
 
     if (rateLimited && desiredByUserId.size === 0) {
         return { rateLimited: true, retryAfterMs };

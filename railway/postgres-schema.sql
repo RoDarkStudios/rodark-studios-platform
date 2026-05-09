@@ -138,3 +138,17 @@ create table if not exists discord_bot_leaderboard_role_assignments (
     last_seen_at timestamptz not null default now(),
     primary key (guild_id, user_id)
 );
+
+create table if not exists discord_roblox_verifications (
+    roblox_user_id text primary key,
+    discord_user_id text not null unique,
+    roblox_username text not null default '',
+    roblox_display_name text not null default '',
+    discord_username text not null default '',
+    discord_global_name text not null default '',
+    verified_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists discord_roblox_verifications_discord_user_id_idx
+on discord_roblox_verifications (discord_user_id);
