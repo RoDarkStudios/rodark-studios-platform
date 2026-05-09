@@ -12,10 +12,11 @@ const DEFAULT_ROLE_NAME = 'Leaderboard Player';
 const DEFAULT_SYNC_INTERVAL_MINUTES = 5;
 const BLOXLINK_API_BASE_URL = String(process.env.BLOXLINK_API_BASE_URL || 'https://api.blox.link/v4').replace(/\/+$/g, '');
 const BLOXLINK_API_KEY = String(process.env.BLOXLINK_API_KEY || '').trim();
-const BLOXLINK_LOOKUP_CACHE_TTL_MS = Number.parseInt(process.env.BLOXLINK_LOOKUP_CACHE_TTL_MINUTES || '10', 10) * 60 * 1000;
+const BLOXLINK_LOOKUP_CACHE_TTL_MS = Number.parseInt(process.env.BLOXLINK_LOOKUP_CACHE_TTL_MINUTES || '1440', 10) * 60 * 1000;
 const BLOXLINK_LOOKUPS_PER_SYNC = Math.max(1, Math.min(100, Number.parseInt(process.env.BLOXLINK_LOOKUPS_PER_SYNC || '10', 10) || 10));
 const BLOXLINK_LOOKUP_DELAY_MS = Math.max(0, Number.parseInt(process.env.BLOXLINK_LOOKUP_DELAY_MS || '750', 10) || 750);
 const BLOXLINK_RATE_LIMIT_BACKOFF_MS = Math.max(60 * 1000, Number.parseInt(process.env.BLOXLINK_RATE_LIMIT_BACKOFF_MS || '300000', 10) || 300000);
+const BLOXLINK_MAX_RATE_LIMIT_BACKOFF_MS = Math.max(BLOXLINK_RATE_LIMIT_BACKOFF_MS, Number.parseInt(process.env.BLOXLINK_MAX_RATE_LIMIT_BACKOFF_MS || '21600000', 10) || 21600000);
 const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const DISCORD_ROLE_REQUEST_DELAY_MS = Math.max(0, Number.parseInt(process.env.DISCORD_ROLE_REQUEST_DELAY_MS || '500', 10) || 500);
@@ -25,6 +26,7 @@ let lastSyncAtByGuildId = new Map();
 let bloxlinkLookupCache = new Map();
 let bloxlinkLookupCursorByGuildId = new Map();
 let bloxlinkRateLimitedUntil = 0;
+let bloxlinkConsecutiveRateLimitCount = 0;
 let leaderboardSyncInFlightByGuildId = new Set();
 let nextSyncAtByGuildId = new Map();
 let cachedLeaderboardRoleIconDataUri = null;
@@ -136,6 +138,102 @@ function sleep(ms) {
 
 function getBloxlinkBackoffRemainingMs() {
     return Math.max(0, bloxlinkRateLimitedUntil - Date.now());
+}
+
+function getNextBloxlinkRateLimitBackoffMs(retryAfterHeader) {
+    const parsedRetryAfterMs = parseRateLimitHeaderMs(retryAfterHeader);
+    if (parsedRetryAfterMs > 0) {
+        return parsedRetryAfterMs;
+    }
+
+    const multiplier = Math.min(64, 2 ** bloxlinkConsecutiveRateLimitCount);
+    return Math.min(BLOXLINK_MAX_RATE_LIMIT_BACKOFF_MS, BLOXLINK_RATE_LIMIT_BACKOFF_MS * multiplier);
+}
+
+function getResponseHeader(response, headerNames) {
+    if (!response || !response.headers || typeof response.headers.get !== 'function') {
+        return '';
+    }
+
+    for (const headerName of headerNames) {
+        const value = response.headers.get(headerName);
+        if (value) {
+            return String(value);
+        }
+    }
+
+    return '';
+}
+
+function parseRateLimitHeaderMs(value) {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) {
+        return 0;
+    }
+
+    const numericValue = Number(rawValue);
+    if (Number.isFinite(numericValue) && numericValue > 0) {
+        if (numericValue > 1000000000000) {
+            return Math.max(0, numericValue - Date.now());
+        }
+
+        if (numericValue > 1000000000) {
+            return Math.max(0, (numericValue * 1000) - Date.now());
+        }
+
+        return Math.ceil(numericValue * 1000);
+    }
+
+    const dateValue = Date.parse(rawValue);
+    return Number.isFinite(dateValue) ? Math.max(0, dateValue - Date.now()) : 0;
+}
+
+function getBloxlinkResetBackoffMs(response) {
+    const retryAfter = getResponseHeader(response, ['retry-after']);
+    const retryAfterMs = parseRateLimitHeaderMs(retryAfter);
+    if (retryAfterMs > 0) {
+        return retryAfterMs;
+    }
+
+    const resetAfter = getResponseHeader(response, [
+        'x-ratelimit-reset-after',
+        'x-rate-limit-reset-after',
+        'ratelimit-reset-after'
+    ]);
+    const resetAfterMs = parseRateLimitHeaderMs(resetAfter);
+    if (resetAfterMs > 0) {
+        return resetAfterMs;
+    }
+
+    const resetAt = getResponseHeader(response, [
+        'x-ratelimit-reset',
+        'x-rate-limit-reset',
+        'ratelimit-reset'
+    ]);
+    return parseRateLimitHeaderMs(resetAt);
+}
+
+function getBloxlinkRemainingRequests(response) {
+    const remaining = getResponseHeader(response, [
+        'x-ratelimit-remaining',
+        'x-rate-limit-remaining',
+        'ratelimit-remaining'
+    ]);
+    const parsed = Number(remaining);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function applyObservedBloxlinkRateLimit(response) {
+    const remaining = getBloxlinkRemainingRequests(response);
+    if (remaining !== 0) {
+        return;
+    }
+
+    const backoffMs = getBloxlinkResetBackoffMs(response);
+    if (backoffMs > 0) {
+        bloxlinkRateLimitedUntil = Math.max(bloxlinkRateLimitedUntil, Date.now() + backoffMs);
+        console.warn(`[leaderboard-role] Bloxlink reported 0 remaining requests; pausing lookups for ${Math.ceil(backoffMs / 1000)}s.`);
+    }
 }
 
 function extractOrderedEntries(payload, keyPrefix) {
@@ -257,16 +355,19 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
 
     if (!response.ok) {
         if (response.status === 429) {
-            const retryAfterHeader = response.headers && response.headers.get ? response.headers.get('retry-after') : '';
-            const retryAfterSeconds = Number(retryAfterHeader);
-            const backoffMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-                ? Math.ceil(retryAfterSeconds * 1000)
-                : BLOXLINK_RATE_LIMIT_BACKOFF_MS;
+            const retryAfterHeader = getResponseHeader(response, ['retry-after']);
+            const resetBackoffMs = getBloxlinkResetBackoffMs(response);
+            const backoffMs = resetBackoffMs > 0
+                ? resetBackoffMs
+                : getNextBloxlinkRateLimitBackoffMs(retryAfterHeader);
             bloxlinkRateLimitedUntil = Date.now() + backoffMs;
+            bloxlinkConsecutiveRateLimitCount += 1;
             throw new Error(`Bloxlink rate limited; retrying in ${Math.ceil(backoffMs / 1000)}s`);
         }
 
         if (response.status === 404) {
+            bloxlinkConsecutiveRateLimitCount = 0;
+            applyObservedBloxlinkRateLimit(response);
             bloxlinkLookupCache.set(cacheKey, {
                 fetchedAt: Date.now(),
                 discordIds: []
@@ -281,6 +382,8 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
     }
 
     const discordIds = extractDiscordIdsFromBloxlinkPayload(payload);
+    bloxlinkConsecutiveRateLimitCount = 0;
+    applyObservedBloxlinkRateLimit(response);
     bloxlinkLookupCache.set(cacheKey, {
         fetchedAt: Date.now(),
         discordIds
@@ -290,7 +393,11 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
 
 function getLookupBatch(guildId, topEntries) {
     if (!Array.isArray(topEntries) || topEntries.length <= BLOXLINK_LOOKUPS_PER_SYNC) {
-        return topEntries;
+        return {
+            entries: Array.isArray(topEntries) ? topEntries : [],
+            start: 0,
+            total: Array.isArray(topEntries) ? topEntries.length : 0
+        };
     }
 
     const start = bloxlinkLookupCursorByGuildId.get(guildId) || 0;
@@ -299,8 +406,19 @@ function getLookupBatch(guildId, topEntries) {
         batch.push(topEntries[(start + offset) % topEntries.length]);
     }
 
-    bloxlinkLookupCursorByGuildId.set(guildId, (start + BLOXLINK_LOOKUPS_PER_SYNC) % topEntries.length);
-    return batch;
+    return {
+        entries: batch,
+        start,
+        total: topEntries.length
+    };
+}
+
+function advanceLookupCursor(guildId, batch, completedCount) {
+    if (!batch || !batch.total || batch.total <= BLOXLINK_LOOKUPS_PER_SYNC || completedCount <= 0) {
+        return;
+    }
+
+    bloxlinkLookupCursorByGuildId.set(guildId, (batch.start + completedCount) % batch.total);
 }
 
 async function getLeaderboardRoleIconDataUri(leaderboardRole) {
@@ -593,13 +711,15 @@ async function syncLeaderboardRoleForGuild(guild, control) {
     const topEntries = await fetchTopLeaderboardEntries(leaderboardRole);
     console.log(`[leaderboard-role] Read ${topEntries.length} top Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} from OrderedDataStore "${leaderboardRole.orderedDataStoreName}".`);
     const topRobloxUserIds = new Set(topEntries.map((entry) => String(entry.robloxUserId)));
-    const lookupEntries = getLookupBatch(guild.id, topEntries);
+    const lookupBatch = getLookupBatch(guild.id, topEntries);
+    const lookupEntries = lookupBatch.entries;
     if (lookupEntries.length < topEntries.length) {
         console.log(`[leaderboard-role] Looking up ${lookupEntries.length}/${topEntries.length} Roblox entr${topEntries.length === 1 ? 'y' : 'ies'} this cycle to respect Bloxlink rate limits.`);
     }
     const desiredByUserId = new Map();
     let rateLimited = false;
     let processedLookupCount = 0;
+    let completedLookupCount = 0;
     let retryAfterMs = 0;
 
     for (const entry of lookupEntries) {
@@ -607,6 +727,7 @@ async function syncLeaderboardRoleForGuild(guild, control) {
         try {
             discordIds = await lookupDiscordIdsForRobloxUser(guild.id, entry.robloxUserId);
             processedLookupCount += 1;
+            completedLookupCount += 1;
         } catch (error) {
             const message = String(error && error.message ? error.message : error);
             if (/rate limited/i.test(message)) {
@@ -617,6 +738,7 @@ async function syncLeaderboardRoleForGuild(guild, control) {
             }
 
             console.error(`[leaderboard-role] Bloxlink lookup failed for Roblox ${entry.robloxUserId}:`, error);
+            completedLookupCount += 1;
             continue;
         }
         for (const discordId of discordIds) {
@@ -626,10 +748,18 @@ async function syncLeaderboardRoleForGuild(guild, control) {
             });
         }
 
+        if (getBloxlinkBackoffRemainingMs() > 0) {
+            rateLimited = true;
+            retryAfterMs = getBloxlinkBackoffRemainingMs();
+            break;
+        }
+
         if (BLOXLINK_LOOKUP_DELAY_MS > 0) {
             await sleep(BLOXLINK_LOOKUP_DELAY_MS);
         }
     }
+
+    advanceLookupCursor(guild.id, lookupBatch, completedLookupCount);
 
     console.log(`[leaderboard-role] Bloxlink resolved ${desiredByUserId.size} Discord member${desiredByUserId.size === 1 ? '' : 's'} from ${processedLookupCount} checked Roblox entr${processedLookupCount === 1 ? 'y' : 'ies'}.`);
 
@@ -731,6 +861,7 @@ function resetLeaderboardRoleSyncState() {
     bloxlinkLookupCache = new Map();
     bloxlinkLookupCursorByGuildId = new Map();
     bloxlinkRateLimitedUntil = 0;
+    bloxlinkConsecutiveRateLimitCount = 0;
     leaderboardSyncInFlightByGuildId = new Set();
     nextSyncAtByGuildId = new Map();
 }
