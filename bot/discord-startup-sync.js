@@ -88,6 +88,14 @@ function getRoleMention(guild, roleName) {
     return role ? role.toString() : `@${roleName}`;
 }
 
+function getLeaderboardRoleTopSize(control) {
+    const rawTopSize = control && control.leaderboardRole && typeof control.leaderboardRole === 'object'
+        ? control.leaderboardRole.topSize
+        : 100;
+    const parsedTopSize = Number.parseInt(rawTopSize || '100', 10);
+    return Math.max(1, Math.min(100, Number.isFinite(parsedTopSize) ? parsedTopSize : 100));
+}
+
 async function fetchConfiguredChannel(client, channelId, label) {
     if (!channelId) {
         return null;
@@ -280,9 +288,10 @@ async function syncInfoChannel(channel, customEmojis) {
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.info);
 }
 
-async function syncRolesChannel(channel) {
+async function syncRolesChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
+    const leaderboardTopSize = getLeaderboardRoleTopSize(control);
     const embed = new EmbedBuilder()
         .setTitle('Server Roles')
         .setColor(0x22c55e)
@@ -294,7 +303,7 @@ async function syncRolesChannel(channel) {
             `${getRoleMention(guild, 'Associate')}\n> Trusted friend, collaborator, or long-term supporter of RoDark Studios.`,
             `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator. Create a ticket to apply.`,
             `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`,
-            `${getRoleMention(guild, 'Leaderboard Player')}\n> Current top Coding Simulator 2 leaderboard player.`,
+            `${getRoleMention(guild, 'Leaderboard Player')}\n> Top ${leaderboardTopSize} Coding Simulator 2 players by level.`,
             `${getRoleMention(guild, 'Member')}\n> Verified member of the RoDark Studios community.`
         ].join('\n\n'));
 
@@ -400,7 +409,7 @@ async function runStartupSync(client, control) {
     }
 
     if (channels.roles) {
-        await syncRolesChannel(channels.roles);
+        await syncRolesChannel(channels.roles, control);
     }
 
     if (channels.staffInfo) {
