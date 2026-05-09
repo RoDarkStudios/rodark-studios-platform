@@ -2157,7 +2157,7 @@ function renderDiscordBotControl(control, options) {
     const categoryMaps = buildDiscordChannelLookupMaps({
         channels: channelLookup.channels.filter((channel) => channel.type === 4)
     });
-    const textChannels = channelLookup.channels.filter((channel) => channel.type === 0);
+    const textChannels = channelLookup.channels.filter((channel) => channel.type === 0 || channel.type === 5);
     const categoryChannels = channelLookup.channels.filter((channel) => channel.type === 4);
 
     fillDiscordChannelDatalist('discord-text-channel-options', textChannels);
