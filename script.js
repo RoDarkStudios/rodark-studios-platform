@@ -1598,22 +1598,6 @@ function getDiscordTicketSystemControl(control) {
     };
 }
 
-function getDiscordBugPayoutsControl(control) {
-    if (!control || typeof control !== 'object' || !control.bugPayouts || typeof control.bugPayouts !== 'object') {
-        return {
-            channelId: '',
-            allowedRoleIds: []
-        };
-    }
-
-    return {
-        channelId: control.bugPayouts.channelId ? String(control.bugPayouts.channelId) : '',
-        allowedRoleIds: Array.isArray(control.bugPayouts.allowedRoleIds)
-            ? control.bugPayouts.allowedRoleIds.map((roleId) => String(roleId)).filter(Boolean)
-            : []
-    };
-}
-
 function getDiscordLevelSystemControl(control) {
     if (!control || typeof control !== 'object' || !control.levelSystem || typeof control.levelSystem !== 'object') {
         return {
@@ -2079,10 +2063,6 @@ function renderDiscordBotControl(control, options) {
     const ticketHelperRoleInput = document.getElementById('discord-ticket-helper-role-input');
     const ticketHelperRoleList = document.getElementById('discord-ticket-helper-role-list');
     const ticketSystemSaveButton = document.getElementById('discord-ticket-system-save-btn');
-    const bugPayoutsChannelInput = document.getElementById('discord-bug-payouts-channel-id');
-    const bugPayoutsRoleInput = document.getElementById('discord-bug-payouts-role-input');
-    const bugPayoutsRoleList = document.getElementById('discord-bug-payouts-role-list');
-    const bugPayoutsSaveButton = document.getElementById('discord-bug-payouts-save-btn');
     const levelSystemEnabledInput = document.getElementById('discord-level-system-enabled');
     const levelMentionEnabledInput = document.getElementById('discord-level-mention-enabled');
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
@@ -2105,13 +2085,11 @@ function renderDiscordBotControl(control, options) {
     const preserveGuildForm = Boolean(options && options.preserveGuildForm);
     const preserveStartupSyncForm = Boolean(options && options.preserveStartupSyncForm);
     const preserveTicketSystemForm = Boolean(options && options.preserveTicketSystemForm);
-    const preserveBugPayoutsForm = Boolean(options && options.preserveBugPayoutsForm);
     const preserveLevelSystemForm = Boolean(options && options.preserveLevelSystemForm);
     const preserveLeaderboardRoleForm = Boolean(options && options.preserveLeaderboardRoleForm);
     const preserveLookupData = Boolean(options && options.preserveLookupData);
     const startupSyncControl = getDiscordStartupSyncControl(control);
     const ticketSystemControl = getDiscordTicketSystemControl(control);
-    const bugPayoutsControl = getDiscordBugPayoutsControl(control);
     const levelSystemControl = getDiscordLevelSystemControl(control);
     const leaderboardRoleControl = getDiscordLeaderboardRoleControl(control);
     const requestedChannelLookup = preserveLookupData
@@ -2206,18 +2184,6 @@ function renderDiscordBotControl(control, options) {
     }
     if (ticketSystemSaveButton) {
         ticketSystemSaveButton.disabled = false;
-    }
-    if (!preserveBugPayoutsForm && bugPayoutsChannelInput) {
-        setDiscordChannelInputDisplayValue(bugPayoutsChannelInput, bugPayoutsControl.channelId, channelMaps);
-    }
-    if (!preserveBugPayoutsForm && bugPayoutsRoleList) {
-        renderDiscordSelectedRoles(bugPayoutsRoleList, bugPayoutsControl.allowedRoleIds, roleMaps);
-    }
-    if (!preserveBugPayoutsForm && bugPayoutsRoleInput) {
-        bugPayoutsRoleInput.value = '';
-    }
-    if (bugPayoutsSaveButton) {
-        bugPayoutsSaveButton.disabled = false;
     }
     if (!preserveLevelSystemForm && levelSystemEnabledInput) {
         levelSystemEnabledInput.checked = levelSystemControl.enabled;
@@ -2394,21 +2360,6 @@ async function saveDiscordTicketSystemConfig(config) {
             categoryChannelId: config && config.categoryChannelId ? String(config.categoryChannelId).trim() : '',
             panelChannelId: config && config.panelChannelId ? String(config.panelChannelId).trim() : '',
             helperRoleIds: config && Array.isArray(config.helperRoleIds) ? config.helperRoleIds : []
-        }
-    });
-
-    return {
-        control: payload.control || null,
-        channelLookup: getDiscordChannelLookup(payload),
-        roleLookup: getDiscordRoleLookup(payload)
-    };
-}
-
-async function saveDiscordBugPayoutsConfig(config) {
-    const payload = await postJson('/api/admin/discord-bot-control', {
-        bugPayouts: {
-            channelId: config && config.channelId ? String(config.channelId).trim() : '',
-            allowedRoleIds: config && Array.isArray(config.allowedRoleIds) ? config.allowedRoleIds : []
         }
     });
 
@@ -2647,11 +2598,6 @@ async function initDiscordBotDashboard() {
     const ticketHelperRoleAddButton = document.getElementById('discord-ticket-helper-role-add-btn');
     const ticketHelperRoleList = document.getElementById('discord-ticket-helper-role-list');
     const ticketSystemSaveButton = document.getElementById('discord-ticket-system-save-btn');
-    const bugPayoutsChannelInput = document.getElementById('discord-bug-payouts-channel-id');
-    const bugPayoutsRoleInput = document.getElementById('discord-bug-payouts-role-input');
-    const bugPayoutsRoleAddButton = document.getElementById('discord-bug-payouts-role-add-btn');
-    const bugPayoutsRoleList = document.getElementById('discord-bug-payouts-role-list');
-    const bugPayoutsSaveButton = document.getElementById('discord-bug-payouts-save-btn');
     const levelSystemEnabledInput = document.getElementById('discord-level-system-enabled');
     const levelMentionEnabledInput = document.getElementById('discord-level-mention-enabled');
     const levelAnnouncementChannelInput = document.getElementById('discord-level-announcement-channel-id');
@@ -2690,7 +2636,6 @@ async function initDiscordBotDashboard() {
     dashboard.dataset.guildDirty = 'false';
     dashboard.dataset.startupSyncDirty = 'false';
     dashboard.dataset.ticketSystemDirty = 'false';
-    dashboard.dataset.bugPayoutsDirty = 'false';
     dashboard.dataset.levelSystemDirty = 'false';
     dashboard.dataset.leaderboardRoleDirty = 'false';
     let currentTicketTranscriptId = '';
@@ -2724,7 +2669,6 @@ async function initDiscordBotDashboard() {
                 preserveGuildForm: dashboard.dataset.guildDirty === 'true',
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
                 preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
-                preserveBugPayoutsForm: dashboard.dataset.bugPayoutsDirty === 'true',
                 preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
                 preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
                 preserveLookupData: true
@@ -2742,9 +2686,6 @@ async function initDiscordBotDashboard() {
             }
             if (ticketSystemSaveButton) {
                 ticketSystemSaveButton.disabled = true;
-            }
-            if (bugPayoutsSaveButton) {
-                bugPayoutsSaveButton.disabled = true;
             }
             if (levelSystemSaveButton) {
                 levelSystemSaveButton.disabled = true;
@@ -2770,7 +2711,6 @@ async function initDiscordBotDashboard() {
                 preserveGuildForm: dashboard.dataset.guildDirty === 'true',
                 preserveStartupSyncForm: dashboard.dataset.startupSyncDirty === 'true',
                 preserveTicketSystemForm: dashboard.dataset.ticketSystemDirty === 'true',
-                preserveBugPayoutsForm: dashboard.dataset.bugPayoutsDirty === 'true',
                 preserveLevelSystemForm: dashboard.dataset.levelSystemDirty === 'true',
                 preserveLeaderboardRoleForm: dashboard.dataset.leaderboardRoleDirty === 'true',
                 channelLookup: control.channelLookup,
@@ -2859,10 +2799,6 @@ async function initDiscordBotDashboard() {
         dashboard.dataset.ticketSystemDirty = 'true';
     }
 
-    function markBugPayoutsFormDirty() {
-        dashboard.dataset.bugPayoutsDirty = 'true';
-    }
-
     function markLevelSystemFormDirty() {
         dashboard.dataset.levelSystemDirty = 'true';
     }
@@ -2920,12 +2856,6 @@ async function initDiscordBotDashboard() {
     }
     if (ticketHelperRoleInput) {
         ticketHelperRoleInput.addEventListener('input', markTicketSystemFormDirty);
-    }
-    if (bugPayoutsChannelInput) {
-        bugPayoutsChannelInput.addEventListener('input', markBugPayoutsFormDirty);
-    }
-    if (bugPayoutsRoleInput) {
-        bugPayoutsRoleInput.addEventListener('input', markBugPayoutsFormDirty);
     }
     if (levelSystemEnabledInput) {
         levelSystemEnabledInput.addEventListener('change', markLevelSystemFormDirty);
@@ -2997,7 +2927,6 @@ async function initDiscordBotDashboard() {
     bindDiscordChannelAutocompleteInput(startupGameTestInfoChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(ticketCategoryChannelInput, getCurrentDiscordCategoryMaps);
     bindDiscordChannelAutocompleteInput(ticketPanelChannelInput, getCurrentDiscordChannelMaps);
-    bindDiscordChannelAutocompleteInput(bugPayoutsChannelInput, getCurrentDiscordChannelMaps);
     bindDiscordChannelAutocompleteInput(levelAnnouncementChannelInput, getCurrentDiscordChannelMaps);
 
     if (ticketHelperRoleAddButton) {
@@ -3107,29 +3036,6 @@ async function initDiscordBotDashboard() {
         });
     }
 
-    if (bugPayoutsSaveButton) {
-        bugPayoutsSaveButton.addEventListener('click', async () => {
-            bugPayoutsSaveButton.disabled = true;
-            setDiscordBotStatusMessage('Saving payout settings...', 'info');
-
-            try {
-                const control = await saveDiscordBugPayoutsConfig({
-                    channelId: bugPayoutsChannelInput ? resolveDiscordChannelInputValue(bugPayoutsChannelInput, getCurrentDiscordChannelMaps()) : '',
-                    allowedRoleIds: getSelectedDiscordRoleIds(bugPayoutsRoleList)
-                });
-                dashboard.dataset.bugPayoutsDirty = 'false';
-                renderDiscordBotControl(control.control, {
-                    channelLookup: control.channelLookup,
-                    roleLookup: control.roleLookup
-                });
-                setDiscordBotStatusMessage('Payout settings saved. /bug-payout will use this channel and role list.', 'success');
-            } catch (error) {
-                bugPayoutsSaveButton.disabled = false;
-                setDiscordBotStatusMessage(error.message || 'Failed to save payout settings.', 'error');
-            }
-        });
-    }
-
     if (levelSystemSaveButton) {
         levelSystemSaveButton.addEventListener('click', async () => {
             levelSystemSaveButton.disabled = true;
@@ -3152,43 +3058,6 @@ async function initDiscordBotDashboard() {
                 levelSystemSaveButton.disabled = false;
                 setDiscordBotStatusMessage(error.message || 'Failed to save level settings.', 'error');
             }
-        });
-    }
-
-    if (bugPayoutsRoleAddButton) {
-        bugPayoutsRoleAddButton.addEventListener('click', () => {
-            const roleId = resolveDiscordRoleInputValue(bugPayoutsRoleInput, getCurrentDiscordRoleMaps());
-            if (!roleId || !bugPayoutsRoleList) {
-                return;
-            }
-
-            const selectedRoleIds = getSelectedDiscordRoleIds(bugPayoutsRoleList);
-            if (!selectedRoleIds.includes(roleId)) {
-                selectedRoleIds.push(roleId);
-            }
-
-            renderDiscordSelectedRoles(bugPayoutsRoleList, selectedRoleIds, getCurrentDiscordRoleMaps());
-            if (bugPayoutsRoleInput) {
-                bugPayoutsRoleInput.value = '';
-            }
-            markBugPayoutsFormDirty();
-        });
-    }
-
-    if (bugPayoutsRoleList) {
-        bugPayoutsRoleList.addEventListener('click', (event) => {
-            const removeButton = event.target && event.target.closest
-                ? event.target.closest('.admin-selected-remove')
-                : null;
-            if (!removeButton) {
-                return;
-            }
-
-            const removedRoleId = String(removeButton.dataset.roleId || '');
-            const selectedRoleIds = getSelectedDiscordRoleIds(bugPayoutsRoleList)
-                .filter((roleId) => roleId !== removedRoleId);
-            renderDiscordSelectedRoles(bugPayoutsRoleList, selectedRoleIds, getCurrentDiscordRoleMaps());
-            markBugPayoutsFormDirty();
         });
     }
 

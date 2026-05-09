@@ -54,7 +54,6 @@ function getGuildDiscoveryChannelIds(control) {
         startup.gameTestInfoChannelId,
         control && control.ticketSystem ? control.ticketSystem.categoryChannelId : null,
         control && control.ticketSystem ? control.ticketSystem.panelChannelId : null,
-        control && control.bugPayouts ? control.bugPayouts.channelId : null,
         control && control.levelSystem ? control.levelSystem.announcementChannelId : null
     ]
         .filter(Boolean)
@@ -339,9 +338,6 @@ module.exports = async (req, res) => {
         const ticketSystem = body && typeof body.ticketSystem === 'object' && body.ticketSystem
             ? body.ticketSystem
             : null;
-        const bugPayouts = body && typeof body.bugPayouts === 'object' && body.bugPayouts
-            ? body.bugPayouts
-            : null;
         const levelSystem = body && typeof body.levelSystem === 'object' && body.levelSystem
             ? body.levelSystem
             : null;
@@ -388,14 +384,6 @@ module.exports = async (req, res) => {
 
         if (ticketSystem && Object.prototype.hasOwnProperty.call(ticketSystem, 'helperRoleIds')) {
             patch.ticketsHelperRoleIds = ticketSystem.helperRoleIds;
-        }
-
-        if (bugPayouts && Object.prototype.hasOwnProperty.call(bugPayouts, 'channelId')) {
-            patch.bugPayoutsChannelId = bugPayouts.channelId;
-        }
-
-        if (bugPayouts && Object.prototype.hasOwnProperty.call(bugPayouts, 'allowedRoleIds')) {
-            patch.bugPayoutsAllowedRoleIds = bugPayouts.allowedRoleIds;
         }
 
         if (levelSystem && Object.prototype.hasOwnProperty.call(levelSystem, 'enabled')) {
@@ -462,7 +450,7 @@ module.exports = async (req, res) => {
         const { channelLookup, roleLookup } = await getDiscordLookupPayload(control);
         return sendJson(res, 200, { control, channelLookup, roleLookup });
     } catch (error) {
-        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard|role icon|uploaded image|bug payouts|bug payout/i.test(String(error && error.message || ''))
+        const statusCode = /required|valid discord id|must be a valid discord id|unlock level|orderedDataStore|leaderboard|role icon|uploaded image/i.test(String(error && error.message || ''))
             ? 400
             : 500;
         return sendJson(res, statusCode, {

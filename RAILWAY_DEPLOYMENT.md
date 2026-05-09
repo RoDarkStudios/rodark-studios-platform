@@ -86,4 +86,4 @@ Run the Discord bot as a second Railway service from this same GitHub repo.
 
 The website dashboard at `/admin/discord-bot` sets the desired bot state in Postgres. The bot service reads that state and connects or disconnects from Discord.
 
-For the leaderboard role sync, the Roblox Open Cloud key must include `universe.ordered-data-store.scope.entry:read`. The dashboard stores the OrderedDataStore name, top count, sync interval, role display options, payout command channel, and allowed payout command roles. The bot creates a `Leaderboard Player` role automatically unless one already exists.
+For the leaderboard role sync, the Roblox Open Cloud key must include `universe.ordered-data-store.scope.entry:read`. The dashboard stores the OrderedDataStore name, top count, sync interval, and role display options. The bot creates a `Leaderboard Player` role automatically unless one already exists.

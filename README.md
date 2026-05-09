@@ -70,7 +70,6 @@ BLOXLINK_API_KEY
 ## Discord Bot Notes
 
 - The bot also supports startup channel sync from `/admin/discord-bot`. Configure the fixed channel IDs for `rules`, `info`, `roles`, `staff-info`, and `game-test-info`, then reconnect or restart the bot to resync those channels.
-- The bot can post bug payout entries from `/bug-payout`; configure the payout channel and allowed command roles from `/admin/discord-bot`.
 - Leaderboard role sync needs `ROBLOX_OPEN_CLOUD_API_KEY` and `BLOXLINK_API_KEY` on the bot service when enabled.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.
 

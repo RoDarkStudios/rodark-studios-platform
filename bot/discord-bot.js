@@ -1,9 +1,8 @@
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 const { getDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_lib/discord-bot-control-store');
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
-const { ensureBugPayoutCommand, handleAddPayoutInteraction, handleBugPayoutReaction } = require('./bug-payouts');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 const {
@@ -14,6 +13,8 @@ const {
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
+const OBSOLETE_GUILD_COMMAND_NAMES = ['bug-payout', 'add-payout'];
+const OBSOLETE_COMMAND_CLEANUP_TTL_MS = 10 * 60 * 1000;
 
 let client = null;
 let connecting = false;
@@ -24,6 +25,58 @@ let lastLevelSystemSyncKey = '';
 let lastLevelSystemSyncAt = 0;
 let lastLeaderboardRoleSyncKey = '';
 let lastLeaderboardRoleSyncAt = 0;
+let lastObsoleteCommandCleanupGuildIds = '';
+let lastObsoleteCommandCleanupAt = 0;
+
+function getTargetGuilds(nextClient, control) {
+    if (!nextClient || !nextClient.guilds || !nextClient.guilds.cache) {
+        return [];
+    }
+
+    const guilds = Array.from(nextClient.guilds.cache.values());
+    const configuredGuildId = control && control.guildId ? String(control.guildId) : '';
+    return configuredGuildId
+        ? guilds.filter((guild) => String(guild.id) === configuredGuildId)
+        : guilds;
+}
+
+async function deleteObsoleteGuildCommands(nextClient, control, options) {
+    if (!nextClient || !nextClient.isReady()) {
+        return;
+    }
+
+    const guilds = getTargetGuilds(nextClient, control);
+    const guildIds = guilds.map((guild) => String(guild.id)).sort().join(',');
+    const now = Date.now();
+    const force = Boolean(options && options.force);
+    if (!force && guildIds === lastObsoleteCommandCleanupGuildIds && now - lastObsoleteCommandCleanupAt < OBSOLETE_COMMAND_CLEANUP_TTL_MS) {
+        return;
+    }
+
+    for (const guild of guilds) {
+        const commands = await guild.commands.fetch().catch((error) => {
+            console.error(`[discord-commands] Failed to fetch commands for ${guild.name}:`, error);
+            return null;
+        });
+        if (!commands) {
+            continue;
+        }
+
+        for (const commandName of OBSOLETE_GUILD_COMMAND_NAMES) {
+            const command = commands.find((candidate) => candidate.name === commandName);
+            if (!command) {
+                continue;
+            }
+
+            await command.delete().catch((error) => {
+                console.error(`[discord-commands] Failed to delete obsolete /${commandName}:`, error);
+            });
+        }
+    }
+
+    lastObsoleteCommandCleanupGuildIds = guildIds;
+    lastObsoleteCommandCleanupAt = now;
+}
 
 function getTicketPanelSyncKey(control) {
     const ticketSystem = getTicketSystemControl(control);
@@ -99,13 +152,7 @@ function createClient() {
         intents: [
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
-            GatewayIntentBits.GuildMessageReactions,
             GatewayIntentBits.MessageContent
-        ],
-        partials: [
-            Partials.Message,
-            Partials.Channel,
-            Partials.Reaction
         ]
     });
 
@@ -121,7 +168,7 @@ function createClient() {
             await syncTicketPanelIfNeeded(nextClient, control, { force: true });
             await syncLevelSystemIfNeeded(nextClient, control, { force: true });
             await ensureChannelPurgeCommand(nextClient, control, { force: true });
-            await ensureBugPayoutCommand(nextClient, control, { force: true });
+            await deleteObsoleteGuildCommands(nextClient, control, { force: true });
             await syncLeaderboardRoleSettingsIfNeeded(nextClient, control, { force: true });
             await setDiscordBotRuntimeStatus('online', null);
         } catch (error) {
@@ -144,11 +191,6 @@ function createClient() {
             if (purgeHandled) {
                 await setDiscordBotRuntimeStatus('online', null);
                 return;
-            }
-
-            const payoutHandled = await handleAddPayoutInteraction(interaction, control);
-            if (payoutHandled) {
-                await setDiscordBotRuntimeStatus('online', null);
             }
         } catch (error) {
             console.error('Discord interaction failed:', error);
@@ -179,20 +221,6 @@ function createClient() {
             }
         } catch (error) {
             console.error('Discord level system message handling failed:', error);
-            await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
-        }
-    });
-
-    nextClient.on('messageReactionAdd', async (reaction, user) => {
-        try {
-            const control = currentControl || await getDiscordBotControl();
-            currentControl = control;
-            const handled = await handleBugPayoutReaction(reaction, user, control);
-            if (handled) {
-                await setDiscordBotRuntimeStatus('online', null);
-            }
-        } catch (error) {
-            console.error('Discord bug payout reaction handling failed:', error);
             await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
         }
     });
@@ -255,6 +283,8 @@ async function disconnectBot() {
     lastLevelSystemSyncAt = 0;
     lastLeaderboardRoleSyncKey = '';
     lastLeaderboardRoleSyncAt = 0;
+    lastObsoleteCommandCleanupGuildIds = '';
+    lastObsoleteCommandCleanupAt = 0;
     resetLeaderboardRoleSyncState();
     currentControl = null;
     console.log('Discord bot is offline.');
@@ -269,7 +299,7 @@ async function syncBotState() {
             await syncTicketPanelIfNeeded(client, control);
             await syncLevelSystemIfNeeded(client, control);
             await ensureChannelPurgeCommand(client, control);
-            await ensureBugPayoutCommand(client, control);
+            await deleteObsoleteGuildCommands(client, control);
             await syncLeaderboardRoleSettingsIfNeeded(client, control);
         }
         return;

@@ -23,11 +23,6 @@ const CUSTOM_EMOJI_SPECS = {
         filename: 'Roblox.png',
         fallback: '🎮'
     },
-    Robux: {
-        name: 'Robux',
-        filename: 'Robux.png',
-        fallback: '💸'
-    },
     RoDarkStudios: {
         name: 'RoDarkStudios',
         filename: 'RoDarkStudios.png',
@@ -305,15 +300,9 @@ async function syncRolesChannel(channel) {
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.roles);
 }
 
-async function syncStaffInfoChannel(channel, control) {
+async function syncStaffInfoChannel(channel) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
-    const bugPayoutChannelId = control
-        && control.bugPayouts
-        && control.bugPayouts.channelId
-        ? String(control.bugPayouts.channelId)
-        : '';
-    const bugPayoutChannelText = bugPayoutChannelId ? `<#${bugPayoutChannelId}>` : 'the selected payout channel';
     const embed = new EmbedBuilder()
         .setTitle('Staff Info')
         .setColor(0x2ecc71)
@@ -325,8 +314,7 @@ async function syncStaffInfoChannel(channel, control) {
                     `1. **Bug report follow-up** - Watch <#${BUG_REPORT_CHANNEL_ID}> and <#${TESTING_BUG_REPORT_CHANNEL_ID}>. If a report is vague, promptly ask for what happened, how to reproduce it, screenshots or video, and an F9 developer console screenshot if errors may be involved.`,
                     `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs owner or developer help, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
                     '3. **Community help** - Stay up to date on how the game works, answer general questions, help people out, and keep an active, helpful community presence.',
-                    '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.',
-                    `5. **Bug payouts** - For valid test-game reward bugs, use \`/bug-payout\` once per bug; entries appear in ${bugPayoutChannelText}. Choose minor, moderate, or critical. Live-game bugs do not qualify.`
+                    '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.'
                 ].join('\n'),
                 inline: false
             },
@@ -380,22 +368,11 @@ async function syncGameTestInfoChannel(channel, customEmojis) {
                 inline: false
             },
             {
-                name: 'Robux Rewards',
-                value: [
-                    'Rewards only apply to valid **test game** bugs.',
-                    `Minor bug: ${customEmojis.Robux} **50**`,
-                    `Medium bug: ${customEmojis.Robux} **200**`,
-                    `Critical bug: ${customEmojis.Robux} **5,000**`
-                ].join('\n'),
-                inline: false
-            },
-            {
                 name: 'Important',
                 value: [
-                    '**Live game** bugs do not qualify for rewards.',
-                    'Only the first valid report for a bug will receive a reward.',
-                    'You must have been in the Roblox group for at least 2 weeks to receive a payout.',
-                    `If your bug report qualifies for a reward, notify an ${getRoleMention(guild, 'Owner')}.`
+                    'Use the test game for upcoming changes before they are released.',
+                    'Only report issues you can clearly describe or reproduce.',
+                    `If a report needs owner review, notify an ${getRoleMention(guild, 'Owner')}.`
                 ].join('\n'),
                 inline: false
             },
@@ -426,7 +403,7 @@ async function runStartupSync(client, control) {
     }
 
     if (channels.staffInfo) {
-        await syncStaffInfoChannel(channels.staffInfo, control);
+        await syncStaffInfoChannel(channels.staffInfo);
     }
 
     if (channels.gameTestInfo) {
