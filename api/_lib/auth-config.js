@@ -61,37 +61,8 @@ function getRobloxOAuthConfig(req) {
     };
 }
 
-function getDiscordOAuthConfig(req) {
-    const clientId = String(process.env.DISCORD_OAUTH_CLIENT_ID || '').trim();
-    const clientSecret = String(process.env.DISCORD_OAUTH_CLIENT_SECRET || '').trim();
-    const baseUrl = String(process.env.DISCORD_OAUTH_BASE_URL || 'https://discord.com/api').replace(/\/+$/g, '');
-    const redirectUri = String(
-        process.env.DISCORD_OAUTH_REDIRECT_URI || `${getRequestOrigin(req)}/api/verify/discord/callback`
-    ).trim();
-    const scopes = String(process.env.DISCORD_OAUTH_SCOPES || 'identify')
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .join(' ');
-
-    if (!clientId || !clientSecret) {
-        throw new Error('DISCORD_OAUTH_CLIENT_ID and DISCORD_OAUTH_CLIENT_SECRET must be set');
-    }
-
-    return {
-        clientId,
-        clientSecret,
-        redirectUri,
-        scopes,
-        authorizeEndpoint: `${baseUrl}/oauth2/authorize`,
-        tokenEndpoint: `${baseUrl}/oauth2/token`,
-        userInfoEndpoint: `${baseUrl}/users/@me`
-    };
-}
-
 module.exports = {
     getAuthSecret,
-    getDiscordOAuthConfig,
     getRobloxOAuthConfig,
     getRequestOrigin
 };

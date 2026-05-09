@@ -1,7 +1,5 @@
 const SESSION_COOKIE = 'rd_session';
 const OAUTH_STATE_COOKIE = 'rd_oauth_state';
-const DISCORD_OAUTH_STATE_COOKIE = 'rd_discord_oauth_state';
-const DISCORD_VERIFY_COOKIE = 'rd_discord_verify';
 
 function parseCookies(req) {
     const header = req.headers.cookie;
@@ -72,29 +70,17 @@ function clearAuthCookies(res) {
     const expired = 'Thu, 01 Jan 1970 00:00:00 GMT';
     const sessionCookie = `${serializeCookie(SESSION_COOKIE, '', { maxAge: 0 })}; Expires=${expired}`;
     const oauthStateCookie = `${serializeCookie(OAUTH_STATE_COOKIE, '', { maxAge: 0 })}; Expires=${expired}`;
-    const discordStateCookie = `${serializeCookie(DISCORD_OAUTH_STATE_COOKIE, '', { maxAge: 0 })}; Expires=${expired}`;
-    const discordVerifyCookie = `${serializeCookie(DISCORD_VERIFY_COOKIE, '', { maxAge: 0 })}; Expires=${expired}`;
     // Legacy cleanup for previously used auth cookies.
     const legacyStateCookie = `${serializeCookie('rd_webauthn_state', '', { maxAge: 0 })}; Expires=${expired}`;
     const accessCookie = `${serializeCookie('rd_access_token', '', { maxAge: 0 })}; Expires=${expired}`;
     const refreshCookie = `${serializeCookie('rd_refresh_token', '', { maxAge: 0 })}; Expires=${expired}`;
 
-    res.setHeader('Set-Cookie', [
-        sessionCookie,
-        oauthStateCookie,
-        discordStateCookie,
-        discordVerifyCookie,
-        legacyStateCookie,
-        accessCookie,
-        refreshCookie
-    ]);
+    res.setHeader('Set-Cookie', [sessionCookie, oauthStateCookie, legacyStateCookie, accessCookie, refreshCookie]);
 }
 
 module.exports = {
     SESSION_COOKIE,
     OAUTH_STATE_COOKIE,
-    DISCORD_OAUTH_STATE_COOKIE,
-    DISCORD_VERIFY_COOKIE,
     parseCookies,
     serializeCookie,
     appendSetCookie,
