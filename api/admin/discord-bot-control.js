@@ -66,6 +66,13 @@ async function discordApiPut(pathname, body) {
     });
 }
 
+async function discordApiPatch(pathname, body) {
+    return discordApiRequest(pathname, {
+        method: 'PATCH',
+        body
+    });
+}
+
 async function discordApiPost(pathname, body) {
     return discordApiRequest(pathname, {
         method: 'POST',
@@ -482,6 +489,22 @@ async function addAnnouncementReactions(channelId, messageId) {
     };
 }
 
+async function clearAnnouncementPingContent(channelId, messageId) {
+    if (!messageId) {
+        return;
+    }
+
+    await discordApiPatch(
+        `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}`,
+        {
+            content: '',
+            allowed_mentions: {
+                parse: []
+            }
+        }
+    );
+}
+
 async function sendGameUpdateAnnouncement(body, user) {
     const announcement = body && typeof body.gameUpdateAnnouncement === 'object' && body.gameUpdateAnnouncement
         ? body.gameUpdateAnnouncement
@@ -532,6 +555,7 @@ async function sendGameUpdateAnnouncement(body, user) {
         }
     });
 
+    await clearAnnouncementPingContent(channelId, String(message && message.id));
     const reactionResult = await addAnnouncementReactions(channelId, String(message && message.id));
     const control = await updateDiscordBotControl({ gameUpdatesChannelId: channelId }, user);
 
