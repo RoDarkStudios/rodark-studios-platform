@@ -321,7 +321,7 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 async function main() {
-    console.log('RoDark Discord bot worker starting.');
+    console.log('RoDark Studios Discord bot worker starting.');
     await syncBotState();
     setInterval(() => {
         syncBotState().catch(async (error) => {
