@@ -165,6 +165,52 @@ function getResponseHeader(response, headerNames) {
     return '';
 }
 
+function getBloxlinkRateLimitHeaderSnapshot(response) {
+    const headerNames = [
+        'retry-after',
+        'x-ratelimit-limit',
+        'x-ratelimit-remaining',
+        'x-ratelimit-reset',
+        'x-ratelimit-reset-after',
+        'x-rate-limit-limit',
+        'x-rate-limit-remaining',
+        'x-rate-limit-reset',
+        'x-rate-limit-reset-after',
+        'ratelimit-limit',
+        'ratelimit-remaining',
+        'ratelimit-reset',
+        'ratelimit-reset-after'
+    ];
+    const snapshot = {};
+
+    if (!response || !response.headers || typeof response.headers.get !== 'function') {
+        return snapshot;
+    }
+
+    for (const headerName of headerNames) {
+        const value = response.headers.get(headerName);
+        if (value) {
+            snapshot[headerName] = String(value);
+        }
+    }
+
+    return snapshot;
+}
+
+function summarizeBloxlinkPayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+        return String(payload || '').slice(0, 300);
+    }
+
+    return JSON.stringify({
+        keys: Object.keys(payload).slice(0, 10),
+        error: payload.error || null,
+        message: payload.message || null,
+        status: payload.status || null,
+        code: payload.code || null
+    }).slice(0, 500);
+}
+
 function parseRateLimitHeaderMs(value) {
     const rawValue = String(value || '').trim();
     if (!rawValue) {
@@ -362,6 +408,7 @@ async function lookupDiscordIdsForRobloxUser(guildId, robloxUserId) {
                 : getNextBloxlinkRateLimitBackoffMs(retryAfterHeader);
             bloxlinkRateLimitedUntil = Date.now() + backoffMs;
             bloxlinkConsecutiveRateLimitCount += 1;
+            console.warn(`[leaderboard-role] Bloxlink 429 details: headers=${JSON.stringify(getBloxlinkRateLimitHeaderSnapshot(response)) || '{}'} body=${summarizeBloxlinkPayload(payload) || 'empty'} backoff=${Math.ceil(backoffMs / 1000)}s.`);
             throw new Error(`Bloxlink rate limited; retrying in ${Math.ceil(backoffMs / 1000)}s`);
         }
 
