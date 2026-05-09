@@ -515,6 +515,7 @@ async function sendGameUpdateAnnouncement(body, user) {
     }
 
     const message = await discordApiPost(`/channels/${encodeURIComponent(channelId)}/messages`, {
+        content: '@everyone',
         embeds: [
             {
                 title,
@@ -527,7 +528,7 @@ async function sendGameUpdateAnnouncement(body, user) {
             }
         ],
         allowed_mentions: {
-            parse: []
+            parse: ['everyone']
         }
     });
 
