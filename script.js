@@ -1639,12 +1639,14 @@ function getDiscordLevelSystemControl(control) {
 function getDiscordGameUpdatesControl(control) {
     if (!control || typeof control !== 'object' || !control.gameUpdates || typeof control.gameUpdates !== 'object') {
         return {
-            channelId: ''
+            channelId: '',
+            pingEveryoneEnabled: true
         };
     }
 
     return {
-        channelId: control.gameUpdates.channelId ? String(control.gameUpdates.channelId) : ''
+        channelId: control.gameUpdates.channelId ? String(control.gameUpdates.channelId) : '',
+        pingEveryoneEnabled: control.gameUpdates.pingEveryoneEnabled !== false
     };
 }
 
@@ -2094,6 +2096,7 @@ function renderDiscordBotControl(control, options) {
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const gameUpdatesChannelInput = document.getElementById('discord-game-updates-channel-id');
+    const gameUpdatesPingEveryoneInput = document.getElementById('discord-game-updates-ping-everyone');
     const gameUpdatesSaveButton = document.getElementById('discord-game-updates-save-btn');
     const gameUpdateSendButton = document.getElementById('discord-game-update-send-btn');
     const leaderboardRoleEnabledInput = document.getElementById('discord-leaderboard-role-enabled');
@@ -2231,6 +2234,9 @@ function renderDiscordBotControl(control, options) {
     }
     if (!preserveGameUpdatesForm && gameUpdatesChannelInput) {
         setDiscordChannelInputDisplayValue(gameUpdatesChannelInput, gameUpdatesControl.channelId, channelMaps);
+    }
+    if (!preserveGameUpdatesForm && gameUpdatesPingEveryoneInput) {
+        gameUpdatesPingEveryoneInput.checked = gameUpdatesControl.pingEveryoneEnabled !== false;
     }
     if (gameUpdatesSaveButton) {
         gameUpdatesSaveButton.disabled = false;
@@ -2427,7 +2433,8 @@ async function saveDiscordLevelSystemConfig(config) {
 async function saveDiscordGameUpdatesConfig(config) {
     const payload = await postJson('/api/admin/discord-bot-control', {
         gameUpdates: {
-            channelId: config && config.channelId ? String(config.channelId).trim() : ''
+            channelId: config && config.channelId ? String(config.channelId).trim() : '',
+            pingEveryoneEnabled: !(config && config.pingEveryoneEnabled === false)
         }
     });
 
@@ -2444,7 +2451,8 @@ async function sendDiscordGameUpdateAnnouncement(config) {
         gameUpdateAnnouncement: {
             channelId: config && config.channelId ? String(config.channelId).trim() : '',
             title: config && config.title ? String(config.title).trim() : '',
-            body: config && config.body ? String(config.body).trim() : ''
+            body: config && config.body ? String(config.body).trim() : '',
+            pingEveryoneEnabled: !(config && config.pingEveryoneEnabled === false)
         }
     });
 
@@ -2670,6 +2678,7 @@ async function initDiscordBotDashboard() {
     const levelAttachmentUnlockLevelInput = document.getElementById('discord-level-attachment-unlock-level');
     const levelSystemSaveButton = document.getElementById('discord-level-system-save-btn');
     const gameUpdatesChannelInput = document.getElementById('discord-game-updates-channel-id');
+    const gameUpdatesPingEveryoneInput = document.getElementById('discord-game-updates-ping-everyone');
     const gameUpdatesSaveButton = document.getElementById('discord-game-updates-save-btn');
     const gameUpdateTitleInput = document.getElementById('discord-game-update-title');
     const gameUpdateBodyInput = document.getElementById('discord-game-update-body');
@@ -2960,6 +2969,9 @@ async function initDiscordBotDashboard() {
     if (gameUpdatesChannelInput) {
         gameUpdatesChannelInput.addEventListener('input', markGameUpdatesFormDirty);
     }
+    if (gameUpdatesPingEveryoneInput) {
+        gameUpdatesPingEveryoneInput.addEventListener('change', markGameUpdatesFormDirty);
+    }
     if (leaderboardRoleEnabledInput) {
         leaderboardRoleEnabledInput.addEventListener('change', markLeaderboardRoleFormDirty);
     }
@@ -3157,7 +3169,8 @@ async function initDiscordBotDashboard() {
 
             try {
                 const control = await saveDiscordGameUpdatesConfig({
-                    channelId: gameUpdatesChannelInput ? resolveDiscordChannelInputValue(gameUpdatesChannelInput, getCurrentDiscordChannelMaps()) : ''
+                    channelId: gameUpdatesChannelInput ? resolveDiscordChannelInputValue(gameUpdatesChannelInput, getCurrentDiscordChannelMaps()) : '',
+                    pingEveryoneEnabled: gameUpdatesPingEveryoneInput ? gameUpdatesPingEveryoneInput.checked : true
                 });
                 dashboard.dataset.gameUpdatesDirty = 'false';
                 renderDiscordBotControl(control.control, {
@@ -3181,7 +3194,8 @@ async function initDiscordBotDashboard() {
                 const control = await sendDiscordGameUpdateAnnouncement({
                     channelId: gameUpdatesChannelInput ? resolveDiscordChannelInputValue(gameUpdatesChannelInput, getCurrentDiscordChannelMaps()) : '',
                     title: gameUpdateTitleInput ? gameUpdateTitleInput.value : '',
-                    body: gameUpdateBodyInput ? gameUpdateBodyInput.value : ''
+                    body: gameUpdateBodyInput ? gameUpdateBodyInput.value : '',
+                    pingEveryoneEnabled: gameUpdatesPingEveryoneInput ? gameUpdatesPingEveryoneInput.checked : true
                 });
                 dashboard.dataset.gameUpdatesDirty = 'false';
                 if (gameUpdateTitleInput) {

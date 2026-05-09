@@ -514,6 +514,9 @@ async function sendGameUpdateAnnouncement(body, user) {
         announcement.channelId || (currentControl && currentControl.gameUpdates && currentControl.gameUpdates.channelId),
         'Game updates channel ID'
     );
+    const shouldPingEveryone = Object.prototype.hasOwnProperty.call(announcement, 'pingEveryoneEnabled')
+        ? Boolean(announcement.pingEveryoneEnabled)
+        : !(currentControl && currentControl.gameUpdates && currentControl.gameUpdates.pingEveryoneEnabled === false);
     const title = normalizeAnnouncementText(
         announcement.title,
         'Announcement title',
@@ -538,7 +541,7 @@ async function sendGameUpdateAnnouncement(body, user) {
     }
 
     const message = await discordApiPost(`/channels/${encodeURIComponent(channelId)}/messages`, {
-        content: '@everyone',
+        content: shouldPingEveryone ? '@everyone' : '',
         embeds: [
             {
                 title,
@@ -551,13 +554,18 @@ async function sendGameUpdateAnnouncement(body, user) {
             }
         ],
         allowed_mentions: {
-            parse: ['everyone']
+            parse: shouldPingEveryone ? ['everyone'] : []
         }
     });
 
-    await clearAnnouncementPingContent(channelId, String(message && message.id));
+    if (shouldPingEveryone) {
+        await clearAnnouncementPingContent(channelId, String(message && message.id));
+    }
     const reactionResult = await addAnnouncementReactions(channelId, String(message && message.id));
-    const control = await updateDiscordBotControl({ gameUpdatesChannelId: channelId }, user);
+    const control = await updateDiscordBotControl({
+        gameUpdatesChannelId: channelId,
+        gameUpdatesPingEveryoneEnabled: shouldPingEveryone
+    }, user);
 
     return {
         control,
@@ -569,6 +577,7 @@ async function sendGameUpdateAnnouncement(body, user) {
             reactions: DISCORD_ANNOUNCEMENT_REACTIONS,
             addedReactions: reactionResult.addedReactions,
             failedReactions: reactionResult.failedReactions,
+            pingEveryone: shouldPingEveryone,
             playUrl: playLink.url,
             productionUniverseId: playLink.universeId,
             productionRootPlaceId: playLink.rootPlaceId,
@@ -689,6 +698,10 @@ module.exports = async (req, res) => {
 
         if (gameUpdates && Object.prototype.hasOwnProperty.call(gameUpdates, 'channelId')) {
             patch.gameUpdatesChannelId = gameUpdates.channelId;
+        }
+
+        if (gameUpdates && Object.prototype.hasOwnProperty.call(gameUpdates, 'pingEveryoneEnabled')) {
+            patch.gameUpdatesPingEveryoneEnabled = gameUpdates.pingEveryoneEnabled;
         }
 
         if (ticketSystem && Object.prototype.hasOwnProperty.call(ticketSystem, 'categoryChannelId')) {

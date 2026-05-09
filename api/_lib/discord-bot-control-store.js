@@ -256,6 +256,7 @@ async function ensureDiscordBotControlSchema() {
             leaderboard_role_icon_data bytea,
             leaderboard_role_icon_sha256 text,
             leaderboard_role_icon_updated_at timestamptz,
+            game_updates_ping_everyone_enabled boolean not null default true,
             updated_at timestamptz not null default now(),
             updated_by_user_id text,
             updated_by_username text
@@ -295,6 +296,11 @@ async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         alter table discord_bot_control
         add column if not exists game_updates_channel_id text
+    `);
+
+    await postgresQuery(`
+        alter table discord_bot_control
+        add column if not exists game_updates_ping_everyone_enabled boolean not null default true
     `);
 
     await postgresQuery(`
@@ -541,7 +547,8 @@ function mapRowToDiscordBotControl(row) {
             gameTestInfoChannelId: row.content_game_test_info_channel_id ? String(row.content_game_test_info_channel_id) : null
         },
         gameUpdates: {
-            channelId: row.game_updates_channel_id ? String(row.game_updates_channel_id) : null
+            channelId: row.game_updates_channel_id ? String(row.game_updates_channel_id) : null,
+            pingEveryoneEnabled: row.game_updates_ping_everyone_enabled !== false
         },
         ticketSystem: {
             categoryChannelId: row.tickets_category_channel_id ? String(row.tickets_category_channel_id) : null,
@@ -594,6 +601,7 @@ async function getDiscordBotControl() {
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
             game_updates_channel_id,
+            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -667,6 +675,9 @@ async function updateDiscordBotControl(patch, user) {
         : (currentControl.gameUpdates && currentControl.gameUpdates.channelId
             ? String(currentControl.gameUpdates.channelId)
             : null);
+    const gameUpdatesPingEveryoneEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'gameUpdatesPingEveryoneEnabled')
+        ? Boolean(patch.gameUpdatesPingEveryoneEnabled)
+        : !(currentControl.gameUpdates && currentControl.gameUpdates.pingEveryoneEnabled === false);
     const ticketsCategoryChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'ticketsCategoryChannelId')
         ? normalizeOptionalSnowflake(patch.ticketsCategoryChannelId, 'Tickets category ID')
         : (currentControl.ticketSystem && currentControl.ticketSystem.categoryChannelId
@@ -744,6 +755,7 @@ async function updateDiscordBotControl(patch, user) {
             content_staff_info_channel_id = $7,
             content_game_test_info_channel_id = $8,
             game_updates_channel_id = $32,
+            game_updates_ping_everyone_enabled = $33,
             tickets_category_channel_id = $9,
             tickets_panel_channel_id = $10,
             tickets_helper_role_ids = $11,
@@ -803,6 +815,7 @@ async function updateDiscordBotControl(patch, user) {
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
             game_updates_channel_id,
+            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -856,7 +869,8 @@ async function updateDiscordBotControl(patch, user) {
         leaderboardRoleIconUpload ? leaderboardRoleIconUpload.contentType : null,
         leaderboardRoleIconUpload ? leaderboardRoleIconUpload.data : null,
         leaderboardRoleIconUpload ? leaderboardRoleIconUpload.sha256 : null,
-        gameUpdatesChannelId
+        gameUpdatesChannelId,
+        gameUpdatesPingEveryoneEnabled
     ]);
 
     return mapRowToDiscordBotControl(result.rows[0]);
@@ -884,6 +898,7 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
             game_updates_channel_id,
+            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -938,6 +953,7 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
             game_updates_channel_id,
+            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -990,6 +1006,7 @@ async function setDiscordLeaderboardRoleId(roleId) {
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
             game_updates_channel_id,
+            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
