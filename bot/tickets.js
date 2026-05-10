@@ -240,11 +240,7 @@ async function shouldRejectTicketIssue(issueDescription, interaction) {
             : null;
     } catch (error) {
         console.error('Discord ticket AI review failed:', error);
-        return {
-            decision: 'reject',
-            category: 'other_blocked',
-            reason: 'Ticket review is temporarily unavailable, so a ticket cannot be opened right now. Please try again later.'
-        };
+        return null;
     }
 }
 
