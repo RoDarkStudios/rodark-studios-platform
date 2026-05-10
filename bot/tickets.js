@@ -49,9 +49,10 @@ function buildTicketPanelPayload() {
         .setColor(0xf97316)
         .setDescription([
             'Need direct help from RoDark Studios staff? Open a private ticket and describe what you need.',
+            'Tickets are for community and player support only.',
             '',
             '**Do not open tickets for:**',
-            '- Acquisition, partnership buyout, or deal offers.',
+            '- Acquisition, buyout, investment, partnership, or deal offers. RoDark Studios is not looking for or open to these.',
             '- Discord staff applications. We are not hiring Discord staff.',
             '- Game developer applications. We are not hiring developers.',
             '',
@@ -77,7 +78,7 @@ function buildTicketIssueModal() {
     const issueInput = new TextInputBuilder()
         .setCustomId(TICKET_ISSUE_INPUT_CUSTOM_ID)
         .setLabel('What do you need help with?')
-        .setPlaceholder('No deals, staff applications, developer applications, or bug reports. Describe the support issue.')
+        .setPlaceholder('No acquisition/deal offers, hiring requests, or bug reports. Describe the support issue.')
         .setStyle(TextInputStyle.Paragraph)
         .setMinLength(20)
         .setMaxLength(1000)
