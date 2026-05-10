@@ -65,6 +65,7 @@ const TICKET_REJECTION_CATEGORIES = {
     }
 };
 const TICKET_REJECTION_CATEGORY_KEYS = Object.keys(TICKET_REJECTION_CATEGORIES);
+const TICKET_PANEL_BLOCKED_CATEGORY_KEYS = TICKET_REJECTION_CATEGORY_KEYS.filter((category) => category !== 'bug_report');
 const TICKET_REVIEW_CATEGORY_ENUM = ['allowed', ...TICKET_REJECTION_CATEGORY_KEYS, 'other_blocked'];
 
 function getTicketSystemControl(control) {
@@ -91,7 +92,9 @@ function buildTicketPanelPayload() {
             'Tickets are for community and player support only.',
             '',
             '**Do not open tickets for:**',
-            ...TICKET_REJECTION_CATEGORY_KEYS.map((category) => `- ${TICKET_REJECTION_CATEGORIES[category].panelText}`)
+            ...TICKET_PANEL_BLOCKED_CATEGORY_KEYS.map((category) => `- ${TICKET_REJECTION_CATEGORIES[category].panelText}`),
+            '',
+            `⚠️ ${TICKET_REJECTION_CATEGORIES.bug_report.panelText}`
         ].join('\n'));
 
     const row = new ActionRowBuilder().addComponents(
