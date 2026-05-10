@@ -32,7 +32,7 @@ const OPENAI_TICKET_REVIEW_MODEL = String(
 ).trim();
 const OPENAI_TICKET_REVIEW_REASONING_EFFORT = String(
     process.env.OPENAI_TICKET_REVIEW_REASONING_EFFORT
-    || 'high'
+    || 'medium'
 ).trim();
 const OPENAI_TICKET_REVIEW_TIMEOUT_MS = Math.max(
     1000,
