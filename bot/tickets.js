@@ -48,7 +48,12 @@ function buildTicketPanelPayload() {
         .setTitle('Open a Ticket')
         .setColor(0xf97316)
         .setDescription([
-            'Need help from RoDark Studios staff? Open a private ticket and describe what you need.',
+            'Need direct help from RoDark Studios staff? Open a private ticket and describe what you need.',
+            '',
+            '**Do not open tickets for:**',
+            '- Acquisition, partnership buyout, or deal offers.',
+            '- Discord staff applications. We are not hiring Discord staff.',
+            '- Game developer applications. We are not hiring developers.',
             '',
             `⚠️ For bug reports, use <#${BUG_REPORT_CHANNEL_ID}> instead. They will be read even if developers are currently busy.`
         ].join('\n'));
@@ -72,7 +77,7 @@ function buildTicketIssueModal() {
     const issueInput = new TextInputBuilder()
         .setCustomId(TICKET_ISSUE_INPUT_CUSTOM_ID)
         .setLabel('What do you need help with?')
-        .setPlaceholder('Describe your issue. You can attach images after the ticket opens.')
+        .setPlaceholder('No deals, staff applications, developer applications, or bug reports. Describe the support issue.')
         .setStyle(TextInputStyle.Paragraph)
         .setMinLength(20)
         .setMaxLength(1000)
