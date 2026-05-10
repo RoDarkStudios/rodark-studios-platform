@@ -44,22 +44,22 @@ const TICKET_TRANSCRIPT_FETCH_LIMIT = 100;
 const pendingTicketOpenUserKeys = new Set();
 const TICKET_REJECTION_CATEGORIES = {
     business_deal: {
-        panelText: 'Acquisition, buyout, investment, partnership, sponsorship, or deal offers. RoDark Studios is not looking for or open to these.',
+        panelText: 'Acquisition, buyout, investment, partnership, sponsorship, or deal offers. We are not open to these.',
         instruction: 'Reject requests for acquisition, buyout, investment, partnership, sponsorship, business, or deal offers to buy, fund, acquire, or work with RoDark Studios. RoDark Studios is not looking for or open to these.',
         reason: 'RoDark Studios is not looking for or accepting acquisition, buyout, investment, partnership, sponsorship, or other business deal offers.'
     },
     discord_staff: {
-        panelText: 'Discord staff, moderator, admin, helper, or support staff applications. RoDark Studios is not hiring Discord staff.',
+        panelText: 'Discord staff, moderator, admin, helper, or support staff applications. We are not hiring Discord staff.',
         instruction: 'Reject requests to become Discord staff, moderator, admin, helper, support staff, or similar. RoDark Studios is not hiring Discord staff.',
         reason: 'RoDark Studios is not hiring Discord staff, moderators, admins, helpers, or support staff.'
     },
     game_developer: {
-        panelText: 'Game developer, scripter, builder, modeler, artist, animator, UI designer, tester, or other development role applications. RoDark Studios is not hiring developers.',
+        panelText: 'Game developer, scripter, builder, modeler, artist, animator, UI designer, tester, or other development role applications. We are not hiring developers.',
         instruction: 'Reject requests to become a game developer, scripter, builder, modeler, artist, animator, UI designer, tester, or similar development role. RoDark Studios is not hiring game developers or other development roles.',
         reason: 'RoDark Studios is not hiring game developers, scripters, builders, modelers, artists, animators, UI designers, testers, or other development roles.'
     },
     bug_report: {
-        panelText: `Bug reports. Use <#${BUG_REPORT_CHANNEL_ID}> instead; they will be read even if developers are currently busy.`,
+        panelText: `Bug reports go in <#${BUG_REPORT_CHANNEL_ID}>, not tickets. They are still read.`,
         instruction: `Reject bug reports and tell the user to use <#${BUG_REPORT_CHANNEL_ID}> instead.`,
         reason: `Bug reports do not go in tickets. Please use <#${BUG_REPORT_CHANNEL_ID}> instead.`
     }
@@ -88,8 +88,7 @@ function buildTicketPanelPayload() {
         .setTitle('Open a Ticket')
         .setColor(0xf97316)
         .setDescription([
-            'Need direct help from RoDark Studios staff? Open a private ticket and describe what you need.',
-            'Tickets are for community and player support only.',
+            'Need direct help from RoDark Studios staff? Open a private ticket for community or player support.',
             '',
             '**Do not open tickets for:**',
             ...TICKET_PANEL_BLOCKED_CATEGORY_KEYS.map((category) => `- ${TICKET_REJECTION_CATEGORIES[category].panelText}`),
