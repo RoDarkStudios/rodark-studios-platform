@@ -1,0 +1,23 @@
+Roblox Game Algorithm Doc
+You're making a comprehensive document for Roblox game developers, enabling them to elevate their games to be as successful, profitable, algorithmically favored and popular as possible. You will dive deeply into all the invaluable secrets available to know about abusing Roblox's game promotion algorithm for maximum results.
+Any game-genre-specific advice should be tailored towards simulator-style games.
+Ensure update-to-date, accurate and reliable info that is currently still true.
+Throughout the entire document, make it clear when information is speculative / not proven versus when it is known for sure.
+The document is broken into 3 main sub-sections: "Mastering Roblox’s Algorithm: Core Metrics and Optimization", "Exploiting Grey Areas & Expert-Level Strategies", "Additional Important Considerations".
+
+Mastering Roblox’s Algorithm: Core Metrics and Optimization: This should be the focus and most widely researched part of the document.
+You should thoroughly research and clearly identify which exact official specific statistics Roblox internally use to determine algorithm push, rank them with 1-10 relative algorithmic push importance ratings and gather specifics on how to maximize each of these stats in detail. Be specific of exactly what form these statistics are—is it in the game's all-time history, a specific time-period or something else?
+
+Expert-Level Strategies & Exploiting Grey Areas: This section should also be widely researched.
+- You must research any other helpful-to-know game-making tips beyond what I have asked. This is where you go beyond my instructions and find out all the strategies and specific cumulative tips people use to absolutely annihilate the algorithm and make the most successful game possible.
+- Any grey-area tips to abuse the algorithm are allowed as long as they maximize results
+
+Additional Important Considerations: Address directly the following points with as much concision as you can while still directly answering the question. Despite the concision of the response, you still need an adequately researched and accurate answer for each.
+- CTR algorithm effects: Address whether having a bad click through rate effects how much your game is promoted in the algorithm or whether it only effects how many plays you get "per algorithm spot".
+- Idle Players: Discover whether keeping AFK players in the game (rather than them leaving/disconnecting) benefits the game's stats or whether Roblox has systems in place to for example, ignore session time for an AFK player, eliminating their contribution.
+- Session hopping: Discover whether player's session hopping in the game (e.g. to minimise time to wait between minigames with high rewards) damages session time or whether Roblox has systems in place to eliminate the effect of player's leaving and joining a lot in a short period. As whether this has an effect determines whether game developers should make efforts to eliminate session hopping (e.g. making minigames dependant on real life time e.g. 9 o'clock rather than at 10 minute intervals which depends on when the server was created)
+- Icon changing: address whether you inherently have to change your game icon periodically to maximise click through rate or whether you can just find a great icon and stick with it. Which one is optimal?
+- Is it possible to revive a game that previously died (after getting popular and then falling off) simply by improving it and boosting the stats or will people "remember not liking it" or buy less as they already own certain game passes and will the algorithm "remember" that the game died and then refuse to promote the game. Is it better to just make a new place file?
+- Thumbnails VS Icons: Are Roblox phasing out icons in favor of thumbnails? I've noticed that a lot of pages that used to use icon as the cover now use thumbnails.
+- Does Roblox detect and shadow-ban / suppress duplicate games or can you just copy your game after it dies and relaunch to remove any history of stats falling off and people's data is wiped so they have to rework for it and then they have to rebuy game passes etc.
+- Additionally, you must research any other unclear, but helpful-to-know game-making considerations beyond what I have asked and answer the important ones in the same manner as above. These are important questions developers might ask or want to know but it isn't immediately clear on the topic of launching a successful game. Essentially, you're just expanding the list above with your own useful points.
