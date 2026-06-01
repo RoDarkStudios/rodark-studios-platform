@@ -1,0 +1,16 @@
+{
+  "name": "rodark-studios-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repository root for the RoDark Studios platform.",
+  "workspaces": [
+    "Software"
+  ],
+  "scripts": {
+    "start": "npm --workspace rodark-studios-website start",
+    "start:bot": "npm --workspace rodark-studios-website run start:bot"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
