@@ -967,6 +967,10 @@ body {
     color: #fde047;
 }
 
+.myron-link-button.tiktok .myron-link-icon {
+    color: #f8fafc;
+}
+
 .myron-link-button.youtube .myron-link-icon {
     color: #f87171;
 }
