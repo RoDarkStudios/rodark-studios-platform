@@ -777,6 +777,204 @@ body {
     font-family: 'Times New Roman', serif;
 }
 
+/* Personal Link Hub */
+.link-hub-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 18% 18%, rgba(249, 115, 22, 0.16), transparent 28%),
+        radial-gradient(circle at 82% 16%, rgba(6, 182, 212, 0.12), transparent 24%),
+        linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+}
+
+.link-hub-main {
+    min-height: calc(100vh - 246px);
+}
+
+.myron-link-hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 7rem 2rem 4rem;
+}
+
+.myron-link-shell {
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.myron-profile-panel,
+.myron-links-panel {
+    border: 1px solid var(--border-color);
+    background: rgba(38, 38, 38, 0.84);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(16px);
+}
+
+.myron-profile-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2.5rem;
+    border-radius: 20px;
+}
+
+.myron-avatar-wrap {
+    width: 132px;
+    height: 132px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.4rem;
+    padding: 0.35rem;
+    border-radius: 50%;
+    background: var(--gradient);
+    box-shadow: 0 18px 40px rgba(249, 115, 22, 0.25);
+}
+
+.myron-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    background: var(--card-bg);
+}
+
+.myron-kicker {
+    color: var(--primary-color);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.myron-profile-panel h1 {
+    font-size: 3rem;
+    line-height: 1.05;
+    margin-bottom: 0.65rem;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.myron-role {
+    color: var(--text-primary);
+    font-weight: 700;
+    margin-bottom: 0.85rem;
+}
+
+.myron-summary {
+    max-width: 24rem;
+    color: var(--text-secondary);
+}
+
+.myron-links-panel {
+    display: grid;
+    gap: 0.8rem;
+    padding: 1rem;
+    border-radius: 20px;
+}
+
+.myron-link-button {
+    min-height: 76px;
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) 2rem;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(10, 10, 10, 0.46);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.myron-link-button:hover,
+.myron-link-button:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(249, 115, 22, 0.65);
+    background: rgba(23, 23, 23, 0.86);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+    outline: none;
+}
+
+.myron-link-primary {
+    min-height: 88px;
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.28), rgba(6, 182, 212, 0.14));
+    border-color: rgba(249, 115, 22, 0.5);
+}
+
+.myron-link-icon {
+    width: 3rem;
+    height: 3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-primary);
+    font-size: 1.35rem;
+}
+
+.myron-link-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.1rem;
+}
+
+.myron-link-title {
+    color: var(--text-primary);
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.myron-link-handle {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.myron-link-arrow {
+    display: inline-flex;
+    justify-content: flex-end;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.myron-link-button.roblox .myron-link-icon {
+    color: #93c5fd;
+}
+
+.myron-link-button.instagram .myron-link-icon {
+    color: #f9a8d4;
+}
+
+.myron-link-button.twitter .myron-link-icon {
+    color: #f8fafc;
+}
+
+.myron-link-button.snapchat .myron-link-icon {
+    color: #fde047;
+}
+
+.myron-link-button.youtube .myron-link-icon {
+    color: #f87171;
+}
+
+.link-hub-footer {
+    background: rgba(10, 10, 10, 0.72);
+}
+
 /* Social Section */
 .social {
     padding: 6rem 0;
@@ -1970,6 +2168,24 @@ body {
         justify-content: center;
     }
 
+    .myron-link-hero {
+        min-height: auto;
+        padding: 6rem 1rem 3rem;
+    }
+
+    .myron-link-shell {
+        grid-template-columns: 1fr;
+        max-width: 520px;
+    }
+
+    .myron-profile-panel {
+        padding: 2rem 1.4rem;
+    }
+
+    .myron-profile-panel h1 {
+        font-size: 2.35rem;
+    }
+
 }
 
 @media (max-width: 480px) {
@@ -1984,6 +2200,41 @@ body {
     .btn {
         padding: 0.75rem 1.5rem;
         font-size: 0.875rem;
+    }
+
+    .myron-link-hero {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }
+
+    .myron-links-panel {
+        padding: 0.75rem;
+        gap: 0.65rem;
+    }
+
+    .myron-link-button {
+        grid-template-columns: 2.65rem minmax(0, 1fr) 1.5rem;
+        gap: 0.8rem;
+        min-height: 72px;
+        padding: 0.9rem;
+    }
+
+    .myron-link-primary {
+        min-height: 80px;
+    }
+
+    .myron-link-icon {
+        width: 2.65rem;
+        height: 2.65rem;
+        font-size: 1.18rem;
+    }
+
+    .myron-link-title {
+        font-size: 0.98rem;
+    }
+
+    .myron-link-handle {
+        font-size: 0.84rem;
     }
 
     .social-links {

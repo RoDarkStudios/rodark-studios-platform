@@ -41,6 +41,7 @@ let socialPreviewCache = {
 };
 
 const pageRoutes = {
+    '/myron': 'myron.html',
     '/privacy': 'privacy.html',
     '/terms': 'terms.html',
     '/admin': 'admin.html',
@@ -54,6 +55,7 @@ const pageRoutes = {
 };
 
 const htmlRedirects = {
+    '/myron.html': '/myron',
     '/privacy.html': '/privacy',
     '/terms.html': '/terms',
     '/admin.html': '/admin',
