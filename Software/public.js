@@ -626,21 +626,58 @@ function initFadeInAnimations() {
     const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
             if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-                observer.unobserve(entry.target);
+                const target = entry.target;
+                target.style.opacity = '1';
+                target.style.transform = 'translateY(0)';
+                observer.unobserve(target);
+                window.setTimeout(() => {
+                    target.style.transition = '';
+                }, 520);
             }
         });
     }, {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
+        threshold: 0.01,
+        rootMargin: '0px 0px 180px 0px'
     });
 
     document.querySelectorAll('.team-member, .feature, .game-card, .social-link').forEach((el, index) => {
         el.style.opacity = '0';
-        el.style.transform = 'translateY(30px)';
-        el.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
+        el.style.transform = 'translateY(16px)';
+        el.style.transition = `opacity 0.34s ease ${Math.min(index, 3) * 0.025}s, transform 0.34s ease ${Math.min(index, 3) * 0.025}s`;
         observer.observe(el);
+    });
+}
+
+function initTeamCardLinks() {
+    document.querySelectorAll('.team-member-link[data-profile-url]').forEach((card) => {
+        const profileUrl = card.getAttribute('data-profile-url');
+        if (!profileUrl) {
+            return;
+        }
+
+        const openProfile = () => {
+            window.location.href = profileUrl;
+        };
+
+        card.addEventListener('click', (event) => {
+            if (event.target && event.target.closest && event.target.closest('a, button')) {
+                return;
+            }
+
+            openProfile();
+        });
+
+        card.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            if (event.target && event.target.closest && event.target.closest('a, button')) {
+                return;
+            }
+
+            event.preventDefault();
+            openProfile();
+        });
     });
 }
 
@@ -677,6 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMobileNav();
     initSmoothScrolling();
     initNavbarScroll();
+    initTeamCardLinks();
     initRippleEffect();
 });
 

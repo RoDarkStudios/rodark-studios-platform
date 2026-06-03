@@ -42,6 +42,8 @@ let socialPreviewCache = {
 
 const pageRoutes = {
     '/myron': 'myron.html',
+    '/kasper': 'kasper.html',
+    '/tristan': 'tristan.html',
     '/privacy': 'privacy.html',
     '/terms': 'terms.html',
     '/admin': 'admin.html',
@@ -56,6 +58,8 @@ const pageRoutes = {
 
 const htmlRedirects = {
     '/myron.html': '/myron',
+    '/kasper.html': '/kasper',
+    '/tristan.html': '/tristan',
     '/privacy.html': '/privacy',
     '/terms.html': '/terms',
     '/admin.html': '/admin',

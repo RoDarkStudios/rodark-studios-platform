@@ -650,11 +650,59 @@ body {
     border-radius: 20px;
     text-align: center;
     border: 1px solid var(--border-color);
-    transition: transform 0.3s ease;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-.team-member:hover {
-    transform: translateY(-5px);
+.team-member-link {
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.team-member:hover,
+.team-member-link:hover {
+    transform: translateY(-6px) !important;
+    border-color: rgba(249, 115, 22, 0.72);
+    box-shadow: 0 22px 42px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(249, 115, 22, 0.12);
+}
+
+.team-member-link::after {
+    content: "\f061";
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(249, 115, 22, 0.35);
+    border-radius: 10px;
+    background: rgba(10, 10, 10, 0.34);
+    color: var(--primary-color);
+    font-family: "Font Awesome 6 Free";
+    font-size: 0.9rem;
+    font-weight: 900;
+    opacity: 0;
+    transform: translate(6px, -6px);
+    transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    pointer-events: none;
+}
+
+.team-member-link:hover::after,
+.team-member-link:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, 0);
+    border-color: rgba(249, 115, 22, 0.7);
+    background: rgba(249, 115, 22, 0.12);
+}
+
+.team-member-link:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 4px;
 }
 
 .member-avatar {
@@ -736,22 +784,31 @@ body {
 .member-socials {
     display: flex;
     justify-content: center;
-    gap: 0.75rem;
-    margin-top: 1rem;
+    gap: 0.55rem;
+    margin-top: auto;
+    padding-top: 1rem;
+    flex-wrap: wrap;
+    min-height: 36px;
+}
+
+#myron-member .member-socials {
+    max-width: calc((36px * 3) + (0.55rem * 2));
+    row-gap: 0.5rem;
 }
 
 .member-social {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border: 2px solid var(--border-color);
     border-radius: 50%;
     color: var(--text-secondary);
     text-decoration: none;
     transition: all 0.3s ease;
-    font-size: 1.2rem;
+    font-size: 1.05rem;
+    flex: 0 0 36px;
 }
 
 .member-social:hover:not(.disabled) {
@@ -771,9 +828,17 @@ body {
     color: #ff0000;
 }
 
+.member-social.youtube {
+    color: #f87171;
+}
+
 .member-social.twitter:hover {
     border-color: #000000;
     color: #000000;
+}
+
+.member-social.twitter {
+    color: #f8fafc;
 }
 
 .member-social.instagram:hover {
@@ -781,15 +846,55 @@ body {
     color: #e4405f;
 }
 
+.member-social.instagram {
+    color: #f9a8d4;
+}
+
+.member-social.snapchat:hover {
+    border-color: #fde047;
+    color: #fde047;
+}
+
+.member-social.snapchat {
+    color: #fde047;
+}
+
+.member-social.tiktok:hover {
+    border-color: #f8fafc;
+    color: #f8fafc;
+}
+
+.member-social.tiktok {
+    color: #f8fafc;
+}
+
 .member-social.roblox:hover {
     border-color: #00a2ff;
     color: #00a2ff;
 }
 
+.member-social.roblox {
+    color: #93c5fd;
+}
+
+.member-social-avatar-icon {
+    padding: 0.12rem;
+    border-color: rgba(0, 162, 255, 0.65);
+}
+
+.member-social-avatar {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: 50%;
+    background: var(--card-bg);
+}
+
 .member-social .x-icon {
-    font-size: 1rem;
-    font-weight: bold;
-    font-family: 'Times New Roman', serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    font-family: inherit;
 }
 
 /* Personal Link Hub */
@@ -811,42 +916,83 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.25rem;
+    gap: 0.9rem;
     padding: 7rem 2rem 4rem;
 }
 
 .myron-stats-banner {
-    width: fit-content;
-    max-width: calc(100% - 2rem);
-    padding: 0.75rem;
-    border: 1px solid rgba(249, 115, 22, 0.34);
-    border-radius: 18px;
-    background: rgba(38, 38, 38, 0.72);
-    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22);
-    backdrop-filter: blur(16px);
+    width: 100%;
+    max-width: 980px;
+    padding: 0.42rem;
+    border: 1px solid rgba(249, 115, 22, 0.32);
+    border-radius: 12px;
+    background: rgba(23, 23, 23, 0.58);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(14px);
 }
 
 .myron-stats-banner-grid {
-    grid-template-columns: repeat(3, 15rem);
-    gap: 0.65rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
 }
 
 .myron-stats-banner-grid.is-two-up {
-    grid-template-columns: repeat(2, 15rem);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .myron-stats-banner .hero-stat-tile {
-    min-height: 96px;
-    padding: 0.85rem 0.9rem;
-    border-radius: 14px;
+    min-height: 54px;
+    display: grid;
+    grid-template-columns: 2rem auto auto;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.5rem 1.1rem;
+    position: relative;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    text-align: left;
+}
+
+.myron-stats-banner .hero-stat-tile + .hero-stat-tile::before {
+    content: "";
+    position: absolute;
+    left: -0.225rem;
+    top: 0.65rem;
+    bottom: 0.65rem;
+    width: 1px;
+    background: rgba(148, 163, 184, 0.22);
+}
+
+.myron-stats-banner .hero-stat-tile:hover {
+    transform: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.myron-stats-banner .hero-stat-tile i {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 7px;
+    font-size: 0.86rem;
+}
+
+.myron-stats-banner .stat-info {
+    display: contents;
 }
 
 .myron-stats-banner .hero-stat-value {
-    font-size: clamp(1.85rem, 3vw, 2.35rem);
+    font-size: clamp(1.55rem, 2.6vw, 2.05rem);
+    line-height: 1;
 }
 
 .myron-stats-banner .hero-stat-label {
-    font-size: 0.74rem;
+    max-width: 7.8rem;
+    font-size: 0.66rem;
+    line-height: 1.05;
 }
 
 .myron-link-shell {
@@ -2272,23 +2418,40 @@ body {
     .myron-link-hero {
         min-height: auto;
         padding: 6rem 1rem 3rem;
-        gap: 1rem;
+        gap: 0.85rem;
     }
 
     .myron-stats-banner {
         width: 100%;
         max-width: 520px;
-        padding: 0.8rem;
+        padding: 0.4rem;
+        border-radius: 18px;
     }
 
     .myron-stats-banner-grid,
     .myron-stats-banner-grid.is-two-up {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.65rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
     }
 
     .myron-stats-banner .hero-stat-tile {
-        min-height: 96px;
+        min-height: 58px;
+        grid-template-columns: 1.9rem minmax(0, auto);
+        gap: 0.45rem;
+        padding: 0.5rem 0.65rem;
+        justify-content: center;
+    }
+
+    .myron-stats-banner .stat-info {
+        display: flex;
+    }
+
+    .myron-stats-banner .hero-stat-value {
+        font-size: 1.45rem;
+    }
+
+    .myron-stats-banner .hero-stat-label {
+        font-size: 0.58rem;
     }
 
     .myron-link-shell {
@@ -2337,11 +2500,9 @@ body {
     }
 
     .myron-stats-banner .hero-stat-tile {
-        min-height: 76px;
-        grid-template-columns: 2.2rem minmax(0, 1fr);
-        align-items: center;
-        text-align: left;
-        padding: 0.8rem;
+        min-height: 56px;
+        grid-template-columns: 1.8rem minmax(0, 1fr);
+        padding: 0.5rem 0.65rem;
     }
 
     .myron-links-panel {
