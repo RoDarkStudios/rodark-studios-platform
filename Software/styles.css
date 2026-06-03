@@ -808,8 +808,47 @@ body {
 .myron-link-hero {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
     padding: 7rem 2rem 4rem;
+}
+
+.myron-stats-banner {
+    width: 100%;
+    max-width: 700px;
+    padding: 0.75rem;
+    border: 1px solid rgba(249, 115, 22, 0.34);
+    border-radius: 18px;
+    background: rgba(38, 38, 38, 0.72);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(16px);
+}
+
+.myron-stats-banner-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.myron-stats-banner-grid.is-two-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.myron-stats-banner .hero-stat-tile {
+    min-height: 96px;
+    padding: 0.85rem 0.9rem;
+    border-radius: 14px;
+}
+
+.myron-stats-banner .hero-stat-value {
+    font-size: clamp(1.85rem, 3vw, 2.35rem);
+}
+
+.myron-stats-banner .hero-stat-label {
+    font-size: 0.74rem;
 }
 
 .myron-link-shell {
@@ -2235,6 +2274,21 @@ body {
     .myron-link-hero {
         min-height: auto;
         padding: 6rem 1rem 3rem;
+        gap: 1rem;
+    }
+
+    .myron-stats-banner {
+        max-width: 520px;
+        padding: 0.8rem;
+    }
+
+    .myron-stats-banner-grid,
+    .myron-stats-banner-grid.is-two-up {
+        gap: 0.65rem;
+    }
+
+    .myron-stats-banner .hero-stat-tile {
+        min-height: 96px;
     }
 
     .myron-link-shell {
@@ -2275,6 +2329,19 @@ body {
     .myron-link-hero {
         padding-left: 0.8rem;
         padding-right: 0.8rem;
+    }
+
+    .myron-stats-banner-grid,
+    .myron-stats-banner-grid.is-two-up {
+        grid-template-columns: 1fr;
+    }
+
+    .myron-stats-banner .hero-stat-tile {
+        min-height: 76px;
+        grid-template-columns: 2.2rem minmax(0, 1fr);
+        align-items: center;
+        text-align: left;
+        padding: 0.8rem;
     }
 
     .myron-links-panel {
