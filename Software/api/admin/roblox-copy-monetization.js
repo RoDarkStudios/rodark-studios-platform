@@ -33,7 +33,7 @@ const ARCHIVED_ICON_BUFFER = Buffer.from(
 const FORCED_TARGET_PRICE = 1;
 const TEST_PRICE_MODE_FORCE_ONE_ROBUX = 'force-one-robux';
 const TEST_PRICE_MODE_MATCH_PRODUCTION = 'match-production';
-const MISSING_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin > Game Configuration and save Production/Test/Development IDs.';
+const MISSING_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin > Game Configuration and save Production plus at least one Test or Development ID.';
 const COPY_SLEEP_SOURCE_GAME_PASS_MS = 250;
 const COPY_SLEEP_ARCHIVE_GAME_PASS_MS = 150;
 const COPY_SLEEP_SOURCE_DEVELOPER_PRODUCT_MS = 400;
@@ -327,7 +327,7 @@ function buildAlreadySyncedResponse(sourceUniverseId, targetConfigs, sourceCount
         sourceUniverseId,
         targetUniverseIds: targetConfigs.map((item) => item.universeId),
         testPriceMode,
-        priceSyncMode: describePriceSyncMode(testPriceMode),
+        priceSyncMode: describePriceSyncMode(testPriceMode, targetConfigs),
         sourceCounts: {
             gamePasses: sourceCounts.gamePasses,
             developerProducts: sourceCounts.developerProducts,
@@ -448,21 +448,35 @@ async function archiveMonetizationItemWithNameFallback(
     throw new Error('Failed to archive item');
 }
 
-function parseGameUniverseIdsFromBody(body) {
-    return {
+function parseOptionalUniverseId(value, fieldName) {
+    if (!hasUniverseIdValue(value)) {
+        return null;
+    }
+
+    return parseUniverseId(value, fieldName);
+}
+
+function parseConfiguredGameUniverseIdsFromBody(body) {
+    const ids = {
         productionUniverseId: parseUniverseId(body && body.productionUniverseId, 'productionUniverseId'),
-        testUniverseId: parseUniverseId(body && body.testUniverseId, 'testUniverseId'),
-        developmentUniverseId: parseUniverseId(body && body.developmentUniverseId, 'developmentUniverseId')
+        testUniverseId: parseOptionalUniverseId(body && body.testUniverseId, 'testUniverseId'),
+        developmentUniverseId: parseOptionalUniverseId(body && body.developmentUniverseId, 'developmentUniverseId')
     };
+
+    if (!ids.testUniverseId && !ids.developmentUniverseId) {
+        throw new Error('Provide a Production ID and at least one Test or Development ID.');
+    }
+
+    return ids;
 }
 
 function validateDistinctUniverseIds(ids) {
     if (
-        ids.productionUniverseId === ids.developmentUniverseId
-        || ids.productionUniverseId === ids.testUniverseId
-        || ids.developmentUniverseId === ids.testUniverseId
+        (ids.developmentUniverseId && ids.productionUniverseId === ids.developmentUniverseId)
+        || (ids.testUniverseId && ids.productionUniverseId === ids.testUniverseId)
+        || (ids.developmentUniverseId && ids.testUniverseId && ids.developmentUniverseId === ids.testUniverseId)
     ) {
-        throw new Error('Production, Test, and Development universe IDs must be different');
+        throw new Error('Configured universe IDs must be different');
     }
 }
 
@@ -478,21 +492,42 @@ function hasAnyUniverseIdFields(body) {
     );
 }
 
-function hasAllUniverseIdFields(body) {
+function hasRequiredUniverseIdFields(body) {
     return (
         hasUniverseIdValue(body && body.productionUniverseId)
-        && hasUniverseIdValue(body && body.testUniverseId)
-        && hasUniverseIdValue(body && body.developmentUniverseId)
+        && (
+            hasUniverseIdValue(body && body.testUniverseId)
+            || hasUniverseIdValue(body && body.developmentUniverseId)
+        )
     );
+}
+
+function getConfiguredTargets(ids, testPriceMode) {
+    return [
+        ids.testUniverseId
+            ? {
+                universeId: ids.testUniverseId,
+                environment: 'test',
+                pricingOverrideOptions: buildTargetPricingOptions('test', testPriceMode)
+            }
+            : null,
+        ids.developmentUniverseId
+            ? {
+                universeId: ids.developmentUniverseId,
+                environment: 'development',
+                pricingOverrideOptions: buildTargetPricingOptions('development', testPriceMode)
+            }
+            : null
+    ].filter(Boolean);
 }
 
 async function resolveGameUniverseIds(body) {
     if (hasAnyUniverseIdFields(body)) {
-        if (!hasAllUniverseIdFields(body)) {
-            throw new Error('Provide all three IDs or none. Leave all blank to use saved Game Configuration.');
+        if (!hasRequiredUniverseIdFields(body)) {
+            throw new Error('Provide Production plus at least one Test or Development ID, or leave all blank to use saved Game Configuration.');
         }
 
-        const ids = parseGameUniverseIdsFromBody(body);
+        const ids = parseConfiguredGameUniverseIdsFromBody(body);
         validateDistinctUniverseIds(ids);
         return ids;
     }
@@ -504,9 +539,12 @@ async function resolveGameUniverseIds(body) {
 
     const ids = {
         productionUniverseId: Number(storedConfig.productionUniverseId),
-        testUniverseId: Number(storedConfig.testUniverseId),
-        developmentUniverseId: Number(storedConfig.developmentUniverseId)
+        testUniverseId: storedConfig.testUniverseId ? Number(storedConfig.testUniverseId) : null,
+        developmentUniverseId: storedConfig.developmentUniverseId ? Number(storedConfig.developmentUniverseId) : null
     };
+    if (!ids.testUniverseId && !ids.developmentUniverseId) {
+        throw new Error(MISSING_CONFIG_MESSAGE);
+    }
     validateDistinctUniverseIds(ids);
     return ids;
 }
@@ -579,7 +617,8 @@ function buildCopyDurationEstimate(sourceCounts, targetCounts) {
 
 async function buildCopyEstimatePayload(ids) {
     const sourceUniverseId = ids.productionUniverseId;
-    const targetUniverseIds = [ids.testUniverseId, ids.developmentUniverseId];
+    const targetConfigs = getConfiguredTargets(ids, TEST_PRICE_MODE_FORCE_ONE_ROBUX);
+    const targetUniverseIds = targetConfigs.map((target) => target.universeId);
 
     const [sourceGamePasses, sourceDeveloperProducts, sourceBadges] = await Promise.all([
         listAllGamePassConfigs(sourceUniverseId),
@@ -647,12 +686,28 @@ function buildTargetPricingOptions(environment, testPriceMode) {
     return {};
 }
 
-function describePriceSyncMode(testPriceMode) {
-    if (testPriceMode === TEST_PRICE_MODE_MATCH_PRODUCTION) {
+function describePriceSyncMode(testPriceMode, targetConfigs) {
+    const targets = Array.isArray(targetConfigs) ? targetConfigs : [];
+    const hasTest = targets.some((target) => target && target.environment === 'test');
+    const hasDevelopment = targets.some((target) => target && target.environment === 'development');
+
+    if (hasDevelopment && hasTest && testPriceMode === TEST_PRICE_MODE_MATCH_PRODUCTION) {
         return `Development forced to ${FORCED_TARGET_PRICE} Robux; Test matches Production prices`;
     }
+    if (hasDevelopment && hasTest) {
+        return `Development and Test forced to ${FORCED_TARGET_PRICE} Robux`;
+    }
+    if (hasDevelopment) {
+        return `Development forced to ${FORCED_TARGET_PRICE} Robux`;
+    }
+    if (hasTest && testPriceMode === TEST_PRICE_MODE_MATCH_PRODUCTION) {
+        return 'Test matches Production prices';
+    }
+    if (hasTest) {
+        return `Test forced to ${FORCED_TARGET_PRICE} Robux`;
+    }
 
-    return `Development and Test forced to ${FORCED_TARGET_PRICE} Robux`;
+    return 'No target pricing changes configured';
 }
 
 module.exports = async (req, res) => {
@@ -692,21 +747,8 @@ module.exports = async (req, res) => {
         }
 
         const sourceUniverseId = ids.productionUniverseId;
-        const developmentUniverseId = ids.developmentUniverseId;
-        const testUniverseId = ids.testUniverseId;
         const testPriceMode = parseTestPriceMode(body && body.testPriceMode);
-        const targetConfigs = [
-            {
-                universeId: testUniverseId,
-                environment: 'test',
-                pricingOverrideOptions: buildTargetPricingOptions('test', testPriceMode)
-            },
-            {
-                universeId: developmentUniverseId,
-                environment: 'development',
-                pricingOverrideOptions: buildTargetPricingOptions('development', testPriceMode)
-            }
-        ];
+        const targetConfigs = getConfiguredTargets(ids, testPriceMode);
         const targetUniverseIds = targetConfigs.map((target) => target.universeId);
 
         const lockAttempt = tryAcquireMonetizationLock(
@@ -1257,7 +1299,7 @@ module.exports = async (req, res) => {
             sourceUniverseId,
             targetUniverseIds,
             testPriceMode,
-            priceSyncMode: describePriceSyncMode(testPriceMode),
+            priceSyncMode: describePriceSyncMode(testPriceMode, targetConfigs),
             sourceCounts: {
                 gamePasses: preparedGamePasses.length,
                 developerProducts: preparedDeveloperProducts.length,

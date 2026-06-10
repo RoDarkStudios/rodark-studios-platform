@@ -18,7 +18,7 @@ const { getStoredGameConfig, saveStoredGameConfig } = require('../_lib/admin-gam
 const TEST_PREFIX = '\u26A0\uFE0F THIS IS THE TEST GAME - THIS IS NOT THE OFFICIAL GAME';
 const DEVELOPMENT_PREFIX = '\u26A0\uFE0F THIS IS THE DEVELOPMENT GAME - THIS IS NOT THE OFFICIAL GAME';
 const ENVIRONMENT_PREFIX_REGEX = /^\u26A0(?:\uFE0F)? THIS IS THE (TEST|DEVELOPMENT) GAME - THIS IS NOT THE OFFICIAL GAME(?:\r?\n|\r)?(?:\r?\n|\r)?/i;
-const MISSING_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin > Game Configuration and save Production/Test/Development IDs.';
+const MISSING_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin > Game Configuration and save Production plus at least one Test or Development ID.';
 const ARCHIVED_NAME_PREFIX = '[ARCHIVED] ';
 const LEGACY_ARCHIVED_MONETIZATION_NAME_KEY = 'archived';
 const DEFAULT_CONFIG_REPOSITORY = 'InExperienceConfig';
@@ -38,21 +38,35 @@ async function requireAdmin(req, res) {
     };
 }
 
-function parseGameUniverseIdsFromBody(body) {
-    return {
-        developmentUniverseId: parseUniverseId(body && body.developmentUniverseId, 'developmentUniverseId'),
-        testUniverseId: parseUniverseId(body && body.testUniverseId, 'testUniverseId'),
-        productionUniverseId: parseUniverseId(body && body.productionUniverseId, 'productionUniverseId')
+function parseOptionalUniverseId(value, fieldName) {
+    if (!hasUniverseIdValue(value)) {
+        return null;
+    }
+
+    return parseUniverseId(value, fieldName);
+}
+
+function parseConfiguredGameUniverseIdsFromBody(body) {
+    const ids = {
+        productionUniverseId: parseUniverseId(body && body.productionUniverseId, 'productionUniverseId'),
+        testUniverseId: parseOptionalUniverseId(body && body.testUniverseId, 'testUniverseId'),
+        developmentUniverseId: parseOptionalUniverseId(body && body.developmentUniverseId, 'developmentUniverseId')
     };
+
+    if (!ids.testUniverseId && !ids.developmentUniverseId) {
+        throw new Error('Provide a Production ID and at least one Test or Development ID.');
+    }
+
+    return ids;
 }
 
 function validateDistinctUniverseIds(ids) {
     if (
-        ids.productionUniverseId === ids.testUniverseId
-        || ids.productionUniverseId === ids.developmentUniverseId
-        || ids.testUniverseId === ids.developmentUniverseId
+        (ids.testUniverseId && ids.productionUniverseId === ids.testUniverseId)
+        || (ids.developmentUniverseId && ids.productionUniverseId === ids.developmentUniverseId)
+        || (ids.testUniverseId && ids.developmentUniverseId && ids.testUniverseId === ids.developmentUniverseId)
     ) {
-        throw new Error('Production, Test, and Development universe IDs must be different');
+        throw new Error('Configured universe IDs must be different');
     }
 }
 
@@ -68,12 +82,25 @@ function hasAnyUniverseIdFields(body) {
     );
 }
 
-function hasAllUniverseIdFields(body) {
+function hasRequiredUniverseIdFields(body) {
     return (
         hasUniverseIdValue(body && body.productionUniverseId)
-        && hasUniverseIdValue(body && body.testUniverseId)
-        && hasUniverseIdValue(body && body.developmentUniverseId)
+        && (
+            hasUniverseIdValue(body && body.testUniverseId)
+            || hasUniverseIdValue(body && body.developmentUniverseId)
+        )
     );
+}
+
+function getConfiguredTargets(ids) {
+    return [
+        ids.testUniverseId
+            ? { label: 'Test', environment: 'test', universeId: ids.testUniverseId }
+            : null,
+        ids.developmentUniverseId
+            ? { label: 'Development', environment: 'development', universeId: ids.developmentUniverseId }
+            : null
+    ].filter(Boolean);
 }
 
 function normalizeDescriptionInput(value) {
@@ -111,11 +138,11 @@ function prefixDescription(prefix, description) {
 
 async function resolveGameUniverseIds(body) {
     if (hasAnyUniverseIdFields(body)) {
-        if (!hasAllUniverseIdFields(body)) {
-            throw new Error('Provide all three IDs or none. Leave all blank to use saved Game Configuration.');
+        if (!hasRequiredUniverseIdFields(body)) {
+            throw new Error('Provide Production plus at least one Test or Development ID, or leave all blank to use saved Game Configuration.');
         }
 
-        const ids = parseGameUniverseIdsFromBody(body);
+        const ids = parseConfiguredGameUniverseIdsFromBody(body);
         validateDistinctUniverseIds(ids);
         return ids;
     }
@@ -127,9 +154,12 @@ async function resolveGameUniverseIds(body) {
 
     const ids = {
         productionUniverseId: Number(storedConfig.productionUniverseId),
-        testUniverseId: Number(storedConfig.testUniverseId),
-        developmentUniverseId: Number(storedConfig.developmentUniverseId)
+        testUniverseId: storedConfig.testUniverseId ? Number(storedConfig.testUniverseId) : null,
+        developmentUniverseId: storedConfig.developmentUniverseId ? Number(storedConfig.developmentUniverseId) : null
     };
+    if (!ids.testUniverseId && !ids.developmentUniverseId) {
+        throw new Error(MISSING_CONFIG_MESSAGE);
+    }
     validateDistinctUniverseIds(ids);
     return ids;
 }
@@ -142,7 +172,7 @@ async function getGameConfigPayload() {
 }
 
 async function saveGameConfigPayload(body, user) {
-    const ids = parseGameUniverseIdsFromBody(body);
+    const ids = parseConfiguredGameUniverseIdsFromBody(body);
     validateDistinctUniverseIds(ids);
 
     const config = await saveStoredGameConfig({
@@ -179,18 +209,24 @@ async function saveDescriptions(ids, descriptionRaw) {
             label: 'Production',
             universeId: ids.productionUniverseId,
             description: productionDescription
-        },
-        {
+        }
+    ];
+
+    if (ids.testUniverseId) {
+        updates.push({
             label: 'Test',
             universeId: ids.testUniverseId,
             description: testDescription
-        },
-        {
+        });
+    }
+
+    if (ids.developmentUniverseId) {
+        updates.push({
             label: 'Development',
             universeId: ids.developmentUniverseId,
             description: developmentDescription
-        }
-    ];
+        });
+    }
 
     const settled = await Promise.allSettled(updates.map(async (item) => {
         const updateInfo = await updateUniverseDescription(item.universeId, item.description);
@@ -231,8 +267,8 @@ async function saveDescriptions(ids, descriptionRaw) {
 
     return {
         productionDescription,
-        testDescription,
-        developmentDescription,
+        testDescription: ids.testUniverseId ? testDescription : null,
+        developmentDescription: ids.developmentUniverseId ? developmentDescription : null,
         updates: successes
     };
 }
@@ -279,14 +315,7 @@ async function syncProductionConfigRepository(ids, repository) {
     const publishMessage = `Sync ${repository} from Production ${ids.productionUniverseId} at ${new Date().toISOString()}`;
 
     const targets = [
-        {
-            label: 'Test',
-            universeId: ids.testUniverseId
-        },
-        {
-            label: 'Development',
-            universeId: ids.developmentUniverseId
-        }
+        ...getConfiguredTargets(ids)
     ];
 
     const settled = await Promise.allSettled(targets.map(async (target) => {
@@ -572,8 +601,7 @@ module.exports = async (req, res) => {
 
         const games = await Promise.all([
             fetchGameSection('Production Game', ids.productionUniverseId),
-            fetchGameSection('Test Game', ids.testUniverseId),
-            fetchGameSection('Development Game', ids.developmentUniverseId)
+            ...getConfiguredTargets(ids).map((target) => fetchGameSection(`${target.label} Game`, target.universeId))
         ]);
 
         return sendJson(res, 200, {

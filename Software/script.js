@@ -216,7 +216,7 @@ function escapeHtml(value) {
 let cachedAdminGameConfig = null;
 let cachedAdminGameConfigAt = 0;
 const ADMIN_GAME_CONFIG_CACHE_TTL_MS = 10 * 1000;
-const MISSING_GAME_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin, click Game IDs, and save Production/Test/Development universe IDs.';
+const MISSING_GAME_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin, click Game IDs, and save a Production universe ID plus at least one Test or Development universe ID.';
 
 function toPositiveIntegerOrNull(value) {
     const parsed = Number.parseInt(String(value || '').trim(), 10);
@@ -235,7 +235,7 @@ function normalizeAdminGameConfig(config) {
     const productionUniverseId = toPositiveIntegerOrNull(config.productionUniverseId);
     const testUniverseId = toPositiveIntegerOrNull(config.testUniverseId);
     const developmentUniverseId = toPositiveIntegerOrNull(config.developmentUniverseId);
-    if (!productionUniverseId || !testUniverseId || !developmentUniverseId) {
+    if (!productionUniverseId || (!testUniverseId && !developmentUniverseId)) {
         return null;
     }
 
@@ -254,7 +254,27 @@ function formatAdminGameConfigLabel(config) {
         return MISSING_GAME_CONFIG_MESSAGE;
     }
 
-    return `Shared IDs -> Production: ${config.productionUniverseId} | Test: ${config.testUniverseId} | Development: ${config.developmentUniverseId}`;
+    const targets = [];
+    if (config.testUniverseId) {
+        targets.push(`Test: ${config.testUniverseId}`);
+    }
+    if (config.developmentUniverseId) {
+        targets.push(`Development: ${config.developmentUniverseId}`);
+    }
+
+    return `Shared IDs -> Production: ${config.productionUniverseId} | ${targets.join(' | ')}`;
+}
+
+function formatAdminGameConfigTargetNames(config) {
+    const targets = [];
+    if (config && config.testUniverseId) {
+        targets.push('Test');
+    }
+    if (config && config.developmentUniverseId) {
+        targets.push('Development');
+    }
+
+    return targets.join(' and ') || 'configured targets';
 }
 
 function setAdminGameConfigBanner(elementId, config) {
@@ -634,7 +654,7 @@ async function handleAdminCopySubmit(event) {
             hasFailures
                 ? `Copy finished with some failures in ${formatDurationClock(elapsedMs)}. See details below.`
                 : alreadySynced
-                    ? `No changes were needed. Test and Development were already in sync (${formatDurationClock(elapsedMs)}).`
+                    ? `No changes were needed. ${formatAdminGameConfigTargetNames(gameConfig)} already in sync (${formatDurationClock(elapsedMs)}).`
                     : `Copy completed successfully in ${formatDurationClock(elapsedMs)}.`,
             hasFailures ? 'error' : 'success'
         );
@@ -905,8 +925,8 @@ function setLiveConfigSyncBusy(isBusy) {
 
     syncButton.disabled = Boolean(isBusy);
     syncButton.textContent = isBusy
-        ? 'Publishing to Test + Development...'
-        : 'Sync Production to Test + Development';
+        ? 'Publishing to target games...'
+        : 'Sync Production to Targets';
 }
 
 function stringifyPrettyJson(value) {
@@ -1014,8 +1034,8 @@ function setDescriptionSaveBusy(isBusy) {
 
     saveButton.disabled = Boolean(isBusy);
     saveButton.textContent = isBusy
-        ? 'Saving to All 3 Games...'
-        : 'Save to All 3 Games';
+        ? 'Saving to configured games...'
+        : 'Save to Configured Games';
 }
 
 function renderDescriptionSyncResults(result) {
@@ -1041,6 +1061,18 @@ function renderDescriptionSyncResults(result) {
     const productionDescription = String(result && result.productionDescription ? result.productionDescription : '');
     const testDescription = String(result && result.testDescription ? result.testDescription : '');
     const developmentDescription = String(result && result.developmentDescription ? result.developmentDescription : '');
+    const testDescriptionMarkup = testDescription
+        ? `
+            <label class="admin-label admin-catalog-label">Saved Test Description</label>
+            <textarea class="admin-catalog-output" readonly>${escapeHtml(testDescription)}</textarea>
+        `
+        : '';
+    const developmentDescriptionMarkup = developmentDescription
+        ? `
+            <label class="admin-label admin-catalog-label">Saved Development Description</label>
+            <textarea class="admin-catalog-output" readonly>${escapeHtml(developmentDescription)}</textarea>
+        `
+        : '';
 
     resultElement.innerHTML = `
         <article class="admin-target-result">
@@ -1048,10 +1080,8 @@ function renderDescriptionSyncResults(result) {
             <textarea class="admin-catalog-output" readonly>${escapeHtml(updateLines || 'No update details returned')}</textarea>
             <label class="admin-label admin-catalog-label">Saved Production Description</label>
             <textarea class="admin-catalog-output" readonly>${escapeHtml(productionDescription)}</textarea>
-            <label class="admin-label admin-catalog-label">Saved Test Description</label>
-            <textarea class="admin-catalog-output" readonly>${escapeHtml(testDescription)}</textarea>
-            <label class="admin-label admin-catalog-label">Saved Development Description</label>
-            <textarea class="admin-catalog-output" readonly>${escapeHtml(developmentDescription)}</textarea>
+            ${testDescriptionMarkup}
+            ${developmentDescriptionMarkup}
         </article>
     `;
 
@@ -1070,7 +1100,7 @@ async function handleLiveConfigSyncSubmit(event) {
     event.preventDefault();
 
     setLiveConfigSyncBusy(true);
-    setLiveConfigSyncStatus('Publishing Production live config to Test and Development...', 'info');
+    setLiveConfigSyncStatus('Publishing Production live config to configured targets...', 'info');
     renderLiveConfigSyncResults(null);
 
     try {
@@ -1086,7 +1116,7 @@ async function handleLiveConfigSyncSubmit(event) {
         });
 
         renderLiveConfigSyncResults(result);
-        setLiveConfigSyncStatus('Live configs published successfully for Test and Development.', 'success');
+        setLiveConfigSyncStatus(`Live configs published successfully for ${formatAdminGameConfigTargetNames(gameConfig)}.`, 'success');
     } catch (error) {
         if (error && error.data) {
             renderLiveConfigSyncResults(error.data);
@@ -1132,7 +1162,7 @@ async function handleDescriptionSyncSubmit(event) {
 
     const values = getDescriptionSyncFormValues();
     setDescriptionSaveBusy(true);
-    setDescriptionSyncStatus('Saving descriptions to Production, Test, and Development...', 'info');
+    setDescriptionSyncStatus('Saving descriptions to Production and configured targets...', 'info');
     renderDescriptionSyncResults(null);
 
     try {
@@ -1154,7 +1184,7 @@ async function handleDescriptionSyncSubmit(event) {
         }
 
         renderDescriptionSyncResults(result);
-        setDescriptionSyncStatus('Descriptions updated successfully for all 3 games.', 'success');
+        setDescriptionSyncStatus('Descriptions updated successfully for configured games.', 'success');
     } catch (error) {
         setDescriptionSyncStatus(error.message || 'Failed to save game descriptions.', 'error');
     } finally {
@@ -1235,7 +1265,7 @@ async function initAdminLiveConfigSyncTool() {
             setLiveConfigSyncStatus(MISSING_GAME_CONFIG_MESSAGE, 'error');
         } else {
             setLiveConfigSyncStatus(
-                'Ready to overwrite and publish Test and Development from the current published Production config.',
+                `Ready to overwrite and publish ${formatAdminGameConfigTargetNames(gameConfig)} from the current published Production config.`,
                 'info'
             );
         }
@@ -1300,8 +1330,8 @@ function renderGameConfigResults(config) {
     resultElement.innerHTML = `
         <article class="admin-target-result">
             <p>Production Universe: ${escapeHtml(config.productionUniverseId)}</p>
-            <p>Test Universe: ${escapeHtml(config.testUniverseId)}</p>
-            <p>Development Universe: ${escapeHtml(config.developmentUniverseId)}</p>
+            <p>Test Universe: ${escapeHtml(config.testUniverseId || 'Not set')}</p>
+            <p>Development Universe: ${escapeHtml(config.developmentUniverseId || 'Not set')}</p>
             <p>Last updated: ${escapeHtml(updatedAt)} by ${escapeHtml(updatedBy)}</p>
         </article>
     `;
@@ -1340,8 +1370,8 @@ async function handleGameConfigSubmit(event) {
     event.preventDefault();
 
     const values = readGameConfigFormValues();
-    if (!values.productionUniverseId || !values.testUniverseId || !values.developmentUniverseId) {
-        setGameConfigStatus('Please enter Production, Test, and Development universe IDs.', 'error');
+    if (!values.productionUniverseId || (!values.testUniverseId && !values.developmentUniverseId)) {
+        setGameConfigStatus('Please enter a Production universe ID and at least one Test or Development universe ID.', 'error');
         return;
     }
 

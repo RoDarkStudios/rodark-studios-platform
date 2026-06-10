@@ -1,12 +1,16 @@
 create table if not exists admin_game_config (
     id smallint primary key check (id = 1),
     production_universe_id bigint not null,
-    test_universe_id bigint not null,
-    development_universe_id bigint not null,
+    test_universe_id bigint,
+    development_universe_id bigint,
     updated_by_user_id text,
     updated_by_username text,
     updated_at timestamptz not null default now()
 );
+
+alter table admin_game_config
+    alter column test_universe_id drop not null,
+    alter column development_universe_id drop not null;
 
 create table if not exists discord_bot_control (
     id smallint primary key check (id = 1),

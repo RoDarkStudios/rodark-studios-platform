@@ -1,11 +1,21 @@
 const { postgresQuery } = require('./postgres');
 
+const GAME_CONFIG_ID = 1;
+
 function toPositiveInteger(value, fieldName) {
     const parsed = Number.parseInt(String(value || '').trim(), 10);
     if (!Number.isFinite(parsed) || parsed <= 0) {
         throw new Error(`${fieldName} is invalid in stored game config`);
     }
     return parsed;
+}
+
+function toOptionalPositiveInteger(value, fieldName) {
+    if (value === null || value === undefined || String(value).trim() === '') {
+        return null;
+    }
+
+    return toPositiveInteger(value, fieldName);
 }
 
 function mapRowToConfig(row) {
@@ -15,8 +25,8 @@ function mapRowToConfig(row) {
 
     return {
         productionUniverseId: toPositiveInteger(row.production_universe_id, 'production_universe_id'),
-        testUniverseId: toPositiveInteger(row.test_universe_id, 'test_universe_id'),
-        developmentUniverseId: toPositiveInteger(row.development_universe_id, 'development_universe_id'),
+        testUniverseId: toOptionalPositiveInteger(row.test_universe_id, 'test_universe_id'),
+        developmentUniverseId: toOptionalPositiveInteger(row.development_universe_id, 'development_universe_id'),
         updatedAt: row.updated_at instanceof Date
             ? row.updated_at.toISOString()
             : (typeof row.updated_at === 'string' ? row.updated_at : null),
@@ -29,7 +39,29 @@ function mapRowToConfig(row) {
     };
 }
 
+async function ensureAdminGameConfigSchema() {
+    await postgresQuery(`
+        create table if not exists admin_game_config (
+            id smallint primary key check (id = 1),
+            production_universe_id bigint not null,
+            test_universe_id bigint,
+            development_universe_id bigint,
+            updated_by_user_id text,
+            updated_by_username text,
+            updated_at timestamptz not null default now()
+        )
+    `);
+
+    await postgresQuery(`
+        alter table admin_game_config
+            alter column test_universe_id drop not null,
+            alter column development_universe_id drop not null
+    `);
+}
+
 async function getStoredGameConfig() {
+    await ensureAdminGameConfigSchema();
+
     const result = await postgresQuery(`
         select
             id,
@@ -52,6 +84,8 @@ async function getStoredGameConfig() {
 }
 
 async function saveStoredGameConfig(config) {
+    await ensureAdminGameConfigSchema();
+
     const result = await postgresQuery(`
         insert into admin_game_config (
             id,
@@ -79,10 +113,10 @@ async function saveStoredGameConfig(config) {
             updated_by_user_id,
             updated_by_username
     `, [
-        1,
+        GAME_CONFIG_ID,
         Number(config && config.productionUniverseId),
-        Number(config && config.testUniverseId),
-        Number(config && config.developmentUniverseId),
+        config && config.testUniverseId ? Number(config.testUniverseId) : null,
+        config && config.developmentUniverseId ? Number(config.developmentUniverseId) : null,
         config && config.updatedByUserId ? String(config.updatedByUserId) : null,
         config && config.updatedByUsername ? String(config.updatedByUsername) : null
     ]);
@@ -95,6 +129,7 @@ async function saveStoredGameConfig(config) {
 }
 
 module.exports = {
+    ensureAdminGameConfigSchema,
     getStoredGameConfig,
     saveStoredGameConfig
 };

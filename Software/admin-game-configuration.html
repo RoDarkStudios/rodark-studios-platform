@@ -51,9 +51,9 @@
                         </p>
 
                         <div id="admin-game-config-tool" class="admin-tool hidden">
-                            <h2 class="admin-tool-title">Shared Production, Test, and Development Universe IDs</h2>
+                            <h2 class="admin-tool-title">Shared Production and Target Universe IDs</h2>
                             <p class="admin-tool-note">
-                                Save once here and all admin tools use these IDs automatically.
+                                Production is required. Add Test, Development, or both as sync targets.
                             </p>
 
                             <form id="game-config-form" class="admin-form">
@@ -61,10 +61,10 @@
                                 <input id="config-production-universe-id" class="admin-input" type="text" inputmode="numeric" required>
 
                                 <label for="config-test-universe-id" class="admin-label">Test Universe ID</label>
-                                <input id="config-test-universe-id" class="admin-input" type="text" inputmode="numeric" required>
+                                <input id="config-test-universe-id" class="admin-input" type="text" inputmode="numeric">
 
                                 <label for="config-development-universe-id" class="admin-label">Development Universe ID</label>
-                                <input id="config-development-universe-id" class="admin-input" type="text" inputmode="numeric" required>
+                                <input id="config-development-universe-id" class="admin-input" type="text" inputmode="numeric">
 
                                 <button id="game-config-save-btn" type="submit" class="btn btn-primary admin-submit-btn">
                                     Save Game IDs

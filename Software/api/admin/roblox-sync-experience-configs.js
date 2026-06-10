@@ -9,7 +9,7 @@ const {
 } = require('../_lib/roblox-open-cloud');
 const { getStoredGameConfig } = require('../_lib/admin-game-config-store');
 
-const MISSING_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin > Game Configuration and save Production/Test/Development IDs.';
+const MISSING_CONFIG_MESSAGE = 'Game IDs are not configured. Open Admin > Game Configuration and save Production plus at least one Test or Development ID.';
 const EXPERIENCE_CONFIG_FIELD_LABELS = [
     'Voice chat',
     'Private server price',
@@ -37,21 +37,35 @@ async function requireAdmin(req, res) {
     };
 }
 
-function parseGameUniverseIdsFromBody(body) {
-    return {
+function parseOptionalUniverseId(value, fieldName) {
+    if (!hasUniverseIdValue(value)) {
+        return null;
+    }
+
+    return parseUniverseId(value, fieldName);
+}
+
+function parseConfiguredGameUniverseIdsFromBody(body) {
+    const ids = {
         productionUniverseId: parseUniverseId(body && body.productionUniverseId, 'productionUniverseId'),
-        testUniverseId: parseUniverseId(body && body.testUniverseId, 'testUniverseId'),
-        developmentUniverseId: parseUniverseId(body && body.developmentUniverseId, 'developmentUniverseId')
+        testUniverseId: parseOptionalUniverseId(body && body.testUniverseId, 'testUniverseId'),
+        developmentUniverseId: parseOptionalUniverseId(body && body.developmentUniverseId, 'developmentUniverseId')
     };
+
+    if (!ids.testUniverseId && !ids.developmentUniverseId) {
+        throw new Error('Provide a Production ID and at least one Test or Development ID.');
+    }
+
+    return ids;
 }
 
 function validateDistinctUniverseIds(ids) {
     if (
-        ids.productionUniverseId === ids.testUniverseId
-        || ids.productionUniverseId === ids.developmentUniverseId
-        || ids.testUniverseId === ids.developmentUniverseId
+        (ids.testUniverseId && ids.productionUniverseId === ids.testUniverseId)
+        || (ids.developmentUniverseId && ids.productionUniverseId === ids.developmentUniverseId)
+        || (ids.testUniverseId && ids.developmentUniverseId && ids.testUniverseId === ids.developmentUniverseId)
     ) {
-        throw new Error('Production, Test, and Development universe IDs must be different');
+        throw new Error('Configured universe IDs must be different');
     }
 }
 
@@ -67,21 +81,34 @@ function hasAnyUniverseIdFields(body) {
     );
 }
 
-function hasAllUniverseIdFields(body) {
+function hasRequiredUniverseIdFields(body) {
     return (
         hasUniverseIdValue(body && body.productionUniverseId)
-        && hasUniverseIdValue(body && body.testUniverseId)
-        && hasUniverseIdValue(body && body.developmentUniverseId)
+        && (
+            hasUniverseIdValue(body && body.testUniverseId)
+            || hasUniverseIdValue(body && body.developmentUniverseId)
+        )
     );
+}
+
+function getConfiguredTargets(ids) {
+    return [
+        ids.testUniverseId
+            ? { label: 'Test', environment: 'test', universeId: ids.testUniverseId }
+            : null,
+        ids.developmentUniverseId
+            ? { label: 'Development', environment: 'development', universeId: ids.developmentUniverseId }
+            : null
+    ].filter(Boolean);
 }
 
 async function resolveGameUniverseIds(body) {
     if (hasAnyUniverseIdFields(body)) {
-        if (!hasAllUniverseIdFields(body)) {
-            throw new Error('Provide all three IDs or none. Leave all blank to use saved Game Configuration.');
+        if (!hasRequiredUniverseIdFields(body)) {
+            throw new Error('Provide Production plus at least one Test or Development ID, or leave all blank to use saved Game Configuration.');
         }
 
-        const ids = parseGameUniverseIdsFromBody(body);
+        const ids = parseConfiguredGameUniverseIdsFromBody(body);
         validateDistinctUniverseIds(ids);
         return ids;
     }
@@ -93,9 +120,12 @@ async function resolveGameUniverseIds(body) {
 
     const ids = {
         productionUniverseId: Number(storedConfig.productionUniverseId),
-        testUniverseId: Number(storedConfig.testUniverseId),
-        developmentUniverseId: Number(storedConfig.developmentUniverseId)
+        testUniverseId: storedConfig.testUniverseId ? Number(storedConfig.testUniverseId) : null,
+        developmentUniverseId: storedConfig.developmentUniverseId ? Number(storedConfig.developmentUniverseId) : null
     };
+    if (!ids.testUniverseId && !ids.developmentUniverseId) {
+        throw new Error(MISSING_CONFIG_MESSAGE);
+    }
     validateDistinctUniverseIds(ids);
     return ids;
 }
@@ -117,18 +147,7 @@ async function loadProductionExperienceConfig(ids) {
 
 async function syncProductionExperienceConfig(ids) {
     const source = await getUniverseExperienceConfig(ids.productionUniverseId);
-    const targets = [
-        {
-            label: 'Test',
-            environment: 'test',
-            universeId: ids.testUniverseId
-        },
-        {
-            label: 'Development',
-            environment: 'development',
-            universeId: ids.developmentUniverseId
-        }
-    ];
+    const targets = getConfiguredTargets(ids);
 
     const settled = await Promise.allSettled(targets.map(async (target) => {
         const universeUpdate = await updateUniverseExperienceConfig(target.universeId, source.universeSettings);
