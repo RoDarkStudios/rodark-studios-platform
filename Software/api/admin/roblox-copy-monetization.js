@@ -710,6 +710,37 @@ function describePriceSyncMode(testPriceMode, targetConfigs) {
     return 'No target pricing changes configured';
 }
 
+function buildEmptySourceSafetyFailures(sourceCounts, targetStates) {
+    const failures = [];
+    const states = Array.isArray(targetStates) ? targetStates : [];
+
+    for (const target of states) {
+        const label = String(target && target.environment ? target.environment : 'target');
+        const targetUniverseId = target && target.universeId;
+        const targetGamePasses = Array.isArray(target && target.existingTargetGamePasses)
+            ? target.existingTargetGamePasses.length
+            : 0;
+        const targetDeveloperProducts = Array.isArray(target && target.existingTargetDeveloperProducts)
+            ? target.existingTargetDeveloperProducts.length
+            : 0;
+        const targetBadges = Array.isArray(target && target.existingTargetBadges)
+            ? target.existingTargetBadges.length
+            : 0;
+
+        if ((Number(sourceCounts && sourceCounts.gamePasses) || 0) === 0 && targetGamePasses > 0) {
+            failures.push(`${label} ${targetUniverseId} has ${targetGamePasses} game passes but Production returned 0`);
+        }
+        if ((Number(sourceCounts && sourceCounts.developerProducts) || 0) === 0 && targetDeveloperProducts > 0) {
+            failures.push(`${label} ${targetUniverseId} has ${targetDeveloperProducts} developer products but Production returned 0`);
+        }
+        if ((Number(sourceCounts && sourceCounts.badges) || 0) === 0 && targetBadges > 0) {
+            failures.push(`${label} ${targetUniverseId} has ${targetBadges} badges but Production returned 0`);
+        }
+    }
+
+    return failures;
+}
+
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return methodNotAllowed(req, res, ['POST']);
@@ -820,6 +851,17 @@ module.exports = async (req, res) => {
             if (!targetAlreadySynced) {
                 alreadySynced = false;
             }
+        }
+
+        const emptySourceSafetyFailures = buildEmptySourceSafetyFailures(sourceCounts, targetStates);
+        if (emptySourceSafetyFailures.length > 0) {
+            return sendJson(res, 409, {
+                error: `Copy stopped because Production returned empty source collections that would archive existing target items: ${emptySourceSafetyFailures.join(' | ')}`,
+                sourceUniverseId,
+                targetUniverseIds,
+                sourceCounts,
+                safetyFailures: emptySourceSafetyFailures
+            });
         }
 
         if (alreadySynced) {
