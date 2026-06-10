@@ -1,5 +1,6 @@
 .env*
 !.env.example
+opencloud-key.txt
 node_modules
 .vercel
 .vercel-dev*.log
