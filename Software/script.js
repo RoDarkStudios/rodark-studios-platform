@@ -356,9 +356,14 @@ function setAdminCopyStatus(message, type) {
 function setAdminCopyBusy(isBusy) {
     const submitButton = document.getElementById('copy-monetization-submit');
     const testPriceModeSelect = document.getElementById('copy-monetization-test-price-mode');
+    const restoreButton = document.getElementById('restore-development-archived-btn');
     if (submitButton) {
         submitButton.disabled = Boolean(isBusy);
         submitButton.textContent = isBusy ? 'Copying...' : 'Start Copy';
+    }
+    if (restoreButton) {
+        restoreButton.disabled = Boolean(isBusy);
+        restoreButton.textContent = isBusy ? 'Working...' : 'Restore Archived Development Items';
     }
     if (testPriceModeSelect) {
         testPriceModeSelect.disabled = Boolean(isBusy);
@@ -600,6 +605,58 @@ function renderAdminCopyResults(result) {
     resultElement.classList.remove('hidden');
 }
 
+function renderRestoreArchivedResults(result) {
+    const resultElement = document.getElementById('copy-monetization-results');
+    if (!resultElement) {
+        return;
+    }
+
+    if (!result || typeof result !== 'object') {
+        resultElement.innerHTML = '';
+        resultElement.classList.add('hidden');
+        return;
+    }
+
+    const restored = result.restored || {};
+    const failed = result.failed || {};
+    const restoredGamePasses = Array.isArray(restored.gamePasses) ? restored.gamePasses : [];
+    const restoredProducts = Array.isArray(restored.developerProducts) ? restored.developerProducts : [];
+    const failedGamePasses = Array.isArray(failed.gamePasses) ? failed.gamePasses : [];
+    const failedProducts = Array.isArray(failed.developerProducts) ? failed.developerProducts : [];
+
+    const formatRestoredLines = (items) => items.map((item) => (
+        `${item.previousName || item.id} -> ${item.restoredName || item.id}`
+    )).join('\n');
+    const formatFailureLines = (items) => items.map((item) => (
+        `${item.name || item.id}: ${item.error || 'Unknown error'}`
+    )).join('\n');
+
+    resultElement.innerHTML = `
+        <article class="admin-target-result">
+            <h4>Development Universe ${escapeHtml(result.developmentUniverseId || 'Unknown')}</h4>
+            <p>Game passes restored: ${escapeHtml(restoredGamePasses.length)}</p>
+            <p>Developer products restored: ${escapeHtml(restoredProducts.length)}</p>
+            <p>Failures: ${escapeHtml(failedGamePasses.length + failedProducts.length)}</p>
+            ${restoredGamePasses.length ? `
+                <label class="admin-label admin-catalog-label">Restored Game Passes</label>
+                <textarea class="admin-catalog-output" readonly>${escapeHtml(formatRestoredLines(restoredGamePasses))}</textarea>
+            ` : ''}
+            ${restoredProducts.length ? `
+                <label class="admin-label admin-catalog-label">Restored Developer Products</label>
+                <textarea class="admin-catalog-output" readonly>${escapeHtml(formatRestoredLines(restoredProducts))}</textarea>
+            ` : ''}
+            ${failedGamePasses.length || failedProducts.length ? `
+                <label class="admin-label admin-catalog-label">Failures</label>
+                <textarea class="admin-catalog-output" readonly>${escapeHtml([
+                    formatFailureLines(failedGamePasses),
+                    formatFailureLines(failedProducts)
+                ].filter(Boolean).join('\n'))}</textarea>
+            ` : ''}
+        </article>
+    `;
+    resultElement.classList.remove('hidden');
+}
+
 async function handleAdminCopySubmit(event) {
     event.preventDefault();
 
@@ -671,6 +728,42 @@ async function handleAdminCopySubmit(event) {
     }
 }
 
+async function handleRestoreDevelopmentArchivedClick() {
+    setAdminCopyBusy(true);
+    renderRestoreArchivedResults(null);
+    resetAdminCopyProgress();
+    setAdminCopyStatus('Restoring archived Development items...', 'info');
+
+    try {
+        const gameConfig = await requireAdminGameConfig(setAdminCopyStatus);
+        if (!gameConfig.developmentUniverseId) {
+            throw new Error('Development Universe ID is not configured.');
+        }
+
+        setAdminGameConfigBanner('copy-monetization-config', gameConfig);
+        const result = await postJson('/api/admin/roblox-copy-monetization', {
+            operation: 'restore-development-archived',
+            productionUniverseId: gameConfig.productionUniverseId,
+            testUniverseId: gameConfig.testUniverseId,
+            developmentUniverseId: gameConfig.developmentUniverseId
+        });
+
+        renderRestoreArchivedResults(result);
+        const totals = result && result.totals ? result.totals : {};
+        const failureCount = (Number(totals.gamePassFailures) || 0) + (Number(totals.developerProductFailures) || 0);
+        setAdminCopyStatus(
+            failureCount > 0
+                ? 'Restore finished with some failures. See details below.'
+                : 'Archived Development items restored to on-sale.',
+            failureCount > 0 ? 'error' : 'success'
+        );
+    } catch (error) {
+        setAdminCopyStatus(error.message || 'Failed to restore archived Development items.', 'error');
+    } finally {
+        setAdminCopyBusy(false);
+    }
+}
+
 async function initAdminCopyTool() {
     const adminTool = document.getElementById('admin-copy-tool');
     if (!adminTool) {
@@ -681,6 +774,7 @@ async function initAdminCopyTool() {
 
     const deniedElement = document.getElementById('admin-access-denied');
     const form = document.getElementById('copy-monetization-form');
+    const restoreButton = document.getElementById('restore-development-archived-btn');
 
     const adminStatus = await fetchAdminStatus();
     const isAdmin = Boolean(adminStatus && adminStatus.isAdmin);
@@ -708,6 +802,9 @@ async function initAdminCopyTool() {
 
     if (form) {
         form.addEventListener('submit', handleAdminCopySubmit);
+    }
+    if (restoreButton) {
+        restoreButton.addEventListener('click', handleRestoreDevelopmentArchivedClick);
     }
 }
 

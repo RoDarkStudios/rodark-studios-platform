@@ -551,11 +551,11 @@ async function resolveGameUniverseIds(body) {
 
 function parseOperation(body) {
     const value = String(body && body.operation ? body.operation : 'copy').trim().toLowerCase();
-    if (!value || value === 'copy' || value === 'estimate') {
+    if (!value || value === 'copy' || value === 'estimate' || value === 'restore-development-archived') {
         return value || 'copy';
     }
 
-    throw new Error('Invalid operation. Supported values: copy, estimate.');
+    throw new Error('Invalid operation. Supported values: copy, estimate, restore-development-archived.');
 }
 
 function toNonNegativeCount(value) {
@@ -741,6 +741,99 @@ function buildEmptySourceSafetyFailures(sourceCounts, targetStates) {
     return failures;
 }
 
+function isArchivedConfigName(name) {
+    const nameKey = normalizeNameKey(name);
+    const archivedPrefixKey = normalizeNameKey(ARCHIVED_NAME_PREFIX);
+    return nameKey === LEGACY_ARCHIVED_MONETIZATION_NAME_KEY || nameKey.startsWith(archivedPrefixKey);
+}
+
+function buildRestoredName(kindLabel, id) {
+    const numericId = Number(id);
+    const suffix = Number.isFinite(numericId) && numericId > 0
+        ? String(Math.round(numericId))
+        : 'Unknown';
+    return `Restored ${kindLabel} ${suffix}`;
+}
+
+async function restoreArchivedDevelopmentItems(ids) {
+    const developmentUniverseId = Number(ids && ids.developmentUniverseId);
+    if (!Number.isFinite(developmentUniverseId) || developmentUniverseId <= 0) {
+        throw new Error('Development Universe ID is not configured.');
+    }
+
+    const [gamePassConfigs, developerProductConfigs] = await Promise.all([
+        listAllGamePassConfigs(developmentUniverseId),
+        listAllDeveloperProductConfigs(developmentUniverseId)
+    ]);
+
+    const archivedGamePasses = gamePassConfigs.filter((item) => isArchivedConfigName(item && item.name));
+    const archivedDeveloperProducts = developerProductConfigs.filter((item) => isArchivedConfigName(item && item.name));
+    const restored = {
+        gamePasses: [],
+        developerProducts: []
+    };
+    const failed = {
+        gamePasses: [],
+        developerProducts: []
+    };
+
+    for (const item of archivedGamePasses) {
+        const id = Number(item && item.gamePassId);
+        try {
+            await updateGamePass(developmentUniverseId, id, item, null, {
+                nameOverride: buildRestoredName('Game Pass', id),
+                forceForSale: true
+            });
+            restored.gamePasses.push({
+                id,
+                previousName: item && item.name ? String(item.name) : '',
+                restoredName: buildRestoredName('Game Pass', id)
+            });
+        } catch (error) {
+            failed.gamePasses.push({
+                id,
+                name: item && item.name ? String(item.name) : '',
+                error: error.message || 'Unknown error'
+            });
+        }
+        await sleep(COPY_SLEEP_SOURCE_GAME_PASS_MS);
+    }
+
+    for (const item of archivedDeveloperProducts) {
+        const id = Number(item && item.productId);
+        try {
+            await updateDeveloperProduct(developmentUniverseId, id, item, null, {
+                nameOverride: buildRestoredName('Product', id),
+                forceForSale: true
+            });
+            restored.developerProducts.push({
+                id,
+                previousName: item && item.name ? String(item.name) : '',
+                restoredName: buildRestoredName('Product', id)
+            });
+        } catch (error) {
+            failed.developerProducts.push({
+                id,
+                name: item && item.name ? String(item.name) : '',
+                error: error.message || 'Unknown error'
+            });
+        }
+        await sleep(COPY_SLEEP_SOURCE_DEVELOPER_PRODUCT_MS);
+    }
+
+    return {
+        developmentUniverseId,
+        restored,
+        failed,
+        totals: {
+            gamePassesRestored: restored.gamePasses.length,
+            developerProductsRestored: restored.developerProducts.length,
+            gamePassFailures: failed.gamePasses.length,
+            developerProductFailures: failed.developerProducts.length
+        }
+    };
+}
+
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return methodNotAllowed(req, res, ['POST']);
@@ -775,6 +868,25 @@ module.exports = async (req, res) => {
         if (operation === 'estimate') {
             const estimatePayload = await buildCopyEstimatePayload(ids);
             return sendJson(res, 200, estimatePayload);
+        }
+
+        if (operation === 'restore-development-archived') {
+            const sourceUniverseId = ids.productionUniverseId;
+            const developmentUniverseId = ids.developmentUniverseId;
+            const lockAttempt = tryAcquireMonetizationLock(
+                [sourceUniverseId, developmentUniverseId].filter((id) => Number.isFinite(Number(id))),
+                auth.user && auth.user.username ? auth.user.username : auth.user.id
+            );
+            if (!lockAttempt.acquired) {
+                return sendJson(res, 409, {
+                    error: 'Another admin is currently using this tool. Try again later.',
+                    conflicts: lockAttempt.conflicts
+                });
+            }
+            lockOwnerId = lockAttempt.ownerId;
+
+            const payload = await restoreArchivedDevelopmentItems(ids);
+            return sendJson(res, 200, payload);
         }
 
         const sourceUniverseId = ids.productionUniverseId;
