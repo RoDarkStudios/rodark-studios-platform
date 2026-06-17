@@ -46,8 +46,8 @@ async function fetchRobloxJson(endpoint) {
     return payload;
 }
 
-async function fetchGroupUniverseIds(groupId) {
-    const universeIds = [];
+async function fetchGroupGames(groupId) {
+    const groupGames = [];
     const seen = new Set();
     let cursor = '';
 
@@ -66,7 +66,7 @@ async function fetchGroupUniverseIds(groupId) {
             const universeId = parsePositiveInteger(game && game.id);
             if (universeId && !seen.has(universeId)) {
                 seen.add(universeId);
-                universeIds.push(universeId);
+                groupGames.push(game);
             }
         });
 
@@ -78,7 +78,7 @@ async function fetchGroupUniverseIds(groupId) {
         }
     }
 
-    return universeIds;
+    return groupGames;
 }
 
 async function fetchGameDetails(universeIds) {
@@ -121,6 +121,31 @@ function normalizeGame(row) {
     };
 }
 
+function normalizeGroupGame(row) {
+    const universeId = Number(row && row.id);
+    const rootPlaceId = Number(row && row.rootPlace && row.rootPlace.id);
+    const updatedAt = typeof (row && row.updated) === 'string' ? row.updated.trim() : '';
+    const description = typeof (row && row.description) === 'string' ? row.description.trim() : '';
+    const isDiscontinued = /\bdiscontinued\b/i.test(description);
+
+    return {
+        universeId,
+        rootPlaceId,
+        name: typeof (row && row.name) === 'string' ? row.name.trim() : '',
+        description,
+        updatedAt,
+        isDiscontinued,
+        visits: Number(row && row.placeVisits),
+        playing: 0,
+        iconUrl: Number.isFinite(universeId) && universeId > 0
+            ? `/api/roblox/game-icon?universeId=${encodeURIComponent(String(universeId))}&size=512x512`
+            : '',
+        robloxUrl: Number.isFinite(rootPlaceId) && rootPlaceId > 0
+            ? `https://www.roblox.com/games/${encodeURIComponent(String(rootPlaceId))}`
+            : ''
+    };
+}
+
 function isGroupOwnedGame(row, groupId) {
     const creator = row && row.creator ? row.creator : null;
     return Number(creator && creator.id) === groupId
@@ -144,15 +169,26 @@ function compareGamesByActivity(left, right) {
 }
 
 async function fetchEligibleGroupGames(groupId, minVisits) {
-    const universeIds = await fetchGroupUniverseIds(groupId);
-    if (!universeIds.length) {
+    const groupRows = await fetchGroupGames(groupId);
+    if (!groupRows.length) {
         return [];
     }
 
+    const universeIds = groupRows
+        .map((row) => parsePositiveInteger(row && row.id))
+        .filter(Boolean);
     const rows = await fetchGameDetails(universeIds);
-    return rows
+    const detailsByUniverseId = new Map(rows
+        .map((row) => [parsePositiveInteger(row && row.id), row])
+        .filter(([universeId]) => universeId));
+
+    return groupRows
         .filter((row) => isGroupOwnedGame(row, groupId))
-        .map(normalizeGame)
+        .map((row) => {
+            const universeId = parsePositiveInteger(row && row.id);
+            const detailRow = detailsByUniverseId.get(universeId);
+            return detailRow ? normalizeGame(detailRow) : normalizeGroupGame(row);
+        })
         .filter((game) => Number.isFinite(game.universeId) && game.universeId > 0)
         .filter((game) => Number.isFinite(game.rootPlaceId) && game.rootPlaceId > 0)
         .filter((game) => Number.isFinite(game.visits) && game.visits > minVisits)
