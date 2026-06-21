@@ -461,13 +461,6 @@ body {
     margin-bottom: 0.2rem;
 }
 
-.consultation-card-badge {
-    width: 1.25rem;
-    height: 1.25rem;
-    object-fit: contain;
-    flex: 0 0 auto;
-}
-
 .consultation-price-row p,
 .consultation-smallprint {
     color: var(--text-muted);
