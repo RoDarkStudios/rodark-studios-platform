@@ -248,7 +248,6 @@ function createBookingRow(booking) {
             </div>
             <div class="consultation-booking-meta">
                 <span class="consultation-status-pill">${escapeHtml(getConsultationStatusLabel(booking.status))}</span>
-                <span>${escapeHtml(booking.paymentStatus || 'unknown')}</span>
             </div>
             <div class="consultation-booking-time">
                 <span>Submitted</span>
