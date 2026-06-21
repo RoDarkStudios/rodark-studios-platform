@@ -69,6 +69,9 @@ async function createConsultationCheckoutSession({ req, booking }) {
 
     return stripe.checkout.sessions.create({
         mode: 'payment',
+        adaptive_pricing: {
+            enabled: false
+        },
         client_reference_id: booking.id,
         customer_email: booking.contactEmail || undefined,
         line_items: [
@@ -79,7 +82,7 @@ async function createConsultationCheckoutSession({ req, booking }) {
                     unit_amount: booking.amountTotal,
                     product_data: {
                         name: 'Roblox Game Consultation',
-                        description: '60-minute live audit covering monetization, retention, UI, economy, and growth strategy.'
+                        description: '60-minute live audit with a RoDark Studios owner, covering monetization, retention, UI, economy, and growth strategy.'
                     }
                 }
             }
