@@ -86,7 +86,6 @@ create table if not exists consultation_bookings (
     amount_total integer not null default 30000,
     currency text not null default 'usd',
     scheduled_at timestamptz,
-    assigned_to text,
     admin_notes text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),

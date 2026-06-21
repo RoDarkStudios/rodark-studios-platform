@@ -34,7 +34,6 @@ module.exports = async (req, res) => {
             id,
             status: body && body.status,
             scheduledAt: body && body.scheduledAt,
-            assignedTo: body && body.assignedTo,
             adminNotes: body && body.adminNotes
         });
 

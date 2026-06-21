@@ -36,7 +36,6 @@ async function ensureConsultationBookingsSchema() {
             amount_total integer not null default 30000,
             currency text not null default 'usd',
             scheduled_at timestamptz,
-            assigned_to text,
             admin_notes text,
             created_at timestamptz not null default now(),
             updated_at timestamptz not null default now(),
@@ -94,7 +93,6 @@ function normalizeBooking(row) {
         amountTotal: row.amount_total,
         currency: row.currency,
         scheduledAt: row.scheduled_at ? row.scheduled_at.toISOString() : null,
-        assignedTo: row.assigned_to,
         adminNotes: row.admin_notes,
         createdAt: row.created_at ? row.created_at.toISOString() : null,
         updatedAt: row.updated_at ? row.updated_at.toISOString() : null,
@@ -249,7 +247,7 @@ async function listConsultationBookings() {
     return result.rows.map(normalizeBooking);
 }
 
-async function updateConsultationBooking({ id, status, scheduledAt, assignedTo, adminNotes }) {
+async function updateConsultationBooking({ id, status, scheduledAt, adminNotes }) {
     await ensureConsultationBookingsSchema();
 
     const normalizedStatus = status ? cleanText(status, 40) : null;
@@ -268,8 +266,7 @@ async function updateConsultationBooking({ id, status, scheduledAt, assignedTo, 
         set
             status = coalesce($2, status),
             scheduled_at = $3,
-            assigned_to = $4,
-            admin_notes = $5,
+            admin_notes = $4,
             updated_at = now()
         where id = $1
         returning *
@@ -277,7 +274,6 @@ async function updateConsultationBooking({ id, status, scheduledAt, assignedTo, 
         id,
         normalizedStatus,
         parsedScheduledAt ? parsedScheduledAt.toISOString() : null,
-        cleanText(assignedTo, 120) || null,
         cleanText(adminNotes, 4000) || null
     ]);
 

@@ -126,10 +126,6 @@ function createBookingCard(booking) {
             <span class="admin-label">Scheduled time</span>
             <input class="admin-input" name="scheduledAt" type="datetime-local">
         </label>
-        <label class="admin-field">
-            <span class="admin-label">Assigned to</span>
-            <input class="admin-input" name="assignedTo" type="text" placeholder="Team member">
-        </label>
         <label class="admin-field consultation-admin-notes-field">
             <span class="admin-label">Admin notes</span>
             <textarea class="admin-textarea" name="adminNotes" rows="3" placeholder="Internal notes"></textarea>
@@ -139,7 +135,6 @@ function createBookingCard(booking) {
 
     form.elements.status.value = booking.status || 'new';
     form.elements.scheduledAt.value = toDatetimeLocalValue(booking.scheduledAt);
-    form.elements.assignedTo.value = booking.assignedTo || '';
     form.elements.adminNotes.value = booking.adminNotes || '';
 
     form.addEventListener('submit', async (event) => {
@@ -153,7 +148,6 @@ function createBookingCard(booking) {
                 id: booking.id,
                 status: form.elements.status.value,
                 scheduledAt: form.elements.scheduledAt.value,
-                assignedTo: form.elements.assignedTo.value,
                 adminNotes: form.elements.adminNotes.value
             });
             setConsultationAdminStatus('Booking saved.', 'success');
