@@ -591,33 +591,188 @@ body {
 
 .consultation-admin-list {
     display: grid;
-    gap: 1rem;
-    margin-top: 1rem;
+    gap: 0.55rem;
+    margin-top: 0.65rem;
 }
 
-.consultation-admin-card {
+.consultation-admin-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin: 1.1rem 0 0.9rem;
+}
+
+.consultation-admin-stat {
     border: 1px solid var(--border-color);
-    border-radius: 14px;
+    border-radius: 10px;
     background: rgba(10, 10, 10, 0.35);
-    padding: 1rem;
+    padding: 0.85rem;
 }
 
-.consultation-admin-card-header {
+.consultation-admin-stat span,
+.consultation-booking-time span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.consultation-admin-stat strong {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 1.35rem;
+}
+
+.consultation-admin-toolbar {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
-    align-items: flex-start;
-    margin-bottom: 0.85rem;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.75rem;
 }
 
-.consultation-admin-card-header h3 {
-    font-size: 1.15rem;
-    margin-bottom: 0.2rem;
+.consultation-admin-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
 }
 
-.consultation-admin-card-header p,
-.consultation-admin-goals {
+.consultation-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: rgba(10, 10, 10, 0.35);
+    color: var(--text-secondary);
+    padding: 0.45rem 0.7rem;
+    font: inherit;
+    font-size: 0.86rem;
+    cursor: pointer;
+}
+
+.consultation-filter-btn strong {
+    color: var(--text-primary);
+}
+
+.consultation-filter-btn.active {
+    border-color: rgba(6, 182, 212, 0.6);
+    background: rgba(6, 182, 212, 0.12);
+    color: #67e8f9;
+}
+
+.consultation-admin-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 240px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(10, 10, 10, 0.35);
     color: var(--text-muted);
+    padding: 0 0.75rem;
+}
+
+.consultation-admin-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-primary);
+    padding: 0.7rem 0;
+    font: inherit;
+}
+
+.consultation-admin-list-head,
+.consultation-booking-main {
+    display: grid;
+    grid-template-columns: 34px minmax(170px, 1.4fr) minmax(130px, 0.9fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(90px, 0.5fr);
+    gap: 0.7rem;
+    align-items: center;
+}
+
+.consultation-admin-list-head {
+    padding: 0.55rem 0.85rem;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.consultation-admin-list-head span:first-child {
+    grid-column: 2;
+}
+
+.consultation-admin-sort-note {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    margin-bottom: 0.45rem;
+}
+
+.consultation-booking-row {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(10, 10, 10, 0.34);
+    overflow: hidden;
+}
+
+.consultation-booking-main {
+    min-height: 74px;
+    padding: 0.75rem 0.85rem;
+}
+
+.consultation-booking-row.expanded {
+    border-color: rgba(6, 182, 212, 0.35);
+}
+
+.consultation-row-toggle {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.consultation-booking-row.expanded .consultation-row-toggle i {
+    transform: rotate(90deg);
+}
+
+.consultation-row-toggle i {
+    transition: transform 0.18s ease;
+}
+
+.consultation-booking-client,
+.consultation-booking-time {
+    min-width: 0;
+}
+
+.consultation-booking-client strong,
+.consultation-booking-client span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.consultation-booking-time strong {
+    display: block;
+    line-height: 1.25;
+}
+
+.consultation-booking-client span,
+.consultation-booking-meta,
+.consultation-booking-price {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.consultation-booking-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .consultation-status-pill {
@@ -631,7 +786,17 @@ body {
     white-space: nowrap;
 }
 
-.consultation-admin-details {
+.consultation-booking-price {
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.consultation-booking-detail {
+    border-top: 1px solid var(--border-color);
+    padding: 0.9rem;
+}
+
+.consultation-booking-links {
     display: flex;
     flex-wrap: wrap;
     gap: 0.65rem 1rem;
@@ -640,16 +805,17 @@ body {
     font-size: 0.92rem;
 }
 
-.consultation-admin-details a {
+.consultation-booking-links a {
     color: #67e8f9;
     text-decoration: none;
 }
 
-.consultation-admin-goals {
+.consultation-booking-goals {
     border-left: 3px solid var(--primary-color);
     padding-left: 0.85rem;
     margin-bottom: 1rem;
     white-space: pre-wrap;
+    color: var(--text-secondary);
 }
 
 .consultation-admin-form {
@@ -2705,6 +2871,7 @@ body {
     .credibility-grid,
     .consultation-proof-grid,
     .consultation-step-grid,
+    .consultation-admin-summary,
     .consultation-admin-form {
         grid-template-columns: 1fr;
     }
@@ -2723,7 +2890,32 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .consultation-admin-card-header {
+    .consultation-admin-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .consultation-admin-search {
+        min-width: 0;
+    }
+
+    .consultation-admin-list-head {
+        display: none;
+    }
+
+    .consultation-booking-main {
+        grid-template-columns: 32px minmax(0, 1fr);
+        align-items: flex-start;
+    }
+
+    .consultation-booking-meta,
+    .consultation-booking-time,
+    .consultation-booking-price {
+        grid-column: 2;
+    }
+
+    .consultation-admin-actions {
+        align-items: stretch;
         flex-direction: column;
     }
 

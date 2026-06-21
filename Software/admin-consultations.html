@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=consultation-admin-redesign-1">
     <link rel="icon" type="image/png" href="/official_company_logo.png">
 </head>
 <body>
@@ -56,7 +56,7 @@
                                 <div>
                                     <h2 class="admin-tool-title">Bookings</h2>
                                     <p class="admin-tool-note">
-                                        Manage paid Roblox game consultations from Stripe checkout.
+                                        Active queue, newest first.
                                     </p>
                                 </div>
                                 <button id="consultation-admin-refresh" class="btn btn-secondary admin-compact-btn" type="button">
@@ -66,6 +66,23 @@
                             </div>
 
                             <p id="consultation-admin-status" class="admin-status info hidden"></p>
+                            <div id="consultation-bookings-summary" class="consultation-admin-summary"></div>
+                            <div class="consultation-admin-toolbar">
+                                <div id="consultation-bookings-filters" class="consultation-admin-filters"></div>
+                                <label class="consultation-admin-search">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <input id="consultation-bookings-search" type="search" placeholder="Search bookings">
+                                </label>
+                            </div>
+                            <div class="consultation-admin-list-head">
+                                <span>Client</span>
+                                <span>Status</span>
+                                <span>Submitted</span>
+                                <span>Schedule</span>
+                                <span>Value</span>
+                            </div>
+                            <p id="consultation-bookings-sort-label" class="consultation-admin-sort-note"></p>
+                            <p id="consultation-bookings-empty" class="admin-tool-note hidden">No bookings match this view.</p>
                             <div id="consultation-bookings-list" class="consultation-admin-list"></div>
                         </div>
 
@@ -94,6 +111,6 @@
     </footer>
 
     <script src="/script.js?v=consultation-admin-1"></script>
-    <script src="/admin-consultations.js?v=consultation-admin-1"></script>
+    <script src="/admin-consultations.js?v=consultation-admin-redesign-1"></script>
 </body>
 </html>
