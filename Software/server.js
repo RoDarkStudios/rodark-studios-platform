@@ -33,6 +33,7 @@ const activePlayersDisplayThreshold = 1000;
 const robloxGroupGamesPageLimit = 100;
 const robloxGameDetailsBatchSize = 20;
 const robloxGroupGamesMaxPages = 20;
+const maxRequestBodyBytes = 5 * 1024 * 1024;
 let studioStatsCache = {
     stats: null,
     expiresAt: 0,
@@ -147,6 +148,16 @@ function sendRedirect(res, statusCode, location) {
     res.statusCode = statusCode;
     res.setHeader('Location', location);
     res.end();
+}
+
+function setSecurityHeaders(res) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    if (process.env.NODE_ENV === 'production') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
 }
 
 function escapeHtmlAttribute(value) {
@@ -518,7 +529,14 @@ function sendFile(res, filename) {
 
 async function readBody(req) {
     const chunks = [];
+    let totalLength = 0;
     for await (const chunk of req) {
+        totalLength += chunk.length;
+        if (totalLength > maxRequestBodyBytes) {
+            const error = new Error('Request body too large');
+            error.statusCode = 413;
+            throw error;
+        }
         chunks.push(chunk);
     }
 
@@ -541,7 +559,14 @@ async function readBody(req) {
 
 async function readRawBody(req) {
     const chunks = [];
+    let totalLength = 0;
     for await (const chunk of req) {
+        totalLength += chunk.length;
+        if (totalLength > maxRequestBodyBytes) {
+            const error = new Error('Request body too large');
+            error.statusCode = 413;
+            throw error;
+        }
         chunks.push(chunk);
     }
 
@@ -568,6 +593,7 @@ async function handleApi(req, res, pathname) {
 
 async function handleRequest(req, res) {
     enhanceResponse(res);
+    setSecurityHeaders(res);
 
     const requestUrl = new URL(req.url, 'http://localhost');
     const pathname = requestUrl.pathname;
@@ -621,8 +647,12 @@ const server = http.createServer((req, res) => {
             return;
         }
 
-        sendJson(res, 500, {
-            error: 'Internal Server Error',
+        const statusCode = Number(error && error.statusCode);
+        const safeStatusCode = Number.isFinite(statusCode) && statusCode >= 400 && statusCode < 600
+            ? statusCode
+            : 500;
+        sendJson(res, safeStatusCode, {
+            error: safeStatusCode === 413 ? 'Request body too large' : 'Internal Server Error',
             details: process.env.NODE_ENV === 'production' ? undefined : error.message
         });
     });

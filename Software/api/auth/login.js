@@ -23,10 +23,20 @@ function readQuery(req) {
 
 function sanitizeReturnTo(value) {
     const raw = String(value || '').trim();
-    if (!raw.startsWith('/') || raw.startsWith('//')) {
+    if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\') || /[\x00-\x1F\x7F]/.test(raw)) {
         return '/';
     }
-    return raw;
+
+    try {
+        const target = new URL(raw, 'http://localhost');
+        if (target.origin !== 'http://localhost') {
+            return '/';
+        }
+
+        return `${target.pathname}${target.search}`;
+    } catch (error) {
+        return '/';
+    }
 }
 
 module.exports = async (req, res) => {

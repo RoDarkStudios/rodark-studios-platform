@@ -12,7 +12,13 @@ function parseCookies(req) {
         if (!rawKey) {
             return acc;
         }
-        acc[decodeURIComponent(rawKey)] = decodeURIComponent(rawValue.join('=') || '');
+
+        try {
+            acc[decodeURIComponent(rawKey)] = decodeURIComponent(rawValue.join('=') || '');
+        } catch (error) {
+            // Ignore malformed cookie pairs instead of failing the whole request.
+        }
+
         return acc;
     }, {});
 }

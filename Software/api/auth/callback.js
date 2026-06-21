@@ -52,11 +52,20 @@ function setSessionCookie(res, sessionToken) {
 
 function sanitizeReturnTo(value) {
     const raw = String(value || '').trim();
-    if (!raw.startsWith('/') || raw.startsWith('//')) {
+    if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\') || /[\x00-\x1F\x7F]/.test(raw)) {
         return '/';
     }
 
-    return raw.split('#')[0];
+    try {
+        const target = new URL(raw, 'http://localhost');
+        if (target.origin !== 'http://localhost') {
+            return '/';
+        }
+
+        return `${target.pathname}${target.search}`;
+    } catch (error) {
+        return '/';
+    }
 }
 
 module.exports = async (req, res) => {

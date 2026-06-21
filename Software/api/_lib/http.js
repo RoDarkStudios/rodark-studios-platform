@@ -1,3 +1,5 @@
+const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
+
 function sendJson(res, status, data) {
     res.status(status).json(data);
 }
@@ -17,7 +19,14 @@ async function readJsonBody(req) {
     }
 
     const chunks = [];
+    let totalLength = 0;
     for await (const chunk of req) {
+        totalLength += chunk.length;
+        if (totalLength > MAX_JSON_BODY_BYTES) {
+            const error = new Error('Request body too large');
+            error.statusCode = 413;
+            throw error;
+        }
         chunks.push(chunk);
     }
 
