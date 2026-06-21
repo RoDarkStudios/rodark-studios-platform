@@ -125,7 +125,10 @@ function createBookingCard(booking) {
             <span class="admin-label">Scheduled time</span>
             <input class="admin-input" name="scheduledAt" type="datetime-local">
         </label>
-        <button class="btn btn-primary admin-submit-btn" type="submit">Save Booking</button>
+        <div class="consultation-admin-actions">
+            <button class="btn btn-primary admin-submit-btn" type="submit">Save Booking</button>
+            <button class="btn btn-secondary consultation-archive-btn" type="button">Archive</button>
+        </div>
     `;
 
     form.elements.status.value = booking.status || 'new';
@@ -151,6 +154,32 @@ function createBookingCard(booking) {
             button.disabled = false;
         }
     });
+
+    const archiveButton = form.querySelector('.consultation-archive-btn');
+    if (archiveButton) {
+        archiveButton.addEventListener('click', async () => {
+            if (!window.confirm('Archive this booking? It will be hidden from the active list.')) {
+                return;
+            }
+
+            archiveButton.disabled = true;
+            setConsultationAdminStatus('Archiving booking...', 'info');
+
+            try {
+                await saveConsultationBooking({
+                    id: booking.id,
+                    status: 'archived',
+                    scheduledAt: form.elements.scheduledAt.value
+                });
+                setConsultationAdminStatus('Booking archived.', 'success');
+                await renderConsultationBookings();
+            } catch (error) {
+                setConsultationAdminStatus(error.message || 'Failed to archive booking.', 'error');
+            } finally {
+                archiveButton.disabled = false;
+            }
+        });
+    }
 
     card.append(header, details, goals, form);
     return card;

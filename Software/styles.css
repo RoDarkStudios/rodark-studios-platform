@@ -658,8 +658,10 @@ body {
     gap: 0.8rem;
 }
 
-.consultation-admin-notes-field {
-    grid-column: 1 / -1;
+.consultation-admin-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.65rem;
 }
 
 /* Featured Game Section */

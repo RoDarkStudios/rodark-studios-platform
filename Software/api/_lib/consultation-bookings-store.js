@@ -7,7 +7,8 @@ const BOOKING_STATUSES = new Set([
     'scheduled',
     'completed',
     'cancelled',
-    'refunded'
+    'refunded',
+    'archived'
 ]);
 
 let schemaReady = false;
@@ -238,6 +239,7 @@ async function listConsultationBookings() {
     const result = await postgresQuery(`
         select *
         from consultation_bookings
+        where status <> 'archived'
         order by created_at desc
         limit 200
     `);
