@@ -240,6 +240,7 @@ async function listConsultationBookings() {
         select *
         from consultation_bookings
         where status <> 'archived'
+            and payment_status = 'paid'
         order by created_at desc
         limit 200
     `);

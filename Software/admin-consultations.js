@@ -1,4 +1,4 @@
-const CONSULTATION_ACTIVE_STATUSES = new Set(['checkout_created', 'new', 'scheduled']);
+const CONSULTATION_ACTIVE_STATUSES = new Set(['new', 'scheduled']);
 const CONSULTATION_DONE_STATUSES = new Set(['completed', 'cancelled', 'refunded']);
 
 const consultationAdminState = {
@@ -63,7 +63,6 @@ function toDatetimeLocalValue(value) {
 
 function getConsultationStatusLabel(status) {
     return {
-        checkout_created: 'Checkout',
         new: 'New',
         scheduled: 'Scheduled',
         completed: 'Completed',
@@ -105,7 +104,7 @@ function matchesConsultationFilter(booking, filter) {
         return isActiveConsultationBooking(booking);
     }
     if (filter === 'new') {
-        return status === 'new' || status === 'checkout_created';
+        return status === 'new';
     }
     if (filter === 'unscheduled') {
         return isUnscheduledConsultationBooking(booking);
@@ -275,7 +274,6 @@ function createBookingRow(booking) {
                 <label class="admin-field">
                     <span class="admin-label">Status</span>
                     <select class="admin-input" name="status">
-                        <option value="checkout_created">Checkout created</option>
                         <option value="new">New</option>
                         <option value="scheduled">Scheduled</option>
                         <option value="completed">Completed</option>
