@@ -402,6 +402,19 @@ body {
     margin-bottom: 1rem;
 }
 
+.consultation-kicker-verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.consultation-kicker-verified img {
+    width: 1.35rem;
+    height: 1.35rem;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(6, 182, 212, 0.22));
+}
+
 .consultation-copy h1 {
     font-size: clamp(2.5rem, 5vw, 4.8rem);
     line-height: 1.02;
@@ -441,8 +454,18 @@ body {
 }
 
 .consultation-price-row h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
     font-size: 1.5rem;
     margin-bottom: 0.2rem;
+}
+
+.consultation-card-badge {
+    width: 1.25rem;
+    height: 1.25rem;
+    object-fit: contain;
+    flex: 0 0 auto;
 }
 
 .consultation-price-row p,
