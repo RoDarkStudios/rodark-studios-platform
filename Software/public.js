@@ -27,6 +27,46 @@ async function postJson(url, payload) {
     return data;
 }
 
+async function fetchConsultationConfig() {
+    const response = await fetch('/api/consultations/config', {
+        method: 'GET',
+        credentials: 'include'
+    });
+
+    if (!response.ok) {
+        throw new Error(`Consultation config failed (${response.status})`);
+    }
+
+    return response.json();
+}
+
+function applyConsultationPrice(config) {
+    const displayPrice = config && typeof config.displayPrice === 'string'
+        ? config.displayPrice.trim()
+        : '';
+    if (!displayPrice) {
+        return;
+    }
+
+    document.querySelectorAll('[data-consultation-price]').forEach((element) => {
+        const prefix = element.getAttribute('data-consultation-price-prefix') || '';
+        const suffix = element.getAttribute('data-consultation-price-suffix') || '';
+        element.textContent = `${prefix}${displayPrice}${suffix}`;
+    });
+}
+
+async function initConsultationPrice() {
+    if (!document.querySelector('[data-consultation-price]')) {
+        return;
+    }
+
+    try {
+        applyConsultationPrice(await fetchConsultationConfig());
+    } catch (error) {
+        console.error('Failed to load consultation price:', error);
+    }
+}
+
 function getUserUsername(user) {
     if (user && typeof user.username === 'string' && user.username.trim()) {
         return user.username.trim();
@@ -708,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAuth();
     initAges();
     initCurrentYear();
+    initConsultationPrice();
     fetchAllGameStats();
     fetchGroupStats();
     fetchUserAvatars();

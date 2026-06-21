@@ -18,6 +18,7 @@ const adminSyncExperienceConfigs = require('./api/admin/roblox-sync-experience-c
 const adminDiscordBotControl = require('./api/admin/discord-bot-control');
 const adminPlatformSettings = require('./api/admin/platform-settings');
 const adminConsultations = require('./api/admin/consultations');
+const consultationConfig = require('./api/consultations/config');
 const consultationCheckout = require('./api/consultations/checkout');
 const consultationConfirm = require('./api/consultations/confirm');
 const consultationWebhook = require('./api/consultations/webhook');
@@ -96,6 +97,7 @@ const apiRoutes = {
     '/api/roblox/group-games': robloxGroupGames,
     '/api/roblox/group-stats': robloxGroupStats,
     '/api/roblox/studio-stats': sendStudioStats,
+    '/api/consultations/config': consultationConfig,
     '/api/consultations/checkout': consultationCheckout,
     '/api/consultations/confirm': consultationConfirm,
     '/api/consultations/webhook': consultationWebhook,

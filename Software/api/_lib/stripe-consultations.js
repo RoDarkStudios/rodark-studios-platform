@@ -14,7 +14,22 @@ function getConsultationAmountTotal() {
 }
 
 function getConsultationCurrency() {
-    const configured = String(process.env.CONSULTATION_CURRENCY || 'usd').trim().toLowerCase();
+    return getConsultationCurrencyValue(process.env.CONSULTATION_CURRENCY);
+}
+
+function formatConsultationPrice(amountTotal, currency) {
+    const normalizedAmount = Number.isFinite(Number(amountTotal)) ? Math.max(0, Math.trunc(Number(amountTotal))) : 0;
+    const normalizedCurrency = getConsultationCurrencyValue(currency);
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: normalizedCurrency.toUpperCase(),
+        minimumFractionDigits: normalizedAmount % 100 === 0 ? 0 : 2,
+        maximumFractionDigits: 2
+    }).format(normalizedAmount / 100);
+}
+
+function getConsultationCurrencyValue(currency) {
+    const configured = String(currency || 'usd').trim().toLowerCase();
     return /^[a-z]{3}$/.test(configured) ? configured : 'usd';
 }
 
@@ -81,6 +96,7 @@ async function createConsultationCheckoutSession({ req, booking }) {
 
 module.exports = {
     createConsultationCheckoutSession,
+    formatConsultationPrice,
     getConsultationAmountTotal,
     getConsultationCurrency,
     getStripe,
