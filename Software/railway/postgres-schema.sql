@@ -68,6 +68,37 @@ insert into discord_bot_control (id)
 values (1)
 on conflict (id) do nothing;
 
+create table if not exists consultation_bookings (
+    id uuid primary key,
+    roblox_user_id text not null,
+    roblox_username text not null,
+    roblox_display_name text,
+    roblox_profile_url text,
+    contact_discord text not null,
+    contact_email text,
+    game_url text not null,
+    goals text not null,
+    status text not null default 'checkout_created',
+    payment_status text not null default 'unpaid',
+    stripe_checkout_session_id text unique,
+    stripe_payment_intent_id text,
+    stripe_customer_email text,
+    amount_total integer not null default 30000,
+    currency text not null default 'usd',
+    scheduled_at timestamptz,
+    assigned_to text,
+    admin_notes text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    paid_at timestamptz
+);
+
+create index if not exists consultation_bookings_created_at_idx
+on consultation_bookings (created_at desc);
+
+create index if not exists consultation_bookings_payment_status_idx
+on consultation_bookings (payment_status);
+
 create sequence if not exists discord_bot_ticket_id_seq
     as bigint
     start with 1

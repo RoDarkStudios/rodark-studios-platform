@@ -56,6 +56,26 @@ DATABASE_URL
 OPENAI_API_KEY
 ```
 
+Required for paid consultation checkout on the web service:
+
+```txt
+STRIPE_SECRET_KEY
+```
+
+Recommended for Stripe webhooks:
+
+```txt
+STRIPE_WEBHOOK_SECRET
+```
+
+Optional consultation checkout settings:
+
+```txt
+CONSULTATION_PRICE_CENTS=30000
+CONSULTATION_CURRENCY=usd
+PUBLIC_SITE_URL=https://rodarkstudios.com
+```
+
 Optional for the Discord bot worker:
 
 ```txt
@@ -91,7 +111,10 @@ The current schema lives in `railway/postgres-schema.sql`.
 - `/`
 - `/privacy`
 - `/terms`
+- `/consultation`
+- `/consultation/thanks`
 - `/admin`
+- `/admin/consultations`
 - `/admin/tools`
 - `/admin/tools/game-configuration`
 - `/admin/discord-bot`

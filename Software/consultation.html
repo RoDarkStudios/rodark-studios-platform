@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Game Consultation - RoDark Studios</title>
+    <meta name="description" content="Book a $300 Roblox game consultation with verified Roblox creators from RoDark Studios.">
+    <meta property="og:title" content="Roblox Game Consultation - RoDark Studios">
+    <meta property="og:description" content="A 60-minute live audit of your Roblox game's monetization, retention, UI, economy, and growth strategy.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://rodarkstudios.com/consultation">
+    <meta property="og:image" content="https://rodarkstudios.com/social-preview-large-badge.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Roblox Game Consultation - RoDark Studios">
+    <meta name="twitter:description" content="Book a $300 Roblox game consultation with verified Roblox creators.">
+    <meta name="twitter:image" content="https://rodarkstudios.com/social-preview-large-badge.png">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="icon" type="image/png" href="/official_company_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo nav-logo-link" aria-label="RoDark Studios home">
+                <img src="/official_company_logo.png" alt="RoDark Studios Logo" class="logo">
+                <span class="logo-text">RoDark Studios</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item"><a href="/#home" class="nav-link">Home</a></li>
+                <li class="nav-item"><a href="/#games" class="nav-link">Games</a></li>
+                <li class="nav-item"><a href="/consultation" class="nav-link">Consultation</a></li>
+                <li class="nav-item"><a href="/#team" class="nav-link">Team</a></li>
+                <li id="nav-admin-item" class="nav-item hidden"><a href="/admin" class="nav-link">Admin</a></li>
+            </ul>
+            <div class="nav-account">
+                <button id="nav-username" class="nav-username guest" type="button">Sign in with Roblox</button>
+                <button id="nav-signout-btn" class="nav-signout hidden" type="button">Sign out</button>
+            </div>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="consultation-page">
+        <section class="consultation-hero">
+            <div class="container consultation-hero-grid">
+                <div class="consultation-copy">
+                    <p class="consultation-kicker">Verified Roblox Creator Team</p>
+                    <h1>Roblox Game Consultation</h1>
+                    <p class="consultation-lede">
+                        A focused 60-minute audit of your game's monetization, retention, UI, economy, and growth path.
+                    </p>
+                    <div class="consultation-proof-grid" aria-label="RoDark Studios proof">
+                        <div><strong>13M+</strong><span>Robux earned</span></div>
+                        <div><strong>8M+</strong><span>visits</span></div>
+                        <div><strong>650K+</strong><span>community</span></div>
+                        <div><strong>5K</strong><span>CCU</span></div>
+                    </div>
+                </div>
+
+                <form id="consultation-checkout-form" class="consultation-card">
+                    <div class="consultation-price-row">
+                        <div>
+                            <h2>$300 Consultation</h2>
+                            <p>60 minutes live with RoDark Studios.</p>
+                        </div>
+                        <span class="consultation-price">$300</span>
+                    </div>
+
+                    <ul class="consultation-includes">
+                        <li><i class="fas fa-check" aria-hidden="true"></i> Monetization and gamepass review</li>
+                        <li><i class="fas fa-check" aria-hidden="true"></i> Retention, onboarding, and core loop audit</li>
+                        <li><i class="fas fa-check" aria-hidden="true"></i> UI, economy, thumbnails, and update strategy</li>
+                    </ul>
+
+                    <label class="admin-field">
+                        <span class="admin-label">Roblox game link</span>
+                        <input id="consultation-game-url" class="admin-input" type="url" placeholder="https://www.roblox.com/games/..." required>
+                    </label>
+
+                    <div class="consultation-two-field">
+                        <label class="admin-field">
+                            <span class="admin-label">Discord username</span>
+                            <input id="consultation-discord" class="admin-input" type="text" placeholder="yourname" required>
+                        </label>
+                        <label class="admin-field">
+                            <span class="admin-label">Email for receipt</span>
+                            <input id="consultation-email" class="admin-input" type="email" placeholder="you@example.com">
+                        </label>
+                    </div>
+
+                    <label class="admin-field">
+                        <span class="admin-label">What should we focus on?</span>
+                        <textarea id="consultation-goals" class="admin-textarea" rows="4" placeholder="Example: monetization, early retention, UI clarity, economy balance..." required></textarea>
+                    </label>
+
+                    <button id="consultation-checkout-btn" class="btn btn-primary consultation-buy-btn" type="submit">
+                        <i class="fas fa-credit-card" aria-hidden="true"></i>
+                        Pay & Book Consultation
+                    </button>
+
+                    <p id="consultation-status" class="admin-status info hidden"></p>
+                    <p class="consultation-smallprint">
+                        Roblox sign-in is required before checkout. Implementation work is quoted separately.
+                    </p>
+                </form>
+            </div>
+        </section>
+
+        <section class="consultation-steps">
+            <div class="container">
+                <h2 class="section-title">How It Works</h2>
+                <div class="consultation-step-grid">
+                    <div>
+                        <span>1</span>
+                        <h3>Submit Your Game</h3>
+                        <p>Send the Roblox link and what you want reviewed.</p>
+                    </div>
+                    <div>
+                        <span>2</span>
+                        <h3>Pay Securely</h3>
+                        <p>Checkout is handled by Stripe.</p>
+                    </div>
+                    <div>
+                        <span>3</span>
+                        <h3>Get The Audit</h3>
+                        <p>We review your game live and give clear next steps.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-links">
+                    <a href="/privacy" class="footer-link">Privacy Policy</a>
+                    <span class="footer-divider">|</span>
+                    <a href="/terms" class="footer-link">Terms of Service</a>
+                </p>
+                <p class="footer-copyright">
+                    &copy; <span id="current-year">2025</span> RoDark Studios. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/public.js?v=consultation-1"></script>
+    <script src="/consultation.js?v=consultation-1"></script>
+</body>
+</html>

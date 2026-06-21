@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultation Bookings - RoDark Studios</title>
+    <meta name="description" content="RoDark Studios consultation bookings admin">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="icon" type="image/png" href="/official_company_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo nav-logo-link" aria-label="RoDark Studios home">
+                <img src="/official_company_logo.png" alt="RoDark Studios Logo" class="logo">
+                <span class="logo-text">RoDark Studios</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item"><a href="/#home" class="nav-link">Home</a></li>
+                <li class="nav-item"><a href="/consultation" class="nav-link">Consultation</a></li>
+                <li id="nav-admin-item" class="nav-item hidden"><a href="/admin" class="nav-link">Admin</a></li>
+            </ul>
+            <div class="nav-account">
+                <button id="nav-username" class="nav-username guest" type="button">Sign in with Roblox</button>
+                <button id="nav-signout-btn" class="nav-signout hidden" type="button">Sign out</button>
+            </div>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="auth-page-main">
+        <section class="auth-section">
+            <div class="container">
+                <h1 class="section-title">Consultation Bookings</h1>
+                <div class="legal-shell">
+                    <article class="legal-card">
+                        <p class="admin-tool-back-link-wrap">
+                            <a href="/admin" class="admin-tool-back-link">
+                                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                                Back to admin
+                            </a>
+                        </p>
+
+                        <div id="admin-owned-content" class="hidden">
+                            <div class="admin-discord-feature-head">
+                                <div>
+                                    <h2 class="admin-tool-title">Bookings</h2>
+                                    <p class="admin-tool-note">
+                                        Manage paid Roblox game consultations from Stripe checkout.
+                                    </p>
+                                </div>
+                                <button id="consultation-admin-refresh" class="btn btn-secondary admin-compact-btn" type="button">
+                                    <i class="fas fa-rotate" aria-hidden="true"></i>
+                                    Refresh
+                                </button>
+                            </div>
+
+                            <p id="consultation-admin-status" class="admin-status info hidden"></p>
+                            <div id="consultation-bookings-list" class="consultation-admin-list"></div>
+                        </div>
+
+                        <div id="admin-access-denied" class="admin-access-denied hidden">
+                            <p class="admin-denied-message">Admin access is required for this page.</p>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-links">
+                    <a href="/privacy" class="footer-link">Privacy Policy</a>
+                    <span class="footer-divider">|</span>
+                    <a href="/terms" class="footer-link">Terms of Service</a>
+                </p>
+                <p class="footer-copyright">
+                    &copy; <span id="current-year">2025</span> RoDark Studios. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/script.js?v=consultation-admin-1"></script>
+    <script src="/admin-consultations.js?v=consultation-admin-1"></script>
+</body>
+</html>

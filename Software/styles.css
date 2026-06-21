@@ -337,6 +337,315 @@ body {
     display: none !important;
 }
 
+.credibility-strip {
+    background: #101010;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1.25rem 0;
+}
+
+.credibility-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.credibility-grid div,
+.consultation-proof-grid div {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 12px;
+    background: rgba(38, 38, 38, 0.72);
+    padding: 1rem;
+    text-align: center;
+}
+
+.credibility-grid strong,
+.consultation-proof-grid strong {
+    display: block;
+    color: var(--primary-color);
+    font-size: 1.35rem;
+    line-height: 1.1;
+}
+
+.credibility-grid span,
+.consultation-proof-grid span {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.consultation-page {
+    background: var(--dark-bg);
+}
+
+.consultation-hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 8rem 0 4rem;
+    background: linear-gradient(135deg, var(--dark-bg), var(--darker-bg));
+}
+
+.consultation-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
+    gap: 3rem;
+    align-items: center;
+}
+
+.consultation-kicker {
+    color: #67e8f9;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+}
+
+.consultation-copy h1 {
+    font-size: clamp(2.5rem, 5vw, 4.8rem);
+    line-height: 1.02;
+    margin-bottom: 1.25rem;
+}
+
+.consultation-lede {
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    line-height: 1.7;
+    max-width: 650px;
+}
+
+.consultation-proof-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 2rem;
+}
+
+.consultation-card {
+    border: 1px solid rgba(249, 115, 22, 0.35);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(249, 115, 22, 0.16), transparent 42%),
+        var(--card-bg);
+    box-shadow: var(--shadow-lg);
+    padding: 1.5rem;
+}
+
+.consultation-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.consultation-price-row h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.2rem;
+}
+
+.consultation-price-row p,
+.consultation-smallprint {
+    color: var(--text-muted);
+}
+
+.consultation-price {
+    color: var(--primary-color);
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.consultation-includes {
+    display: grid;
+    gap: 0.55rem;
+    list-style: none;
+    margin: 1rem 0 1.25rem;
+    color: var(--text-secondary);
+}
+
+.consultation-includes i {
+    color: #4ade80;
+    margin-right: 0.45rem;
+}
+
+.consultation-two-field {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.consultation-buy-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.75rem;
+}
+
+.consultation-smallprint {
+    margin-top: 0.85rem;
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.consultation-steps {
+    padding: 5rem 0;
+    background: var(--dark-bg);
+}
+
+.consultation-step-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.consultation-step-grid div {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--card-bg);
+    padding: 1.25rem;
+}
+
+.consultation-step-grid span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--gradient);
+    color: white;
+    font-weight: 800;
+    margin-bottom: 0.9rem;
+}
+
+.consultation-step-grid h3 {
+    margin-bottom: 0.4rem;
+}
+
+.consultation-step-grid p {
+    color: var(--text-muted);
+}
+
+.consultation-thanks-card {
+    max-width: 720px;
+    margin: 0 auto;
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    background: var(--card-bg);
+    padding: 2rem;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+}
+
+.consultation-thanks-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.16);
+    color: #4ade80;
+    margin-bottom: 1rem;
+}
+
+.consultation-thanks-card h1 {
+    font-size: 2.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.consultation-thanks-card p {
+    color: var(--text-secondary);
+}
+
+.consultation-next-steps {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.consultation-next-steps h2 {
+    margin-bottom: 0.45rem;
+}
+
+.consultation-next-steps .btn {
+    margin-top: 1rem;
+}
+
+.consultation-admin-list {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.consultation-admin-card {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: rgba(10, 10, 10, 0.35);
+    padding: 1rem;
+}
+
+.consultation-admin-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    margin-bottom: 0.85rem;
+}
+
+.consultation-admin-card-header h3 {
+    font-size: 1.15rem;
+    margin-bottom: 0.2rem;
+}
+
+.consultation-admin-card-header p,
+.consultation-admin-goals {
+    color: var(--text-muted);
+}
+
+.consultation-status-pill {
+    border: 1px solid rgba(6, 182, 212, 0.45);
+    border-radius: 999px;
+    color: #67e8f9;
+    background: rgba(6, 182, 212, 0.12);
+    padding: 0.35rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.consultation-admin-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem 1rem;
+    margin-bottom: 0.85rem;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+}
+
+.consultation-admin-details a {
+    color: #67e8f9;
+    text-decoration: none;
+}
+
+.consultation-admin-goals {
+    border-left: 3px solid var(--primary-color);
+    padding-left: 0.85rem;
+    margin-bottom: 1rem;
+    white-space: pre-wrap;
+}
+
+.consultation-admin-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.consultation-admin-notes-field {
+    grid-column: 1 / -1;
+}
+
 /* Featured Game Section */
 .featured-game {
     padding: 6rem 0;
@@ -2373,6 +2682,31 @@ body {
     .hero-logo {
         width: 150px;
         height: 150px;
+    }
+
+    .credibility-grid,
+    .consultation-proof-grid,
+    .consultation-step-grid,
+    .consultation-admin-form {
+        grid-template-columns: 1fr;
+    }
+
+    .consultation-hero {
+        min-height: auto;
+        padding: 6.5rem 0 3rem;
+    }
+
+    .consultation-hero-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .consultation-two-field {
+        grid-template-columns: 1fr;
+    }
+
+    .consultation-admin-card-header {
+        flex-direction: column;
     }
 
     .hero-stats-panel {

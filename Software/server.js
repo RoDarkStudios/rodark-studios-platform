@@ -17,6 +17,10 @@ const adminListMonetizationItems = require('./api/admin/roblox-list-monetization
 const adminSyncExperienceConfigs = require('./api/admin/roblox-sync-experience-configs');
 const adminDiscordBotControl = require('./api/admin/discord-bot-control');
 const adminPlatformSettings = require('./api/admin/platform-settings');
+const adminConsultations = require('./api/admin/consultations');
+const consultationCheckout = require('./api/consultations/checkout');
+const consultationConfirm = require('./api/consultations/confirm');
+const consultationWebhook = require('./api/consultations/webhook');
 const { getAdminGroupId } = require('./api/_lib/roblox-groups');
 
 const rootDir = __dirname;
@@ -46,7 +50,10 @@ const pageRoutes = {
     '/tristan': 'tristan.html',
     '/privacy': 'privacy.html',
     '/terms': 'terms.html',
+    '/consultation': 'consultation.html',
+    '/consultation/thanks': 'consultation-thanks.html',
     '/admin': 'admin.html',
+    '/admin/consultations': 'admin-consultations.html',
     '/admin/tools': 'admin-tools.html',
     '/admin/discord-bot': 'admin-discord-bot.html',
     '/admin/tools/copy-monetization': 'admin-copy-monetization.html',
@@ -62,7 +69,10 @@ const htmlRedirects = {
     '/tristan.html': '/tristan',
     '/privacy.html': '/privacy',
     '/terms.html': '/terms',
+    '/consultation.html': '/consultation',
+    '/consultation-thanks.html': '/consultation/thanks',
     '/admin.html': '/admin',
+    '/admin-consultations.html': '/admin/consultations',
     '/admin-tools.html': '/admin/tools',
     '/admin-discord-bot.html': '/admin/discord-bot',
     '/admin-copy-monetization.html': '/admin/tools/copy-monetization',
@@ -85,6 +95,10 @@ const apiRoutes = {
     '/api/roblox/group-games': robloxGroupGames,
     '/api/roblox/group-stats': robloxGroupStats,
     '/api/roblox/studio-stats': sendStudioStats,
+    '/api/consultations/checkout': consultationCheckout,
+    '/api/consultations/confirm': consultationConfirm,
+    '/api/consultations/webhook': consultationWebhook,
+    '/api/admin/consultations': adminConsultations,
     '/api/admin/roblox-copy-monetization': adminCopyMonetization,
     '/api/admin/roblox-list-monetization-items': adminListMonetizationItems,
     '/api/admin/roblox-sync-experience-configs': adminSyncExperienceConfigs,
@@ -525,6 +539,15 @@ async function readBody(req) {
     return rawBody;
 }
 
+async function readRawBody(req) {
+    const chunks = [];
+    for await (const chunk of req) {
+        chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
+}
+
 async function handleApi(req, res, pathname) {
     const handler = apiRoutes[pathname];
     if (!handler) {
@@ -533,7 +556,11 @@ async function handleApi(req, res, pathname) {
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-        req.body = await readBody(req);
+        if (pathname === '/api/consultations/webhook') {
+            req.rawBody = await readRawBody(req);
+        } else {
+            req.body = await readBody(req);
+        }
     }
 
     await handler(req, res);
