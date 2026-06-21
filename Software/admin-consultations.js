@@ -101,7 +101,6 @@ function createBookingCard(booking) {
         ${booking.robloxProfileUrl ? `<a href="${escapeHtml(booking.robloxProfileUrl)}" target="_blank" rel="noopener noreferrer">Open Roblox profile</a>` : ''}
         <span>Discord: ${escapeHtml(booking.contactDiscord || 'Not provided')}</span>
         <span>Email: ${escapeHtml(booking.contactEmail || booking.stripeCustomerEmail || 'Not provided')}</span>
-        <span>Paid: ${escapeHtml(formatConsultationDate(booking.paidAt))}</span>
     `;
 
     const goals = document.createElement('p');
