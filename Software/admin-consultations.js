@@ -126,16 +126,11 @@ function createBookingCard(booking) {
             <span class="admin-label">Scheduled time</span>
             <input class="admin-input" name="scheduledAt" type="datetime-local">
         </label>
-        <label class="admin-field consultation-admin-notes-field">
-            <span class="admin-label">Admin notes</span>
-            <textarea class="admin-textarea" name="adminNotes" rows="3" placeholder="Internal notes"></textarea>
-        </label>
         <button class="btn btn-primary admin-submit-btn" type="submit">Save Booking</button>
     `;
 
     form.elements.status.value = booking.status || 'new';
     form.elements.scheduledAt.value = toDatetimeLocalValue(booking.scheduledAt);
-    form.elements.adminNotes.value = booking.adminNotes || '';
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -147,8 +142,7 @@ function createBookingCard(booking) {
             await saveConsultationBooking({
                 id: booking.id,
                 status: form.elements.status.value,
-                scheduledAt: form.elements.scheduledAt.value,
-                adminNotes: form.elements.adminNotes.value
+                scheduledAt: form.elements.scheduledAt.value
             });
             setConsultationAdminStatus('Booking saved.', 'success');
             await renderConsultationBookings();

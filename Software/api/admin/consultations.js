@@ -33,8 +33,7 @@ module.exports = async (req, res) => {
         const booking = await updateConsultationBooking({
             id,
             status: body && body.status,
-            scheduledAt: body && body.scheduledAt,
-            adminNotes: body && body.adminNotes
+            scheduledAt: body && body.scheduledAt
         });
 
         if (!booking) {
