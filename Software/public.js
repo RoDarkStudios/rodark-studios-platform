@@ -27,8 +27,18 @@ async function postJson(url, payload) {
     return data;
 }
 
-async function fetchConsultationConfig() {
-    const response = await fetch('/api/consultations/config', {
+function getConsultationOfferCodeFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return String(params.get('offer') || '').trim();
+}
+
+async function fetchConsultationConfig(offerCode) {
+    const url = new URL('/api/consultations/config', window.location.origin);
+    if (offerCode) {
+        url.searchParams.set('offer', offerCode);
+    }
+
+    const response = await fetch(url.toString(), {
         method: 'GET',
         credentials: 'include'
     });
@@ -55,13 +65,33 @@ function applyConsultationPrice(config) {
     });
 }
 
+function showConsultationOfferStatus(config) {
+    const status = document.getElementById('consultation-status');
+    if (!status || !config) {
+        return;
+    }
+
+    if (config.offerError) {
+        status.textContent = 'This discount link is invalid or expired. Checkout will not start with that offer.';
+        status.className = 'admin-status error';
+        return;
+    }
+
+    if (config.offer && config.offer.displayPrice && !status.textContent.trim()) {
+        status.textContent = `Discount applied. Checkout will use ${config.offer.displayPrice}.`;
+        status.className = 'admin-status info';
+    }
+}
+
 async function initConsultationPrice() {
     if (!document.querySelector('[data-consultation-price]')) {
         return;
     }
 
     try {
-        applyConsultationPrice(await fetchConsultationConfig());
+        const config = await fetchConsultationConfig(getConsultationOfferCodeFromUrl());
+        applyConsultationPrice(config);
+        showConsultationOfferStatus(config);
     } catch (error) {
         console.error('Failed to load consultation price:', error);
     }

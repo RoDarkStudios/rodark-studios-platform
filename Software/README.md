@@ -73,8 +73,11 @@ Optional consultation checkout settings:
 ```txt
 CONSULTATION_PRICE_CENTS=30000
 CONSULTATION_CURRENCY=usd
+CONSULTATION_DISCOUNT_OFFERS=friend50=4900,creator79=7900
 PUBLIC_SITE_URL=https://rodarkstudios.com
 ```
+
+`CONSULTATION_DISCOUNT_OFFERS` is optional. Each entry is `offerCode=finalPriceInCents`, separated by commas, semicolons, or new lines. A configured code creates a private link like `/consultation?offer=friend50`; the server applies the discounted final price during Stripe Checkout.
 
 Optional for the Discord bot worker:
 

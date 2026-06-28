@@ -13,6 +13,60 @@ function getConsultationAmountTotal() {
     return Number.isFinite(configured) && configured > 0 ? configured : 30000;
 }
 
+function getConsultationOfferCode(value) {
+    const code = String(value || '').trim().toLowerCase();
+    return /^[a-z0-9_-]{1,64}$/.test(code) ? code : '';
+}
+
+function getConsultationOfferMap() {
+    const offers = new Map();
+    const raw = String(process.env.CONSULTATION_DISCOUNT_OFFERS || '').trim();
+    if (!raw) {
+        return offers;
+    }
+
+    raw.split(/[\n,;]+/).forEach((entry) => {
+        const cleaned = entry.trim();
+        if (!cleaned) {
+            return;
+        }
+
+        const separatorIndex = cleaned.search(/[:=]/);
+        if (separatorIndex <= 0) {
+            return;
+        }
+
+        const code = getConsultationOfferCode(cleaned.slice(0, separatorIndex));
+        const amountTotal = Number.parseInt(cleaned.slice(separatorIndex + 1).trim(), 10);
+        if (code && Number.isFinite(amountTotal) && amountTotal > 0) {
+            offers.set(code, amountTotal);
+        }
+    });
+
+    return offers;
+}
+
+function getConsultationOffer(value) {
+    const code = getConsultationOfferCode(value);
+    if (!code) {
+        return null;
+    }
+
+    const amountTotal = getConsultationOfferMap().get(code);
+    const baseAmountTotal = getConsultationAmountTotal();
+    if (!Number.isFinite(amountTotal) || amountTotal <= 0 || amountTotal >= baseAmountTotal) {
+        return null;
+    }
+
+    const currency = getConsultationCurrency();
+    return {
+        code,
+        amountTotal,
+        currency,
+        displayPrice: formatConsultationPrice(amountTotal, currency)
+    };
+}
+
 function getConsultationCurrency() {
     return getConsultationCurrencyValue(process.env.CONSULTATION_CURRENCY);
 }
@@ -63,9 +117,14 @@ function getPublicBaseUrl(req) {
     return `${proto}://${host}`;
 }
 
-async function createConsultationCheckoutSession({ req, booking }) {
+async function createConsultationCheckoutSession({ req, booking, offer }) {
     const stripe = getStripe();
     const baseUrl = getPublicBaseUrl(req);
+    const cancelUrl = new URL('/consultation', baseUrl);
+    if (offer && offer.code) {
+        cancelUrl.searchParams.set('offer', offer.code);
+    }
+    cancelUrl.searchParams.set('cancelled', '1');
 
     return stripe.checkout.sessions.create({
         mode: 'payment',
@@ -88,11 +147,12 @@ async function createConsultationCheckoutSession({ req, booking }) {
             }
         ],
         success_url: `${baseUrl}/consultation/thanks?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/consultation?cancelled=1`,
+        cancel_url: cancelUrl.toString(),
         metadata: {
             booking_id: booking.id,
             roblox_user_id: booking.robloxUserId,
-            roblox_username: booking.robloxUsername
+            roblox_username: booking.robloxUsername,
+            consultation_offer_code: offer && offer.code ? offer.code : ''
         }
     });
 }
@@ -102,6 +162,8 @@ module.exports = {
     formatConsultationPrice,
     getConsultationAmountTotal,
     getConsultationCurrency,
+    getConsultationOffer,
+    getConsultationOfferCode,
     getStripe,
     getStripeSecretKey,
     getStripeWebhookSecret

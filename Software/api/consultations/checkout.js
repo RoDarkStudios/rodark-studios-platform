@@ -8,6 +8,8 @@ const {
     createConsultationCheckoutSession,
     getConsultationAmountTotal,
     getConsultationCurrency,
+    getConsultationOffer,
+    getConsultationOfferCode,
     getStripeSecretKey
 } = require('../_lib/stripe-consultations');
 
@@ -32,13 +34,22 @@ module.exports = async (req, res) => {
         }
 
         const body = await readJsonBody(req);
+        const rawOfferCode = String(body && body.offerCode || '').trim();
+        const requestedOfferCode = getConsultationOfferCode(rawOfferCode);
+        const offer = requestedOfferCode ? getConsultationOffer(requestedOfferCode) : null;
+        if (rawOfferCode && (!requestedOfferCode || !offer)) {
+            return sendJson(res, 400, {
+                error: 'This consultation discount link is invalid or expired'
+            });
+        }
+
         const booking = await createConsultationBooking({
             user,
             body,
-            amountTotal: getConsultationAmountTotal(),
+            amountTotal: offer ? offer.amountTotal : getConsultationAmountTotal(),
             currency: getConsultationCurrency()
         });
-        const session = await createConsultationCheckoutSession({ req, booking });
+        const session = await createConsultationCheckoutSession({ req, booking, offer });
         await attachCheckoutSession({
             bookingId: booking.id,
             sessionId: session.id

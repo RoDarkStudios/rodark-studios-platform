@@ -35,6 +35,11 @@ function setConsultationStatus(message, type) {
     status.className = `admin-status ${type || 'info'}${message ? '' : ' hidden'}`;
 }
 
+function getCheckoutOfferCodeFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return String(params.get('offer') || '').trim();
+}
+
 function initConsultationCheckout() {
     const form = document.getElementById('consultation-checkout-form');
     const button = document.getElementById('consultation-checkout-btn');
@@ -57,7 +62,8 @@ function initConsultationCheckout() {
                 gameUrl: document.getElementById('consultation-game-url').value,
                 contactDiscord: document.getElementById('consultation-discord').value,
                 contactEmail: document.getElementById('consultation-email').value,
-                goals: document.getElementById('consultation-goals').value
+                goals: document.getElementById('consultation-goals').value,
+                offerCode: getCheckoutOfferCodeFromUrl()
             };
             const data = await consultationPostJson('/api/consultations/checkout', payload);
             window.location.href = data.checkoutUrl;
