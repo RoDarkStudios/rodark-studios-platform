@@ -86,23 +86,12 @@ DISCORD_BOT_POLL_INTERVAL_MS
 OPENAI_TICKET_REVIEW_MODEL
 OPENAI_TICKET_REVIEW_REASONING_EFFORT
 OPENAI_TICKET_REVIEW_TIMEOUT_MS
-BLOXLINK_LOOKUPS_PER_SYNC
-BLOXLINK_LOOKUP_DELAY_MS
-BLOXLINK_RATE_LIMIT_BACKOFF_MS
-```
-
-Required for leaderboard role sync when enabled:
-
-```txt
-ROBLOX_OPEN_CLOUD_API_KEY
-BLOXLINK_API_KEY
 ```
 
 ## Discord Bot Notes
 
 - The bot also supports startup channel sync from `/admin/discord-bot`. Configure the fixed channel IDs for `rules`, `info`, `roles`, `staff-info`, and `game-test-info`, then reconnect or restart the bot to resync those channels.
 - Ticket requests are reviewed with OpenAI before a private channel is created. The default model is `gpt-5.5` with `OPENAI_TICKET_REVIEW_REASONING_EFFORT=medium`; set `OPENAI_TICKET_REVIEW_MODEL` on the bot worker to override it.
-- Leaderboard role sync needs `ROBLOX_OPEN_CLOUD_API_KEY` and `BLOXLINK_API_KEY` on the bot service when enabled.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.
 
 ## Database

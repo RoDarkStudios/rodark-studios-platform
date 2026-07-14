@@ -820,50 +820,6 @@ async function publishConfigRepositoryDraft(universeId, repository, draftHash, o
     });
 }
 
-async function listOrderedDataStoreEntries(options) {
-    const settings = options || {};
-    const universeId = parseUniverseId(settings.universeId, 'universeId');
-    const orderedDataStoreId = String(settings.orderedDataStoreId || '').trim();
-    const scopeId = String(settings.scopeId || 'global').trim() || 'global';
-    const maxPageSize = Math.max(1, Math.min(100, Number.parseInt(settings.maxPageSize || '100', 10) || 100));
-
-    if (!orderedDataStoreId) {
-        throw new Error('orderedDataStoreId is required');
-    }
-
-    return robloxOpenCloudRequest({
-        method: 'GET',
-        path: `/cloud/v2/universes/${universeId}/ordered-data-stores/${encodeURIComponent(orderedDataStoreId)}/scopes/${encodeURIComponent(scopeId)}/entries`,
-        query: {
-            maxPageSize,
-            orderBy: settings.orderBy || 'value desc',
-            pageToken: settings.pageToken || undefined
-        }
-    });
-}
-
-async function listOrderedDataStoreEntriesLegacy(options) {
-    const settings = options || {};
-    const universeId = parseUniverseId(settings.universeId, 'universeId');
-    const orderedDataStoreId = String(settings.orderedDataStoreId || '').trim();
-    const scopeId = String(settings.scopeId || 'global').trim() || 'global';
-    const maxPageSize = Math.max(1, Math.min(100, Number.parseInt(settings.maxPageSize || '100', 10) || 100));
-
-    if (!orderedDataStoreId) {
-        throw new Error('orderedDataStoreId is required');
-    }
-
-    return robloxOpenCloudRequest({
-        method: 'GET',
-        path: `/ordered-data-stores/v1/universes/${universeId}/orderedDataStores/${encodeURIComponent(orderedDataStoreId)}/scopes/${encodeURIComponent(scopeId)}/entries`,
-        query: {
-            max_page_size: maxPageSize,
-            order_by: settings.orderBy || 'desc',
-            page_token: settings.pageToken || undefined
-        }
-    });
-}
-
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -897,7 +853,5 @@ module.exports = {
     getConfigRepositoryFull,
     overwriteConfigRepositoryDraft,
     publishConfigRepositoryDraft,
-    listOrderedDataStoreEntries,
-    listOrderedDataStoreEntriesLegacy,
     sleep
 };

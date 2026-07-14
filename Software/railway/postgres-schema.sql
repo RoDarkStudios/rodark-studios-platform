@@ -34,19 +34,6 @@ create table if not exists discord_bot_control (
     level_announcement_channel_id text,
     level_attachment_unlock_level integer not null default 5,
     level_mention_enabled boolean not null default true,
-    leaderboard_role_enabled boolean not null default false,
-    leaderboard_role_ordered_datastore_name text,
-    leaderboard_role_ordered_datastore_scope text not null default 'global',
-    leaderboard_role_key_prefix text not null default '',
-    leaderboard_role_top_size integer not null default 100,
-    leaderboard_role_sync_interval_minutes integer not null default 5,
-    leaderboard_role_id text,
-    leaderboard_role_name text not null default 'Leaderboard Player',
-    leaderboard_role_hoist boolean not null default false,
-    leaderboard_role_icon_content_type text,
-    leaderboard_role_icon_data bytea,
-    leaderboard_role_icon_sha256 text,
-    leaderboard_role_icon_updated_at timestamptz,
     updated_at timestamptz not null default now(),
     updated_by_user_id text,
     updated_by_username text
@@ -67,6 +54,23 @@ on conflict (id) do nothing;
 insert into discord_bot_control (id)
 values (1)
 on conflict (id) do nothing;
+
+drop table if exists discord_bot_leaderboard_role_assignments;
+
+alter table discord_bot_control
+    drop column if exists leaderboard_role_enabled,
+    drop column if exists leaderboard_role_ordered_datastore_name,
+    drop column if exists leaderboard_role_ordered_datastore_scope,
+    drop column if exists leaderboard_role_key_prefix,
+    drop column if exists leaderboard_role_top_size,
+    drop column if exists leaderboard_role_sync_interval_minutes,
+    drop column if exists leaderboard_role_id,
+    drop column if exists leaderboard_role_name,
+    drop column if exists leaderboard_role_hoist,
+    drop column if exists leaderboard_role_icon_content_type,
+    drop column if exists leaderboard_role_icon_data,
+    drop column if exists leaderboard_role_icon_sha256,
+    drop column if exists leaderboard_role_icon_updated_at;
 
 create table if not exists consultation_bookings (
     id uuid primary key,
@@ -160,16 +164,5 @@ create table if not exists discord_bot_member_levels (
     level integer not null default 0,
     last_message_at timestamptz,
     updated_at timestamptz not null default now(),
-    primary key (guild_id, user_id)
-);
-
-create table if not exists discord_bot_leaderboard_role_assignments (
-    guild_id text not null,
-    user_id text not null,
-    roblox_user_id text not null,
-    role_id text not null,
-    level_value bigint,
-    assigned_at timestamptz not null default now(),
-    last_seen_at timestamptz not null default now(),
     primary key (guild_id, user_id)
 );

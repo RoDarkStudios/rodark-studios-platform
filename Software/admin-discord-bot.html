@@ -71,9 +71,6 @@
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-updates">
                                         Updates
                                     </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-leaderboard">
-                                        Leaderboard
-                                    </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-transcripts">
                                         Transcripts
                                     </button>
@@ -388,90 +385,6 @@
                                             Send update announcement
                                         </button>
                                     </div>
-                                </section>
-
-                                <section id="discord-tab-leaderboard" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-leaderboard-role-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-leaderboard-role-title" class="admin-tool-title">Leaderboard Player Role</h2>
-                                            <p class="admin-tool-note">
-                                                Sync the top production Coding Simulator 2 players from Roblox Open Cloud into a Discord role.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <label class="admin-checkbox-row">
-                                        <input id="discord-leaderboard-role-enabled" type="checkbox">
-                                        <span>Enable leaderboard role sync</span>
-                                    </label>
-
-                                    <label class="admin-checkbox-row">
-                                        <input id="discord-leaderboard-role-hoist" type="checkbox">
-                                        <span>Display role members separately from online members</span>
-                                    </label>
-
-                                    <div class="admin-discord-field-grid">
-                                        <label class="admin-field">
-                                            <span class="admin-label">OrderedDataStore Name</span>
-                                            <input
-                                                id="discord-leaderboard-datastore-name"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                placeholder="CodingSimulator2Levels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Top Count</span>
-                                            <input
-                                                id="discord-leaderboard-top-size"
-                                                class="admin-input"
-                                                type="number"
-                                                min="1"
-                                                max="100"
-                                                step="1"
-                                                value="100"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Role Name</span>
-                                            <input
-                                                id="discord-leaderboard-role-name"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                placeholder="Leaderboard Player"
-                                            >
-                                        </label>
-                                    </div>
-
-                                    <div class="admin-role-icon-upload">
-                                        <div class="admin-role-icon-preview" aria-hidden="true">
-                                            <img id="discord-leaderboard-role-icon-preview" alt="" hidden>
-                                            <span id="discord-leaderboard-role-icon-empty">No custom icon</span>
-                                        </div>
-
-                                        <label class="admin-field admin-role-icon-field">
-                                            <span class="admin-label">Role Icon</span>
-                                            <input
-                                                id="discord-leaderboard-role-icon"
-                                                class="admin-input"
-                                                type="file"
-                                                accept="image/png,image/jpeg,image/gif,image/webp"
-                                            >
-                                            <span id="discord-leaderboard-role-icon-status" class="admin-tool-note admin-role-icon-status">
-                                                PNG, JPG, GIF, or WebP. Max 256 KB.
-                                            </span>
-                                        </label>
-                                    </div>
-
-                                    <p id="discord-leaderboard-role-summary" class="admin-tool-note"></p>
-
-                                    <button id="discord-leaderboard-role-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
-                                        Save leaderboard settings
-                                    </button>
                                 </section>
 
                                 <section id="discord-tab-transcripts" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-ticket-transcripts-title" hidden>

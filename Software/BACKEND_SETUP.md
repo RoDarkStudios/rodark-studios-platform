@@ -23,7 +23,7 @@ The app is deployed as a normal Node.js service on Railway from the `Software` d
 - `AUTH_SECRET` (long random secret used to sign session/state tokens)
 - `ROBLOX_OAUTH_CLIENT_ID`
 - `ROBLOX_OAUTH_CLIENT_SECRET`
-- `ROBLOX_OPEN_CLOUD_API_KEY` (used by the admin monetization tools and Discord leaderboard role sync)
+- `ROBLOX_OPEN_CLOUD_API_KEY` (used by the admin monetization and configuration tools)
 - `DATABASE_URL` (Railway Postgres connection used to persist shared Production/Test/Development game IDs)
 - `DISCORD_BOT_TOKEN` (required by the Discord bot service; also required by the web service for Discord dashboard channel/role lookups)
 
@@ -49,9 +49,6 @@ For description sync, also include:
 For Roblox Configs sync (`InExperienceConfig`), also include:
 - `universe:read`
 - `universe:write`
-
-For Discord leaderboard role sync, also include:
-- `universe.ordered-data-store.scope.entry:read`
 
 Admin sync behavior notes:
 - Request body now uses fixed fields: `productionUniverseId` (source), `developmentUniverseId` (target), `testUniverseId` (target).
