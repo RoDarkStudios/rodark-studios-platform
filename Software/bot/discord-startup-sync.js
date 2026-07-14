@@ -291,7 +291,6 @@ async function syncRolesChannel(channel) {
             `${getRoleMention(guild, 'RoDark Studios Bot')}\n> Our custom bot for support, automation, and moderation.`,
             `${getRoleMention(guild, 'Developer')}\n> Helps create and improve RoDark Studios games.`,
             `${getRoleMention(guild, 'Staff')}\n> Helps members, handles tickets, and enforces the rules.`,
-            `${getRoleMention(guild, 'Associate')}\n> Trusted friend, collaborator, or long-term supporter of RoDark Studios.`,
             `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator. Create a ticket to apply.`,
             `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`,
             `${getRoleMention(guild, 'Member')}\n> Verified member of the RoDark Studios community.`
