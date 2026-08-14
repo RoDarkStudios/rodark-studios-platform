@@ -245,16 +245,17 @@ function renderRevenueState(game) {
     }
 
     const historyLabel = revenue.historyComplete
-        ? 'Complete history since this game was created'
-        : `Available Roblox history since ${new Date(revenue.historyStart).toLocaleDateString()}`;
-    const projectedRobux = Number(revenue.projectedRevenueRobux || 0);
-    const projectedLabel = projectedRobux > 0
-        ? ` Includes ${formatProfitRobux(projectedRobux)} of projected revenue, including pending Creator Rewards reported by Roblox.`
-        : '';
+        ? 'Complete sales history since this game was created'
+        : `Available Roblox sales history since ${new Date(revenue.historyStart).toLocaleDateString()}`;
+    const robloxSalesRevenueRobux = Number(revenue.robloxSalesRevenueRobux || 0);
+    const creatorRewardsRobux = Number(revenue.creatorRewardsRobux || 0);
+    const rewardsLabel = creatorRewardsRobux > 0
+        ? ` Roblox analytics reported ${formatProfitRobux(robloxSalesRevenueRobux)}; the total also includes ${formatProfitRobux(creatorRewardsRobux)} of admin-entered Creator Rewards.`
+        : ` Roblox analytics reported ${formatProfitRobux(robloxSalesRevenueRobux)}. Creator Rewards are not currently included; edit this game to enter the combined received and pending total.`;
     return `
         <p class="profit-revenue-note">
             <i class="fas fa-circle-info" aria-hidden="true"></i>
-            ${escapeProfitHtml(historyLabel)}.${escapeProfitHtml(projectedLabel)} Refreshed ${escapeProfitHtml(formatProfitDate(revenue.fetchedAt))}.
+            ${escapeProfitHtml(historyLabel)}.${escapeProfitHtml(rewardsLabel)} Refreshed ${escapeProfitHtml(formatProfitDate(revenue.fetchedAt))}.
         </p>
     `;
 }
@@ -299,6 +300,11 @@ function renderProfitGame(game) {
                 <label class="admin-field">
                     <span class="admin-label">Universe ID</span>
                     <input class="admin-input" name="universeId" type="text" inputmode="numeric" pattern="[0-9]+" value="${escapeProfitHtml(game.universeId)}" required>
+                </label>
+                <label class="admin-field">
+                    <span class="admin-label">Creator Rewards total (Robux)</span>
+                    <input class="admin-input" name="creatorRewardsRobux" type="number" min="0" max="999999999999" step="1" value="${escapeProfitHtml(game.creatorRewardsRobux || 0)}" required>
+                    <small class="profit-field-note">Combined received + pending total from Creator Hub</small>
                 </label>
                 <div class="profit-form-actions">
                     <button class="btn btn-primary admin-compact-btn" type="submit">Save game</button>
@@ -513,7 +519,8 @@ function bindProfitTrackerEvents() {
                 gameId: game.id,
                 expectedVersion: game.version,
                 displayName: formData.get('displayName'),
-                universeId: formData.get('universeId')
+                universeId: formData.get('universeId'),
+                creatorRewardsRobux: formData.get('creatorRewardsRobux')
             }, 'Saving game...', 'Game saved.');
             return;
         }

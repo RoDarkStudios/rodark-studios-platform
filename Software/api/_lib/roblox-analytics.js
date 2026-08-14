@@ -7,6 +7,26 @@ const REQUEST_TIMEOUT_MS = 15000;
 const MAX_OPERATION_POLLS = 20;
 const OPERATION_POLL_DELAY_MS = 500;
 
+const SALES_REVENUE_SOURCE_PATTERNS = Object.freeze([
+    /developerproduct/,
+    /gameproduct/,
+    /gameshop/,
+    /gamepass/,
+    /privateserver/,
+    /vipserver/,
+    /paidaccess/,
+    /subscription/,
+    /commission/,
+    /affiliate/,
+    /avataritem/,
+    /experienceitem/,
+    /experiencepurchase/,
+    /marketplace/,
+    /immersivead/,
+    /advertisingrevenue/,
+    /adrevenue/
+]);
+
 const revenueCache = new Map();
 const pendingRevenueRequests = new Map();
 
@@ -240,59 +260,51 @@ async function fetchUniverseMetadata(universeId) {
     };
 }
 
-function extractRevenueSummary(payload) {
+function normalizeRevenueSource(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function isSalesRevenueSource(sourceName) {
+    const normalized = normalizeRevenueSource(sourceName);
+    return normalized.length > 0
+        && SALES_REVENUE_SOURCE_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function extractSalesRevenueRobux(payload) {
     const response = payload && payload.response && typeof payload.response === 'object'
         ? payload.response
         : payload;
     const series = response && Array.isArray(response.values) ? response.values : [];
     let total = 0;
-    let finalized = 0;
-    let projected = 0;
-    const sources = {};
 
     for (const item of series) {
         const breakdowns = item && Array.isArray(item.breakdowns) ? item.breakdowns : [];
         const sourceBreakdown = breakdowns.find(
             (breakdown) => String(breakdown && breakdown.dimension || '').toLowerCase() === 'revenuesource'
         );
-        const sourceName = sourceBreakdown
-            ? String(sourceBreakdown.displayValue || sourceBreakdown.value || 'Unknown')
-            : 'All revenue';
+        const sourceNames = sourceBreakdown
+            ? [sourceBreakdown.value, sourceBreakdown.displayValue]
+            : [];
+        const isSalesSource = sourceNames.some(isSalesRevenueSource);
         const dataPoints = item && Array.isArray(item.dataPoints) ? item.dataPoints : [];
+
         for (const dataPoint of dataPoints) {
             const value = Number(dataPoint && dataPoint.value);
-            if (Number.isFinite(value)) {
+            if (isSalesSource && Number.isFinite(value)) {
                 total += value;
-                sources[sourceName] = (sources[sourceName] || 0) + value;
-                if (String(dataPoint && dataPoint.status || '').toLowerCase() === 'projected') {
-                    projected += value;
-                } else {
-                    finalized += value;
-                }
             }
         }
     }
 
     if (!Number.isFinite(total) || total < 0) {
         throw new RobloxAnalyticsError(
-            'Roblox returned an invalid revenue total',
+            'Roblox returned an invalid sales revenue total',
             'ROBLOX_ANALYTICS_INVALID_RESPONSE',
             502
         );
     }
 
-    return {
-        totalRobux: Math.round(total),
-        finalizedRobux: Math.round(finalized),
-        projectedRobux: Math.round(projected),
-        sources: Object.fromEntries(
-            Object.entries(sources).map(([name, value]) => [name, Math.round(value)])
-        )
-    };
-}
-
-function extractRevenueRobux(payload) {
-    return extractRevenueSummary(payload).totalRobux;
+    return Math.round(total);
 }
 
 function calculateHistoryWindow(gameCreatedAt) {
@@ -319,22 +331,19 @@ async function fetchUniverseRevenue(universeId) {
         apiKey,
         body: {
             metric: 'DailyRevenue',
-            granularity: 'OneMonth',
+            granularity: 'None',
             breakdown: ['RevenueSource'],
+            limit: 100,
             startTime: history.start.toISOString(),
             endTime: history.end.toISOString()
         }
     });
     const completedPayload = await resolveAnalyticsOperation(initialPayload, apiKey);
-    const revenueSummary = extractRevenueSummary(completedPayload);
-    const revenueRobux = revenueSummary.totalRobux;
+    const revenueRobux = extractSalesRevenueRobux(completedPayload);
 
     return {
         status: 'available',
         revenueRobux,
-        finalizedRevenueRobux: revenueSummary.finalizedRobux,
-        projectedRevenueRobux: revenueSummary.projectedRobux,
-        revenueSources: revenueSummary.sources,
         estimatedRevenueCents: Math.round(revenueRobux * STANDARD_DEVEX_USD_PER_ROBUX * 100),
         standardDevExUsdPerRobux: STANDARD_DEVEX_USD_PER_ROBUX,
         historyStart: history.start.toISOString(),
@@ -382,8 +391,8 @@ module.exports = {
     RobloxAnalyticsError,
     STANDARD_DEVEX_USD_PER_ROBUX,
     calculateHistoryWindow,
-    extractRevenueRobux,
-    extractRevenueSummary,
+    extractSalesRevenueRobux,
     getUniverseRevenue,
+    isSalesRevenueSource,
     invalidateUniverseRevenue
 };

@@ -93,6 +93,7 @@ create table if not exists admin_profit_tracker_games (
     id uuid primary key,
     display_name text not null,
     universe_id bigint not null unique,
+    creator_rewards_robux bigint not null default 0 check (creator_rewards_robux >= 0),
     version bigint not null default 1 check (version > 0),
     created_by_user_id text,
     created_by_username text,
@@ -101,6 +102,9 @@ create table if not exists admin_profit_tracker_games (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
+
+alter table admin_profit_tracker_games
+add column if not exists creator_rewards_robux bigint not null default 0;
 
 create table if not exists admin_profit_tracker_expenses (
     id uuid primary key,

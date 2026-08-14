@@ -12,6 +12,7 @@ const EXPENSE_CATEGORIES = Object.freeze([
 const EXPENSE_CATEGORY_SET = new Set(EXPENSE_CATEGORIES);
 const MAX_UNIVERSE_ID = 9223372036854775807n;
 const MAX_EXPENSE_CENTS = 99999999999n;
+const MAX_CREATOR_REWARDS_ROBUX = 999999999999n;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 let schemaPromise = null;
@@ -78,6 +79,27 @@ function normalizeExpectedVersion(value) {
     return parsed;
 }
 
+function normalizeCreatorRewardsRobux(value) {
+    const cleaned = String(value === undefined || value === null ? '' : value).trim();
+    if (!/^\d+$/.test(cleaned)) {
+        throw new ProfitTrackerStoreError(
+            'Creator Rewards total must be a non-negative whole number of Robux',
+            400,
+            'INVALID_INPUT'
+        );
+    }
+
+    const parsed = BigInt(cleaned);
+    if (parsed > MAX_CREATOR_REWARDS_ROBUX) {
+        throw new ProfitTrackerStoreError(
+            'Creator Rewards total must be 999,999,999,999 Robux or less',
+            400,
+            'INVALID_INPUT'
+        );
+    }
+    return parsed;
+}
+
 function normalizeCategory(value) {
     const category = String(value || '').trim().toLowerCase();
     if (!EXPENSE_CATEGORY_SET.has(category)) {
@@ -132,6 +154,7 @@ async function ensureProfitTrackerSchema() {
                     id uuid primary key,
                     display_name text not null,
                     universe_id bigint not null unique,
+                    creator_rewards_robux bigint not null default 0 check (creator_rewards_robux >= 0),
                     version bigint not null default 1 check (version > 0),
                     created_by_user_id text,
                     created_by_username text,
@@ -140,6 +163,11 @@ async function ensureProfitTrackerSchema() {
                     created_at timestamptz not null default now(),
                     updated_at timestamptz not null default now()
                 )
+            `);
+
+            await postgresQuery(`
+                alter table admin_profit_tracker_games
+                add column if not exists creator_rewards_robux bigint not null default 0
             `);
 
             await postgresQuery(`
@@ -196,6 +224,7 @@ async function listProfitTrackerGames() {
             games.id as game_id,
             games.display_name as game_display_name,
             games.universe_id as game_universe_id,
+            games.creator_rewards_robux as game_creator_rewards_robux,
             games.version as game_version,
             games.created_at as game_created_at,
             games.updated_at as game_updated_at,
@@ -222,6 +251,7 @@ async function listProfitTrackerGames() {
                 id: gameId,
                 displayName: String(row.game_display_name || ''),
                 universeId: String(row.game_universe_id),
+                creatorRewardsRobux: Number(row.game_creator_rewards_robux || 0),
                 version: Number(row.game_version),
                 createdAt: toIsoString(row.game_created_at),
                 updatedAt: toIsoString(row.game_updated_at),
@@ -362,9 +392,17 @@ async function mutateLockedGame({ gameId, expectedVersion, user, deleteGame, mut
     }
 }
 
-async function updateProfitTrackerGame({ gameId, expectedVersion, displayName, universeId, user }) {
+async function updateProfitTrackerGame({
+    gameId,
+    expectedVersion,
+    displayName,
+    universeId,
+    creatorRewardsRobux,
+    user
+}) {
     const normalizedDisplayName = cleanRequiredText(displayName, 'Display name', 120);
     const normalizedUniverseId = normalizeUniverseId(universeId);
+    const normalizedCreatorRewardsRobux = normalizeCreatorRewardsRobux(creatorRewardsRobux);
 
     return mutateLockedGame({
         gameId,
@@ -373,10 +411,18 @@ async function updateProfitTrackerGame({ gameId, expectedVersion, displayName, u
         mutate: async (client, game) => {
             await client.query(`
                 update admin_profit_tracker_games
-                set display_name = $2, universe_id = $3
+                set display_name = $2, universe_id = $3, creator_rewards_robux = $4
                 where id = $1
-            `, [game.id, normalizedDisplayName, normalizedUniverseId]);
-            return { universeId: normalizedUniverseId };
+            `, [
+                game.id,
+                normalizedDisplayName,
+                normalizedUniverseId,
+                normalizedCreatorRewardsRobux.toString()
+            ]);
+            return {
+                universeId: normalizedUniverseId,
+                creatorRewardsRobux: Number(normalizedCreatorRewardsRobux)
+            };
         }
     });
 }
@@ -518,6 +564,7 @@ module.exports = {
     deleteProfitTrackerGame,
     ensureProfitTrackerSchema,
     listProfitTrackerGames,
+    normalizeCreatorRewardsRobux,
     normalizeUniverseId,
     parseUsdAmountToCents,
     updateProfitTrackerExpense,

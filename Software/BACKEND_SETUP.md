@@ -32,7 +32,7 @@ Optional:
 - `ROBLOX_OAUTH_BASE_URL` (default: `https://apis.roblox.com/oauth`)
 - `ROBLOX_GROUP_ID` (default: `5545660`, used for Admin tab visibility)
 
-The Roblox Open Cloud key is server-side only. Its creator/group access and universe restrictions must include each universe that an admin adds to the profit tracker.
+The Roblox Open Cloud key is server-side only. Its creator/group access and universe restrictions must include each universe that an admin adds to the profit tracker. The tracker loads sales revenue from Open Cloud automatically and explicitly excludes every non-sales revenue source. Creator Rewards are entered as a cumulative received-plus-pending Robux total on each game because Roblox does not provide a supported Creator Rewards endpoint for an API key.
 
 ## Roblox OAuth App Configuration
 In your Roblox OAuth app settings, ensure the redirect URI matches:

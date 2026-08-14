@@ -56,9 +56,22 @@ async function addRevenueToGames(games, force) {
             revenue = serializeRevenueError(error);
         }
 
-        const estimatedRevenueCents = revenue.status === 'available'
-            ? revenue.estimatedRevenueCents
-            : null;
+        const creatorRewardsRobux = Number(game.creatorRewardsRobux || 0);
+        let estimatedRevenueCents = null;
+        if (revenue.status === 'available') {
+            const robloxSalesRevenueRobux = Number(revenue.revenueRobux || 0);
+            const combinedRevenueRobux = robloxSalesRevenueRobux + creatorRewardsRobux;
+            estimatedRevenueCents = Math.round(
+                combinedRevenueRobux * STANDARD_DEVEX_USD_PER_ROBUX * 100
+            );
+            revenue = {
+                ...revenue,
+                robloxSalesRevenueRobux,
+                creatorRewardsRobux,
+                revenueRobux: combinedRevenueRobux,
+                estimatedRevenueCents
+            };
+        }
         return {
             ...game,
             revenue,
@@ -124,6 +137,7 @@ async function handlePatch(body, user, res) {
             expectedVersion: body.expectedVersion,
             displayName: body.displayName,
             universeId: body.universeId,
+            creatorRewardsRobux: body.creatorRewardsRobux,
             user
         });
         invalidateUniverseRevenue(result.previousUniverseId);
