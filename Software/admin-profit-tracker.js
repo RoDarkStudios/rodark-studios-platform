@@ -342,7 +342,8 @@ function renderProfitGame(game) {
                     <label class="admin-field">
                         <span class="admin-label">Category</span>
                         <select class="admin-input" name="category" required>
-                            ${renderCategoryOptions('animations')}
+                            <option value="" selected disabled>Select a category</option>
+                            ${renderCategoryOptions('')}
                         </select>
                     </label>
                     <button class="btn btn-secondary profit-add-expense-btn" type="submit">
