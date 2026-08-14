@@ -1,6 +1,7 @@
 const { methodNotAllowed, readJsonBody, sendJson } = require('../_lib/http');
 const { requireAdmin } = require('../_lib/admin-auth');
 const {
+    DEFAULT_DEVEX_USD_PER_1000_ROBUX,
     EXPENSE_CATEGORIES,
     createProfitTrackerExpense,
     createProfitTrackerGame,
@@ -12,7 +13,6 @@ const {
 } = require('../_lib/admin-profit-tracker-store');
 const {
     ANALYTICS_RETENTION_DAYS,
-    STANDARD_DEVEX_USD_PER_ROBUX,
     getUniverseRevenue,
     invalidateUniverseRevenue
 } = require('../_lib/roblox-analytics');
@@ -47,6 +47,10 @@ function serializeRevenueError(error) {
     };
 }
 
+function calculateDevExCents(robux, usdPer1000Robux) {
+    return Math.round((robux * usdPer1000Robux * 100) / 1000);
+}
+
 async function addRevenueToGames(games, force) {
     return mapWithConcurrency(games, REVENUE_FETCH_CONCURRENCY, async (game) => {
         let revenue;
@@ -57,19 +61,22 @@ async function addRevenueToGames(games, force) {
         }
 
         const creatorRewardsRobux = Number(game.creatorRewardsRobux || 0);
+        const configuredDevExRate = Number(game.devExUsdPer1000Robux);
+        const devExUsdPer1000Robux = Number.isFinite(configuredDevExRate) && configuredDevExRate > 0
+            ? configuredDevExRate
+            : DEFAULT_DEVEX_USD_PER_1000_ROBUX;
         let estimatedRevenueCents = null;
         if (revenue.status === 'available') {
             const robloxSalesRevenueRobux = Number(revenue.revenueRobux || 0);
             const combinedRevenueRobux = robloxSalesRevenueRobux + creatorRewardsRobux;
-            estimatedRevenueCents = Math.round(
-                combinedRevenueRobux * STANDARD_DEVEX_USD_PER_ROBUX * 100
-            );
+            estimatedRevenueCents = calculateDevExCents(combinedRevenueRobux, devExUsdPer1000Robux);
             revenue = {
                 ...revenue,
                 robloxSalesRevenueRobux,
                 creatorRewardsRobux,
                 revenueRobux: combinedRevenueRobux,
-                estimatedRevenueCents
+                estimatedRevenueCents,
+                devExUsdPer1000Robux
             };
         }
         return {
@@ -94,11 +101,6 @@ async function handleGet(req, res) {
     return sendJson(res, 200, {
         games: gamesWithRevenue,
         expenseCategories: EXPENSE_CATEGORIES,
-        exchangeRate: {
-            usdPerRobux: STANDARD_DEVEX_USD_PER_ROBUX,
-            label: 'Current standard Roblox DevEx rate',
-            isEstimate: true
-        },
         analyticsRetentionDays: ANALYTICS_RETENTION_DAYS
     });
 }
@@ -109,6 +111,7 @@ async function handlePost(body, user, res) {
         const result = await createProfitTrackerGame({
             displayName: body.displayName,
             universeId: body.universeId,
+            devExUsdPer1000Robux: body.devExUsdPer1000Robux,
             user
         });
         return sendJson(res, 201, { ok: true, ...result });
@@ -138,6 +141,7 @@ async function handlePatch(body, user, res) {
             displayName: body.displayName,
             universeId: body.universeId,
             creatorRewardsRobux: body.creatorRewardsRobux,
+            devExUsdPer1000Robux: body.devExUsdPer1000Robux,
             user
         });
         invalidateUniverseRevenue(result.previousUniverseId);

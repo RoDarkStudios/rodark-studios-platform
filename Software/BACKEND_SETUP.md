@@ -32,7 +32,7 @@ Optional:
 - `ROBLOX_OAUTH_BASE_URL` (default: `https://apis.roblox.com/oauth`)
 - `ROBLOX_GROUP_ID` (default: `5545660`, used for Admin tab visibility)
 
-The Roblox Open Cloud key is server-side only. Its creator/group access and universe restrictions must include each universe that an admin adds to the profit tracker. The tracker loads every DailyRevenue source from Open Cloud except Creator Rewards and legacy Premium Payouts. Creator Rewards are entered as a cumulative received-plus-pending Robux total on each game because Roblox does not provide a supported Creator Rewards endpoint for an API key.
+The Roblox Open Cloud key is server-side only. Its creator/group access and universe restrictions must include each universe that an admin adds to the profit tracker. The tracker loads every DailyRevenue source from Open Cloud except Creator Rewards and legacy Premium Payouts. Creator Rewards are entered as a cumulative received-plus-pending Robux total on each game because Roblox does not provide a supported Creator Rewards endpoint for an API key. Each game stores its own configurable USD-per-1,000-Earned-Robux DevEx rate; existing games default to $3.80.
 
 ## Roblox OAuth App Configuration
 In your Roblox OAuth app settings, ensure the redirect URI matches:

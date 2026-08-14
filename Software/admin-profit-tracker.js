@@ -1,8 +1,8 @@
 const profitTrackerState = {
     games: [],
     expenseCategories: ['animations', 'models', 'vfx', 'map', 'advertising', 'other'],
-    exchangeRate: null,
     analyticsRetentionDays: 1468,
+    selectedGameId: null,
     busy: false
 };
 
@@ -65,6 +65,26 @@ function centsToProfitInput(cents) {
     return Number.isFinite(numericCents) ? (numericCents / 100).toFixed(2) : '';
 }
 
+function formatDevExRate(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+        return 'Unavailable';
+    }
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4
+    }).format(numericValue);
+}
+
+function devExRateToInput(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) && numericValue > 0
+        ? String(numericValue)
+        : '3.8';
+}
+
 function setProfitTrackerStatus(message, type) {
     const status = document.getElementById('profit-tracker-status');
     if (!status) {
@@ -116,7 +136,6 @@ function getProfitTrackerGame(gameId) {
 
 function renderProfitSummary() {
     const summary = document.getElementById('profit-tracker-summary');
-    const rateNote = document.getElementById('profit-tracker-rate');
     if (!summary) {
         return;
     }
@@ -169,12 +188,6 @@ function renderProfitSummary() {
         </article>
     `;
 
-    if (rateNote) {
-        const usdPerRobux = Number(profitTrackerState.exchangeRate && profitTrackerState.exchangeRate.usdPerRobux);
-        rateNote.textContent = Number.isFinite(usdPerRobux)
-            ? `USD estimates use the current standard Roblox DevEx rate: 1 Earned Robux = $${usdPerRobux.toFixed(4)} USD.`
-            : 'USD revenue is an estimate based on the current standard Roblox DevEx rate.';
-    }
 }
 
 function renderCategoryOptions(selectedCategory) {
@@ -245,18 +258,52 @@ function renderRevenueState(game) {
     }
 
     const historyLabel = revenue.historyComplete
-        ? 'Complete sales history since this game was created'
-        : `Available Roblox sales history since ${new Date(revenue.historyStart).toLocaleDateString()}`;
+        ? 'Complete Roblox revenue history since this game was created'
+        : `Available Roblox revenue history since ${new Date(revenue.historyStart).toLocaleDateString()}`;
     const robloxSalesRevenueRobux = Number(revenue.robloxSalesRevenueRobux || 0);
     const creatorRewardsRobux = Number(revenue.creatorRewardsRobux || 0);
+    const devExRateLabel = formatDevExRate(game.devExUsdPer1000Robux);
     const rewardsLabel = creatorRewardsRobux > 0
         ? ` Roblox analytics reported ${formatProfitRobux(robloxSalesRevenueRobux)}; the total also includes ${formatProfitRobux(creatorRewardsRobux)} of admin-entered Creator Rewards.`
         : ` Roblox analytics reported ${formatProfitRobux(robloxSalesRevenueRobux)}. Creator Rewards are not currently included; edit this game to enter the combined received and pending total.`;
     return `
         <p class="profit-revenue-note">
             <i class="fas fa-circle-info" aria-hidden="true"></i>
-            ${escapeProfitHtml(historyLabel)}.${escapeProfitHtml(rewardsLabel)} Refreshed ${escapeProfitHtml(formatProfitDate(revenue.fetchedAt))}.
+            ${escapeProfitHtml(historyLabel)}.${escapeProfitHtml(rewardsLabel)} Using ${escapeProfitHtml(devExRateLabel)} per 1,000 Earned Robux. Refreshed ${escapeProfitHtml(formatProfitDate(revenue.fetchedAt))}.
         </p>
+    `;
+}
+
+function renderProfitGameTile(game) {
+    const revenueAvailable = game.revenue && game.revenue.status === 'available';
+    const profitCents = revenueAvailable ? Number(game.estimatedProfitCents) : null;
+    const profitClass = !revenueAvailable
+        ? 'unavailable'
+        : profitCents < 0
+            ? 'loss'
+            : 'profit';
+
+    return `
+        <button
+            class="profit-game-tile"
+            type="button"
+            data-action="open-game"
+            data-game-id="${escapeProfitHtml(game.id)}"
+            aria-label="Manage ${escapeProfitHtml(game.displayName)}"
+        >
+            <span class="profit-game-tile-top">
+                <img src="/api/roblox/game-icon?universeId=${encodeURIComponent(game.universeId)}&size=150x150" alt="" class="profit-game-tile-icon" loading="lazy">
+                <i class="fas fa-arrow-right profit-game-tile-arrow" aria-hidden="true"></i>
+            </span>
+            <span class="profit-game-tile-identity">
+                <strong>${escapeProfitHtml(game.displayName)}</strong>
+                <small>Universe ${escapeProfitHtml(game.universeId)}</small>
+            </span>
+            <span class="profit-game-tile-result ${profitClass}">
+                <small>Estimated profit</small>
+                <strong>${escapeProfitHtml(revenueAvailable ? formatProfitMoney(profitCents) : 'Unavailable')}</strong>
+            </span>
+        </button>
     `;
 }
 
@@ -282,7 +329,6 @@ function renderProfitGame(game) {
                     </div>
                 </div>
                 <div class="profit-game-actions">
-                    <span class="profit-version-pill" title="Concurrency version">Version ${escapeProfitHtml(game.version)}</span>
                     <button class="profit-icon-btn" type="button" data-action="edit-game" aria-label="Edit game" title="Edit game">
                         <i class="fas fa-pen" aria-hidden="true"></i>
                     </button>
@@ -305,6 +351,11 @@ function renderProfitGame(game) {
                     <span class="admin-label">Creator Rewards total (Robux)</span>
                     <input class="admin-input" name="creatorRewardsRobux" type="number" min="0" max="999999999999" step="1" value="${escapeProfitHtml(game.creatorRewardsRobux || 0)}" required>
                     <small class="profit-field-note">Combined received + pending total from Creator Hub</small>
+                </label>
+                <label class="admin-field">
+                    <span class="admin-label">DevEx rate (USD per 1,000 R$)</span>
+                    <input class="admin-input" name="devExUsdPer1000Robux" type="number" min="0.0001" max="1000" step="0.0001" value="${escapeProfitHtml(devExRateToInput(game.devExUsdPer1000Robux))}" required>
+                    <small class="profit-field-note">Used for this game's USD revenue and profit estimates</small>
                 </label>
                 <div class="profit-form-actions">
                     <button class="btn btn-primary admin-compact-btn" type="submit">Save game</button>
@@ -373,16 +424,43 @@ function renderProfitGame(game) {
 }
 
 function renderProfitTracker() {
+    const overviewElement = document.getElementById('profit-tracker-overview');
     const gamesElement = document.getElementById('profit-tracker-games');
     const emptyElement = document.getElementById('profit-tracker-empty');
-    if (!gamesElement) {
+    const detailElement = document.getElementById('profit-tracker-detail');
+    const detailHeading = document.getElementById('profit-detail-heading');
+    const detailContent = document.getElementById('profit-tracker-detail-content');
+    if (!overviewElement || !gamesElement || !detailElement || !detailContent) {
         return;
     }
 
     renderProfitSummary();
-    gamesElement.innerHTML = profitTrackerState.games.map(renderProfitGame).join('');
+    let selectedGame = profitTrackerState.selectedGameId
+        ? getProfitTrackerGame(profitTrackerState.selectedGameId)
+        : null;
+    if (profitTrackerState.selectedGameId && !selectedGame) {
+        profitTrackerState.selectedGameId = null;
+        selectedGame = null;
+    }
+
+    overviewElement.classList.toggle('hidden', Boolean(selectedGame));
+    detailElement.classList.toggle('hidden', !selectedGame);
+
+    gamesElement.innerHTML = profitTrackerState.games.map(renderProfitGameTile).join('');
     if (emptyElement) {
         emptyElement.classList.toggle('hidden', profitTrackerState.games.length > 0);
+    }
+
+    if (selectedGame) {
+        if (detailHeading) {
+            detailHeading.textContent = selectedGame.displayName;
+        }
+        detailContent.innerHTML = renderProfitGame(selectedGame);
+    } else {
+        if (detailHeading) {
+            detailHeading.textContent = 'Manage game';
+        }
+        detailContent.innerHTML = '';
     }
 }
 
@@ -404,7 +482,6 @@ async function loadProfitTracker(options) {
     profitTrackerState.expenseCategories = Array.isArray(data.expenseCategories)
         ? data.expenseCategories
         : profitTrackerState.expenseCategories;
-    profitTrackerState.exchangeRate = data.exchangeRate || null;
     profitTrackerState.analyticsRetentionDays = Number(data.analyticsRetentionDays) || 1468;
     renderProfitTracker();
 
@@ -446,8 +523,9 @@ function findProfitGameElement(target) {
 }
 
 function bindProfitTrackerEvents() {
+    const ownedContent = document.getElementById('admin-owned-content');
     const addGameForm = document.getElementById('profit-add-game-form');
-    const gamesElement = document.getElementById('profit-tracker-games');
+    const detailContent = document.getElementById('profit-tracker-detail-content');
     const refreshButton = document.getElementById('profit-tracker-refresh');
 
     if (addGameForm) {
@@ -457,7 +535,8 @@ function bindProfitTrackerEvents() {
             const saved = await runProfitTrackerMutation('POST', {
                 action: 'createGame',
                 displayName: formData.get('displayName'),
-                universeId: formData.get('universeId')
+                universeId: formData.get('universeId'),
+                devExUsdPer1000Robux: formData.get('devExUsdPer1000Robux')
             }, 'Adding game...', 'Game added.');
             if (saved) {
                 addGameForm.reset();
@@ -482,11 +561,11 @@ function bindProfitTrackerEvents() {
         });
     }
 
-    if (!gamesElement) {
+    if (!ownedContent || !detailContent) {
         return;
     }
 
-    gamesElement.addEventListener('submit', async (event) => {
+    detailContent.addEventListener('submit', async (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) {
             return;
@@ -520,7 +599,8 @@ function bindProfitTrackerEvents() {
                 expectedVersion: game.version,
                 displayName: formData.get('displayName'),
                 universeId: formData.get('universeId'),
-                creatorRewardsRobux: formData.get('creatorRewardsRobux')
+                creatorRewardsRobux: formData.get('creatorRewardsRobux'),
+                devExUsdPer1000Robux: formData.get('devExUsdPer1000Robux')
             }, 'Saving game...', 'Game saved.');
             return;
         }
@@ -539,9 +619,45 @@ function bindProfitTrackerEvents() {
         }
     });
 
-    gamesElement.addEventListener('click', async (event) => {
+    ownedContent.addEventListener('click', async (event) => {
         const button = event.target.closest('button[data-action]');
         if (!button || profitTrackerState.busy) {
+            return;
+        }
+
+        const action = button.dataset.action;
+        if (action === 'open-game') {
+            const game = getProfitTrackerGame(button.dataset.gameId);
+            if (!game) {
+                return;
+            }
+            profitTrackerState.selectedGameId = game.id;
+            renderProfitTracker();
+            window.requestAnimationFrame(() => {
+                const detailElement = document.getElementById('profit-tracker-detail');
+                const backButton = detailElement && detailElement.querySelector('[data-action="back-to-games"]');
+                if (backButton) {
+                    backButton.focus({ preventScroll: true });
+                }
+                if (detailElement) {
+                    detailElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+            return;
+        }
+
+        if (action === 'back-to-games') {
+            const previousGameId = profitTrackerState.selectedGameId;
+            profitTrackerState.selectedGameId = null;
+            renderProfitTracker();
+            window.requestAnimationFrame(() => {
+                const previousTile = Array.from(document.querySelectorAll('.profit-game-tile'))
+                    .find((tile) => tile.dataset.gameId === previousGameId);
+                if (previousTile) {
+                    previousTile.focus({ preventScroll: true });
+                    previousTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
             return;
         }
 
@@ -550,7 +666,6 @@ function bindProfitTrackerEvents() {
         if (!game) {
             return;
         }
-        const action = button.dataset.action;
 
         if (action === 'edit-game' || action === 'cancel-game-edit') {
             const form = gameElement.querySelector('[data-form="edit-game"]');
@@ -606,7 +721,8 @@ async function initProfitTracker() {
     const ownedContent = document.getElementById('admin-owned-content');
     const deniedElement = document.getElementById('admin-access-denied');
     const gamesElement = document.getElementById('profit-tracker-games');
-    if (!ownedContent || !gamesElement) {
+    const detailContent = document.getElementById('profit-tracker-detail-content');
+    if (!ownedContent || !gamesElement || !detailContent) {
         return;
     }
 

@@ -1,6 +1,5 @@
 const ROBLOX_ANALYTICS_BASE_URL = 'https://apis.roblox.com/analytics-query-api';
 const ROBLOX_GAMES_URL = 'https://games.roblox.com/v1/games';
-const STANDARD_DEVEX_USD_PER_ROBUX = 0.0038;
 const ANALYTICS_RETENTION_DAYS = 1468;
 const REVENUE_CACHE_TTL_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 15000;
@@ -340,8 +339,6 @@ async function fetchUniverseRevenue(universeId) {
     return {
         status: 'available',
         revenueRobux,
-        estimatedRevenueCents: Math.round(revenueRobux * STANDARD_DEVEX_USD_PER_ROBUX * 100),
-        standardDevExUsdPerRobux: STANDARD_DEVEX_USD_PER_ROBUX,
         historyStart: history.start.toISOString(),
         historyEnd: history.end.toISOString(),
         historyComplete: history.historyComplete,
@@ -385,7 +382,6 @@ function invalidateUniverseRevenue(universeId) {
 module.exports = {
     ANALYTICS_RETENTION_DAYS,
     RobloxAnalyticsError,
-    STANDARD_DEVEX_USD_PER_ROBUX,
     calculateHistoryWindow,
     extractNonCreatorRewardsRevenueRobux,
     getUniverseRevenue,

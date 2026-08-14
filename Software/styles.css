@@ -179,13 +179,6 @@ body {
     font-size: 0.76rem;
 }
 
-.profit-rate-note {
-    margin: -0.5rem 0 1.25rem;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    text-align: right;
-}
-
 .profit-summary-stat.revenue {
     border-color: rgba(6, 182, 212, 0.38);
     background: linear-gradient(145deg, rgba(6, 182, 212, 0.11), rgba(10, 10, 10, 0.72));
@@ -239,7 +232,7 @@ body {
 
 .profit-add-game-form {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
     gap: 0.75rem;
     align-items: end;
     margin-top: 0.8rem;
@@ -275,6 +268,215 @@ body {
 
 .profit-empty span {
     font-size: 0.88rem;
+}
+
+.profit-game-library {
+    margin-top: 1.35rem;
+}
+
+.profit-game-library > .profit-section-heading {
+    margin-bottom: 0.8rem;
+}
+
+.profit-game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 0.85rem;
+}
+
+.profit-game-tile {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 205px;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.12), transparent 11rem),
+        rgba(10, 10, 10, 0.72);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.profit-game-tile::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, #f97316, #06b6d4);
+    content: '';
+    opacity: 0.65;
+}
+
+.profit-game-tile:hover {
+    transform: translateY(-3px);
+    border-color: rgba(6, 182, 212, 0.58);
+    background:
+        radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.2), transparent 12rem),
+        rgba(17, 17, 17, 0.88);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+}
+
+.profit-game-tile:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: 3px;
+}
+
+.profit-game-tile-top,
+.profit-game-tile-identity,
+.profit-game-tile-result {
+    display: flex;
+}
+
+.profit-game-tile-top {
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.profit-game-tile-icon {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 14px;
+    background: var(--darker-bg);
+    object-fit: cover;
+}
+
+.profit-game-tile-arrow {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.profit-game-tile:hover .profit-game-tile-arrow {
+    transform: translateX(3px);
+    color: #67e8f9;
+}
+
+.profit-game-tile-identity,
+.profit-game-tile-result {
+    min-width: 0;
+    flex-direction: column;
+}
+
+.profit-game-tile-identity strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-game-tile-identity small,
+.profit-game-tile-result small {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-game-tile-result {
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.profit-game-tile-result strong {
+    overflow: hidden;
+    margin-top: 0.12rem;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-game-tile-result.profit strong {
+    color: #86efac;
+}
+
+.profit-game-tile-result.loss strong {
+    color: #fda4af;
+}
+
+.profit-game-tile-result.unavailable strong {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.profit-game-detail {
+    scroll-margin-top: 6.5rem;
+}
+
+.profit-detail-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1.25rem 0 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    border-radius: 14px;
+    background: rgba(6, 182, 212, 0.07);
+}
+
+.profit-detail-toolbar > div {
+    min-width: 0;
+    text-align: right;
+}
+
+.profit-detail-toolbar span {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.profit-detail-toolbar h3 {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-detail-back {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.62rem 0.78rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+    background: rgba(10, 10, 10, 0.58);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.profit-detail-back:hover {
+    border-color: rgba(6, 182, 212, 0.62);
+    background: rgba(6, 182, 212, 0.1);
+    color: #67e8f9;
+}
+
+.profit-detail-back:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: 2px;
 }
 
 .profit-game-list {
@@ -342,16 +544,6 @@ body {
     color: #22d3ee;
 }
 
-.profit-version-pill {
-    padding: 0.28rem 0.52rem;
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    border-radius: 999px;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
 .profit-icon-btn {
     width: 34px;
     height: 34px;
@@ -391,7 +583,12 @@ body {
 }
 
 .profit-game-edit-form {
-    grid-template-columns: repeat(3, minmax(180px, 1fr)) auto;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.profit-game-edit-form .profit-form-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
 }
 
 .profit-field-note {
@@ -602,6 +799,7 @@ body {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .profit-add-game-form,
     .profit-game-edit-form,
     .profit-add-expense-form,
     .profit-expense-edit-form {
@@ -627,6 +825,27 @@ body {
 
     .profit-tracker-heading .btn {
         width: 100%;
+    }
+
+    .profit-game-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profit-game-tile {
+        min-height: 190px;
+    }
+
+    .profit-detail-toolbar {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .profit-detail-toolbar > div {
+        text-align: left;
+    }
+
+    .profit-detail-back {
+        justify-content: center;
     }
 
     .profit-add-game-form,
@@ -672,6 +891,10 @@ body {
 
     .profit-summary-stat {
         min-height: 98px;
+    }
+
+    .profit-game-grid {
+        grid-template-columns: 1fr;
     }
 
     .profit-game-identity h3 {

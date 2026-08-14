@@ -13,6 +13,7 @@ const EXPENSE_CATEGORY_SET = new Set(EXPENSE_CATEGORIES);
 const MAX_UNIVERSE_ID = 9223372036854775807n;
 const MAX_EXPENSE_CENTS = 99999999999n;
 const MAX_CREATOR_REWARDS_ROBUX = 999999999999n;
+const DEFAULT_DEVEX_USD_PER_1000_ROBUX = 3.8;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 let schemaPromise = null;
@@ -100,6 +101,27 @@ function normalizeCreatorRewardsRobux(value) {
     return parsed;
 }
 
+function normalizeDevExUsdPer1000Robux(value) {
+    const cleaned = String(value === undefined || value === null ? '' : value).trim();
+    if (!/^\d{1,4}(?:\.\d{1,4})?$/.test(cleaned)) {
+        throw new ProfitTrackerStoreError(
+            'DevEx rate must be a positive USD amount with no more than four decimal places',
+            400,
+            'INVALID_INPUT'
+        );
+    }
+
+    const parsed = Number(cleaned);
+    if (!Number.isFinite(parsed) || parsed < 0.0001 || parsed > 1000) {
+        throw new ProfitTrackerStoreError(
+            'DevEx rate must be between $0.0001 and $1,000 per 1,000 Earned Robux',
+            400,
+            'INVALID_INPUT'
+        );
+    }
+    return cleaned;
+}
+
 function normalizeCategory(value) {
     const category = String(value || '').trim().toLowerCase();
     if (!EXPENSE_CATEGORY_SET.has(category)) {
@@ -155,6 +177,7 @@ async function ensureProfitTrackerSchema() {
                     display_name text not null,
                     universe_id bigint not null unique,
                     creator_rewards_robux bigint not null default 0 check (creator_rewards_robux >= 0),
+                    devex_usd_per_1000_robux numeric(12, 4) not null default 3.8000 check (devex_usd_per_1000_robux > 0),
                     version bigint not null default 1 check (version > 0),
                     created_by_user_id text,
                     created_by_username text,
@@ -168,6 +191,11 @@ async function ensureProfitTrackerSchema() {
             await postgresQuery(`
                 alter table admin_profit_tracker_games
                 add column if not exists creator_rewards_robux bigint not null default 0
+            `);
+
+            await postgresQuery(`
+                alter table admin_profit_tracker_games
+                add column if not exists devex_usd_per_1000_robux numeric(12, 4) not null default 3.8000
             `);
 
             await postgresQuery(`
@@ -225,6 +253,7 @@ async function listProfitTrackerGames() {
             games.display_name as game_display_name,
             games.universe_id as game_universe_id,
             games.creator_rewards_robux as game_creator_rewards_robux,
+            games.devex_usd_per_1000_robux as game_devex_usd_per_1000_robux,
             games.version as game_version,
             games.created_at as game_created_at,
             games.updated_at as game_updated_at,
@@ -252,6 +281,9 @@ async function listProfitTrackerGames() {
                 displayName: String(row.game_display_name || ''),
                 universeId: String(row.game_universe_id),
                 creatorRewardsRobux: Number(row.game_creator_rewards_robux || 0),
+                devExUsdPer1000Robux: Number(
+                    row.game_devex_usd_per_1000_robux || DEFAULT_DEVEX_USD_PER_1000_ROBUX
+                ),
                 version: Number(row.game_version),
                 createdAt: toIsoString(row.game_created_at),
                 updatedAt: toIsoString(row.game_updated_at),
@@ -285,10 +317,15 @@ function translateUniqueUniverseError(error) {
     return error;
 }
 
-async function createProfitTrackerGame({ displayName, universeId, user }) {
+async function createProfitTrackerGame({ displayName, universeId, devExUsdPer1000Robux, user }) {
     await ensureProfitTrackerSchema();
     const normalizedDisplayName = cleanRequiredText(displayName, 'Display name', 120);
     const normalizedUniverseId = normalizeUniverseId(universeId);
+    const normalizedDevExRate = normalizeDevExUsdPer1000Robux(
+        devExUsdPer1000Robux === undefined
+            ? DEFAULT_DEVEX_USD_PER_1000_ROBUX
+            : devExUsdPer1000Robux
+    );
     const audit = normalizeUserAudit(user);
 
     try {
@@ -297,17 +334,19 @@ async function createProfitTrackerGame({ displayName, universeId, user }) {
                 id,
                 display_name,
                 universe_id,
+                devex_usd_per_1000_robux,
                 created_by_user_id,
                 created_by_username,
                 updated_by_user_id,
                 updated_by_username
             )
-            values ($1, $2, $3, $4, $5, $4, $5)
+            values ($1, $2, $3, $4, $5, $6, $5, $6)
             returning id, version
         `, [
             crypto.randomUUID(),
             normalizedDisplayName,
             normalizedUniverseId,
+            normalizedDevExRate,
             audit.id,
             audit.username
         ]);
@@ -398,11 +437,13 @@ async function updateProfitTrackerGame({
     displayName,
     universeId,
     creatorRewardsRobux,
+    devExUsdPer1000Robux,
     user
 }) {
     const normalizedDisplayName = cleanRequiredText(displayName, 'Display name', 120);
     const normalizedUniverseId = normalizeUniverseId(universeId);
     const normalizedCreatorRewardsRobux = normalizeCreatorRewardsRobux(creatorRewardsRobux);
+    const normalizedDevExRate = normalizeDevExUsdPer1000Robux(devExUsdPer1000Robux);
 
     return mutateLockedGame({
         gameId,
@@ -411,17 +452,23 @@ async function updateProfitTrackerGame({
         mutate: async (client, game) => {
             await client.query(`
                 update admin_profit_tracker_games
-                set display_name = $2, universe_id = $3, creator_rewards_robux = $4
+                set
+                    display_name = $2,
+                    universe_id = $3,
+                    creator_rewards_robux = $4,
+                    devex_usd_per_1000_robux = $5
                 where id = $1
             `, [
                 game.id,
                 normalizedDisplayName,
                 normalizedUniverseId,
-                normalizedCreatorRewardsRobux.toString()
+                normalizedCreatorRewardsRobux.toString(),
+                normalizedDevExRate
             ]);
             return {
                 universeId: normalizedUniverseId,
-                creatorRewardsRobux: Number(normalizedCreatorRewardsRobux)
+                creatorRewardsRobux: Number(normalizedCreatorRewardsRobux),
+                devExUsdPer1000Robux: Number(normalizedDevExRate)
             };
         }
     });
@@ -556,6 +603,7 @@ async function deleteProfitTrackerExpense({ gameId, expenseId, expectedVersion, 
 }
 
 module.exports = {
+    DEFAULT_DEVEX_USD_PER_1000_ROBUX,
     EXPENSE_CATEGORIES,
     ProfitTrackerStoreError,
     createProfitTrackerExpense,
@@ -565,6 +613,7 @@ module.exports = {
     ensureProfitTrackerSchema,
     listProfitTrackerGames,
     normalizeCreatorRewardsRobux,
+    normalizeDevExUsdPer1000Robux,
     normalizeUniverseId,
     parseUsdAmountToCents,
     updateProfitTrackerExpense,

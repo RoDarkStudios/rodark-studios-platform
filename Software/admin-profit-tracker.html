@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=profit-tracker-2">
+    <link rel="stylesheet" href="/styles.css?v=profit-tracker-3">
     <link rel="icon" type="image/png" href="/official_company_logo.png">
 </head>
 <body>
@@ -73,38 +73,65 @@
 
                             <p id="profit-tracker-status" class="admin-status info hidden" role="status" aria-live="polite"></p>
 
-                            <section id="profit-tracker-summary" class="profit-summary" aria-label="Portfolio summary"></section>
-                            <p id="profit-tracker-rate" class="profit-rate-note"></p>
+                            <section id="profit-tracker-overview">
+                                <section id="profit-tracker-summary" class="profit-summary" aria-label="Portfolio summary"></section>
 
-                            <section class="profit-add-game-card" aria-labelledby="profit-add-game-heading">
-                                <div class="profit-section-heading">
-                                    <div>
-                                        <h3 id="profit-add-game-heading">Add a game</h3>
-                                        <p>Use the Roblox universe ID, not a place or user ID.</p>
+                                <section class="profit-add-game-card" aria-labelledby="profit-add-game-heading">
+                                    <div class="profit-section-heading">
+                                        <div>
+                                            <h3 id="profit-add-game-heading">Add a game</h3>
+                                            <p>Use the Roblox universe ID, not a place or user ID.</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <form id="profit-add-game-form" class="profit-add-game-form">
-                                    <label class="admin-field">
-                                        <span class="admin-label">Display name</span>
-                                        <input class="admin-input" name="displayName" type="text" maxlength="120" autocomplete="off" placeholder="Game name" required>
-                                    </label>
-                                    <label class="admin-field">
-                                        <span class="admin-label">Universe ID</span>
-                                        <input class="admin-input" name="universeId" type="text" inputmode="numeric" pattern="[0-9]+" autocomplete="off" placeholder="1234567890" required>
-                                    </label>
-                                    <button class="btn btn-primary profit-add-game-btn" type="submit">
-                                        <i class="fas fa-plus" aria-hidden="true"></i>
-                                        Add game
-                                    </button>
-                                </form>
+                                    <form id="profit-add-game-form" class="profit-add-game-form">
+                                        <label class="admin-field">
+                                            <span class="admin-label">Display name</span>
+                                            <input class="admin-input" name="displayName" type="text" maxlength="120" autocomplete="off" placeholder="Game name" required>
+                                        </label>
+                                        <label class="admin-field">
+                                            <span class="admin-label">Universe ID</span>
+                                            <input class="admin-input" name="universeId" type="text" inputmode="numeric" pattern="[0-9]+" autocomplete="off" placeholder="1234567890" required>
+                                        </label>
+                                        <label class="admin-field">
+                                            <span class="admin-label">DevEx rate (USD per 1,000 R$)</span>
+                                            <input class="admin-input" name="devExUsdPer1000Robux" type="number" min="0.0001" max="1000" step="0.0001" value="3.80" required>
+                                        </label>
+                                        <button class="btn btn-primary profit-add-game-btn" type="submit">
+                                            <i class="fas fa-plus" aria-hidden="true"></i>
+                                            Add game
+                                        </button>
+                                    </form>
+                                </section>
+
+                                <section class="profit-game-library" aria-labelledby="profit-game-library-heading">
+                                    <div class="profit-section-heading">
+                                        <div>
+                                            <h3 id="profit-game-library-heading">Tracked games</h3>
+                                            <p>Select a game to manage its revenue, expenses, and accounting details.</p>
+                                        </div>
+                                    </div>
+                                    <p id="profit-tracker-empty" class="profit-empty hidden">
+                                        <i class="fas fa-chart-line" aria-hidden="true"></i>
+                                        <strong>No games tracked yet</strong>
+                                        <span>Add the first game above to start tracking its revenue and expenses.</span>
+                                    </p>
+                                    <div id="profit-tracker-games" class="profit-game-grid"></div>
+                                </section>
                             </section>
 
-                            <p id="profit-tracker-empty" class="profit-empty hidden">
-                                <i class="fas fa-chart-line" aria-hidden="true"></i>
-                                <strong>No games tracked yet</strong>
-                                <span>Add the first game above to start tracking its revenue and expenses.</span>
-                            </p>
-                            <div id="profit-tracker-games" class="profit-game-list"></div>
+                            <section id="profit-tracker-detail" class="profit-game-detail hidden" aria-labelledby="profit-detail-heading">
+                                <div class="profit-detail-toolbar">
+                                    <button class="profit-detail-back" type="button" data-action="back-to-games">
+                                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                                        All tracked games
+                                    </button>
+                                    <div>
+                                        <span>Game management</span>
+                                        <h3 id="profit-detail-heading">Manage game</h3>
+                                    </div>
+                                </div>
+                                <div id="profit-tracker-detail-content" class="profit-game-list"></div>
+                            </section>
                         </div>
 
                         <div id="admin-access-denied" class="admin-access-denied hidden">
@@ -132,6 +159,6 @@
     </footer>
 
     <script src="/script.js?v=20260610-game-config-targets"></script>
-    <script src="/admin-profit-tracker.js?v=profit-tracker-3"></script>
+    <script src="/admin-profit-tracker.js?v=profit-tracker-4"></script>
 </body>
 </html>

@@ -94,6 +94,7 @@ create table if not exists admin_profit_tracker_games (
     display_name text not null,
     universe_id bigint not null unique,
     creator_rewards_robux bigint not null default 0 check (creator_rewards_robux >= 0),
+    devex_usd_per_1000_robux numeric(12, 4) not null default 3.8000 check (devex_usd_per_1000_robux > 0),
     version bigint not null default 1 check (version > 0),
     created_by_user_id text,
     created_by_username text,
@@ -105,6 +106,9 @@ create table if not exists admin_profit_tracker_games (
 
 alter table admin_profit_tracker_games
 add column if not exists creator_rewards_robux bigint not null default 0;
+
+alter table admin_profit_tracker_games
+add column if not exists devex_usd_per_1000_robux numeric(12, 4) not null default 3.8000;
 
 create table if not exists admin_profit_tracker_expenses (
     id uuid primary key,
