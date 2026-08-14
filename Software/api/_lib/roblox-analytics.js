@@ -240,19 +240,35 @@ async function fetchUniverseMetadata(universeId) {
     };
 }
 
-function extractRevenueRobux(payload) {
+function extractRevenueSummary(payload) {
     const response = payload && payload.response && typeof payload.response === 'object'
         ? payload.response
         : payload;
     const series = response && Array.isArray(response.values) ? response.values : [];
     let total = 0;
+    let finalized = 0;
+    let projected = 0;
+    const sources = {};
 
     for (const item of series) {
+        const breakdowns = item && Array.isArray(item.breakdowns) ? item.breakdowns : [];
+        const sourceBreakdown = breakdowns.find(
+            (breakdown) => String(breakdown && breakdown.dimension || '').toLowerCase() === 'revenuesource'
+        );
+        const sourceName = sourceBreakdown
+            ? String(sourceBreakdown.displayValue || sourceBreakdown.value || 'Unknown')
+            : 'All revenue';
         const dataPoints = item && Array.isArray(item.dataPoints) ? item.dataPoints : [];
         for (const dataPoint of dataPoints) {
             const value = Number(dataPoint && dataPoint.value);
             if (Number.isFinite(value)) {
                 total += value;
+                sources[sourceName] = (sources[sourceName] || 0) + value;
+                if (String(dataPoint && dataPoint.status || '').toLowerCase() === 'projected') {
+                    projected += value;
+                } else {
+                    finalized += value;
+                }
             }
         }
     }
@@ -265,7 +281,18 @@ function extractRevenueRobux(payload) {
         );
     }
 
-    return Math.round(total);
+    return {
+        totalRobux: Math.round(total),
+        finalizedRobux: Math.round(finalized),
+        projectedRobux: Math.round(projected),
+        sources: Object.fromEntries(
+            Object.entries(sources).map(([name, value]) => [name, Math.round(value)])
+        )
+    };
+}
+
+function extractRevenueRobux(payload) {
+    return extractRevenueSummary(payload).totalRobux;
 }
 
 function calculateHistoryWindow(gameCreatedAt) {
@@ -292,17 +319,22 @@ async function fetchUniverseRevenue(universeId) {
         apiKey,
         body: {
             metric: 'DailyRevenue',
-            granularity: 'None',
+            granularity: 'OneMonth',
+            breakdown: ['RevenueSource'],
             startTime: history.start.toISOString(),
             endTime: history.end.toISOString()
         }
     });
     const completedPayload = await resolveAnalyticsOperation(initialPayload, apiKey);
-    const revenueRobux = extractRevenueRobux(completedPayload);
+    const revenueSummary = extractRevenueSummary(completedPayload);
+    const revenueRobux = revenueSummary.totalRobux;
 
     return {
         status: 'available',
         revenueRobux,
+        finalizedRevenueRobux: revenueSummary.finalizedRobux,
+        projectedRevenueRobux: revenueSummary.projectedRobux,
+        revenueSources: revenueSummary.sources,
         estimatedRevenueCents: Math.round(revenueRobux * STANDARD_DEVEX_USD_PER_ROBUX * 100),
         standardDevExUsdPerRobux: STANDARD_DEVEX_USD_PER_ROBUX,
         historyStart: history.start.toISOString(),
@@ -351,6 +383,7 @@ module.exports = {
     STANDARD_DEVEX_USD_PER_ROBUX,
     calculateHistoryWindow,
     extractRevenueRobux,
+    extractRevenueSummary,
     getUniverseRevenue,
     invalidateUniverseRevenue
 };

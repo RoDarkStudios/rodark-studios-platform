@@ -247,10 +247,14 @@ function renderRevenueState(game) {
     const historyLabel = revenue.historyComplete
         ? 'Complete history since this game was created'
         : `Available Roblox history since ${new Date(revenue.historyStart).toLocaleDateString()}`;
+    const projectedRobux = Number(revenue.projectedRevenueRobux || 0);
+    const projectedLabel = projectedRobux > 0
+        ? ` Includes ${formatProfitRobux(projectedRobux)} of projected revenue, including pending Creator Rewards reported by Roblox.`
+        : '';
     return `
         <p class="profit-revenue-note">
             <i class="fas fa-circle-info" aria-hidden="true"></i>
-            ${escapeProfitHtml(historyLabel)}. Refreshed ${escapeProfitHtml(formatProfitDate(revenue.fetchedAt))}.
+            ${escapeProfitHtml(historyLabel)}.${escapeProfitHtml(projectedLabel)} Refreshed ${escapeProfitHtml(formatProfitDate(revenue.fetchedAt))}.
         </p>
     `;
 }
