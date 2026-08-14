@@ -7,24 +7,12 @@ const REQUEST_TIMEOUT_MS = 15000;
 const MAX_OPERATION_POLLS = 20;
 const OPERATION_POLL_DELAY_MS = 500;
 
-const SALES_REVENUE_SOURCE_PATTERNS = Object.freeze([
-    /developerproduct/,
-    /gameproduct/,
-    /gameshop/,
-    /gamepass/,
-    /privateserver/,
-    /vipserver/,
-    /paidaccess/,
-    /subscription/,
-    /commission/,
-    /affiliate/,
-    /avataritem/,
-    /experienceitem/,
-    /experiencepurchase/,
-    /marketplace/,
-    /immersivead/,
-    /advertisingrevenue/,
-    /adrevenue/
+const CREATOR_REWARDS_SOURCE_PATTERNS = Object.freeze([
+    /reward/,
+    /payout/,
+    /dailyengagement/,
+    /audienceexpansion/,
+    /engagementbased/
 ]);
 
 const revenueCache = new Map();
@@ -264,13 +252,13 @@ function normalizeRevenueSource(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
-function isSalesRevenueSource(sourceName) {
+function isCreatorRewardsRevenueSource(sourceName) {
     const normalized = normalizeRevenueSource(sourceName);
     return normalized.length > 0
-        && SALES_REVENUE_SOURCE_PATTERNS.some((pattern) => pattern.test(normalized));
+        && CREATOR_REWARDS_SOURCE_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-function extractSalesRevenueRobux(payload) {
+function extractNonCreatorRewardsRevenueRobux(payload) {
     const response = payload && payload.response && typeof payload.response === 'object'
         ? payload.response
         : payload;
@@ -285,12 +273,20 @@ function extractSalesRevenueRobux(payload) {
         const sourceNames = sourceBreakdown
             ? [sourceBreakdown.value, sourceBreakdown.displayValue]
             : [];
-        const isSalesSource = sourceNames.some(isSalesRevenueSource);
         const dataPoints = item && Array.isArray(item.dataPoints) ? item.dataPoints : [];
+        if (dataPoints.length > 0 && !sourceBreakdown) {
+            throw new RobloxAnalyticsError(
+                'Roblox did not identify the revenue source',
+                'ROBLOX_ANALYTICS_INVALID_RESPONSE',
+                502
+            );
+        }
+
+        const isCreatorRewardsSource = sourceNames.some(isCreatorRewardsRevenueSource);
 
         for (const dataPoint of dataPoints) {
             const value = Number(dataPoint && dataPoint.value);
-            if (isSalesSource && Number.isFinite(value)) {
+            if (!isCreatorRewardsSource && Number.isFinite(value)) {
                 total += value;
             }
         }
@@ -298,7 +294,7 @@ function extractSalesRevenueRobux(payload) {
 
     if (!Number.isFinite(total) || total < 0) {
         throw new RobloxAnalyticsError(
-            'Roblox returned an invalid sales revenue total',
+            'Roblox returned an invalid non-Creator-Rewards revenue total',
             'ROBLOX_ANALYTICS_INVALID_RESPONSE',
             502
         );
@@ -339,7 +335,7 @@ async function fetchUniverseRevenue(universeId) {
         }
     });
     const completedPayload = await resolveAnalyticsOperation(initialPayload, apiKey);
-    const revenueRobux = extractSalesRevenueRobux(completedPayload);
+    const revenueRobux = extractNonCreatorRewardsRevenueRobux(completedPayload);
 
     return {
         status: 'available',
@@ -391,8 +387,8 @@ module.exports = {
     RobloxAnalyticsError,
     STANDARD_DEVEX_USD_PER_ROBUX,
     calculateHistoryWindow,
-    extractSalesRevenueRobux,
+    extractNonCreatorRewardsRevenueRobux,
     getUniverseRevenue,
-    isSalesRevenueSource,
+    isCreatorRewardsRevenueSource,
     invalidateUniverseRevenue
 };
