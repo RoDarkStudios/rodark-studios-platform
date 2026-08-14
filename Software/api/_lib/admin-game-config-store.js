@@ -1,7 +1,5 @@
 const { postgresQuery } = require('./postgres');
 
-const GAME_CONFIG_ID = 1;
-
 function toPositiveInteger(value, fieldName) {
     const parsed = Number.parseInt(String(value || '').trim(), 10);
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -83,53 +81,7 @@ async function getStoredGameConfig() {
     return mapRowToConfig(result.rows[0]);
 }
 
-async function saveStoredGameConfig(config) {
-    await ensureAdminGameConfigSchema();
-
-    const result = await postgresQuery(`
-        insert into admin_game_config (
-            id,
-            production_universe_id,
-            test_universe_id,
-            development_universe_id,
-            updated_by_user_id,
-            updated_by_username,
-            updated_at
-        )
-        values ($1, $2, $3, $4, $5, $6, now())
-        on conflict (id) do update set
-            production_universe_id = excluded.production_universe_id,
-            test_universe_id = excluded.test_universe_id,
-            development_universe_id = excluded.development_universe_id,
-            updated_by_user_id = excluded.updated_by_user_id,
-            updated_by_username = excluded.updated_by_username,
-            updated_at = excluded.updated_at
-        returning
-            id,
-            production_universe_id,
-            test_universe_id,
-            development_universe_id,
-            updated_at,
-            updated_by_user_id,
-            updated_by_username
-    `, [
-        GAME_CONFIG_ID,
-        Number(config && config.productionUniverseId),
-        config && config.testUniverseId ? Number(config.testUniverseId) : null,
-        config && config.developmentUniverseId ? Number(config.developmentUniverseId) : null,
-        config && config.updatedByUserId ? String(config.updatedByUserId) : null,
-        config && config.updatedByUsername ? String(config.updatedByUsername) : null
-    ]);
-
-    if (!result.rows.length) {
-        throw new Error('Postgres upsert returned no game config row');
-    }
-
-    return mapRowToConfig(result.rows[0]);
-}
-
 module.exports = {
     ensureAdminGameConfigSchema,
-    getStoredGameConfig,
-    saveStoredGameConfig
+    getStoredGameConfig
 };

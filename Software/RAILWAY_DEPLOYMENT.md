@@ -44,7 +44,7 @@ ROBLOX_GROUP_ID=5545660
 ROBLOX_OAUTH_REDIRECT_URI=https://your-railway-or-custom-domain/api/auth/callback
 ```
 
-Non-secret platform preferences, such as the OpenAI model name, are managed from `/admin/tools` rather than Railway variables.
+Set non-secret bot preferences such as `OPENAI_TICKET_REVIEW_MODEL` directly on the Discord bot Railway service.
 
 `DISCORD_BOT_TOKEN` is also needed on the web service if you want `/admin/discord-bot` to show searchable Discord channel and role pickers instead of manual IDs.
 
@@ -65,13 +65,9 @@ The server keeps these clean routes working:
 - `/privacy`
 - `/terms`
 - `/admin`
-- `/admin/tools`
+- `/admin/consultations`
+- `/admin/profit-tracker`
 - `/admin/discord-bot`
-- `/admin/tools/copy-monetization`
-- `/admin/tools/list-monetization-ids`
-- `/admin/tools/sync-game-description`
-- `/admin/tools/sync-live-configs`
-- `/admin/tools/game-configuration`
 
 It also redirects the old `.html` URLs to the clean routes.
 

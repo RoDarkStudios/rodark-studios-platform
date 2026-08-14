@@ -86,6 +86,595 @@ body {
     background-clip: text;
 }
 
+/* Admin Game Profit Tracker */
+.admin-section-icon.profit {
+    border-color: rgba(74, 222, 128, 0.48);
+    background: rgba(74, 222, 128, 0.12);
+    color: #86efac;
+}
+
+.legal-shell.profit-tracker-shell {
+    max-width: 1120px;
+}
+
+.legal-card.profit-tracker-card {
+    background:
+        radial-gradient(circle at 90% 0%, rgba(6, 182, 212, 0.08), transparent 26rem),
+        var(--card-bg);
+}
+
+.profit-tracker-heading,
+.profit-section-heading,
+.profit-game-header,
+.profit-expense-view {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.profit-tracker-heading {
+    align-items: flex-start;
+}
+
+.profit-concurrency-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    margin: 0.4rem 0 1.2rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(6, 182, 212, 0.34);
+    border-radius: 12px;
+    background: rgba(6, 182, 212, 0.08);
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.profit-concurrency-note i {
+    color: #67e8f9;
+    margin-top: 0.2rem;
+}
+
+.profit-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+}
+
+.profit-summary-stat {
+    display: flex;
+    min-width: 0;
+    min-height: 118px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: rgba(10, 10, 10, 0.72);
+}
+
+.profit-summary-stat span,
+.profit-game-metrics span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.profit-summary-stat strong {
+    overflow: hidden;
+    margin: 0.15rem 0;
+    color: var(--text-primary);
+    font-size: clamp(1.1rem, 2vw, 1.45rem);
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-summary-stat small,
+.profit-game-metrics small {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.profit-rate-note {
+    margin: -0.5rem 0 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.profit-summary-stat.revenue {
+    border-color: rgba(6, 182, 212, 0.38);
+    background: linear-gradient(145deg, rgba(6, 182, 212, 0.11), rgba(10, 10, 10, 0.72));
+}
+
+.profit-summary-stat.expenses {
+    border-color: rgba(249, 115, 22, 0.38);
+    background: linear-gradient(145deg, rgba(249, 115, 22, 0.1), rgba(10, 10, 10, 0.72));
+}
+
+.profit-summary-stat.profit,
+.profit-game-metrics .profit {
+    border-color: rgba(74, 222, 128, 0.42);
+    background: linear-gradient(145deg, rgba(74, 222, 128, 0.1), rgba(10, 10, 10, 0.72));
+}
+
+.profit-summary-stat.profit strong,
+.profit-game-metrics .profit strong {
+    color: #86efac;
+}
+
+.profit-summary-stat.loss,
+.profit-game-metrics .loss {
+    border-color: rgba(251, 113, 133, 0.42);
+    background: linear-gradient(145deg, rgba(251, 113, 133, 0.1), rgba(10, 10, 10, 0.72));
+}
+
+.profit-summary-stat.loss strong,
+.profit-game-metrics .loss strong {
+    color: #fda4af;
+}
+
+.profit-add-game-card {
+    margin: 1.25rem 0;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: rgba(10, 10, 10, 0.58);
+}
+
+.profit-section-heading h3,
+.profit-section-heading h4 {
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.profit-section-heading p {
+    color: var(--text-muted);
+    font-size: 0.83rem;
+}
+
+.profit-add-game-form {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    gap: 0.75rem;
+    align-items: end;
+    margin-top: 0.8rem;
+}
+
+.profit-add-game-btn,
+.profit-add-expense-btn {
+    white-space: nowrap;
+}
+
+.profit-empty {
+    display: flex;
+    min-height: 190px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 1rem;
+    border: 1px dashed rgba(148, 163, 184, 0.34);
+    border-radius: 14px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.profit-empty i {
+    color: #67e8f9;
+    font-size: 1.6rem;
+}
+
+.profit-empty strong {
+    color: var(--text-primary);
+}
+
+.profit-empty span {
+    font-size: 0.88rem;
+}
+
+.profit-game-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.profit-game-card {
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: rgba(10, 10, 10, 0.68);
+}
+
+.profit-game-header {
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(90deg, rgba(249, 115, 22, 0.1), rgba(6, 182, 212, 0.06));
+}
+
+.profit-game-identity,
+.profit-game-actions,
+.profit-row-actions,
+.profit-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.profit-game-identity {
+    min-width: 0;
+}
+
+.profit-game-icon {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    background: var(--darker-bg);
+    object-fit: cover;
+}
+
+.profit-game-identity h3 {
+    overflow: hidden;
+    max-width: 540px;
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-game-identity a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #67e8f9;
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.profit-game-identity a:hover {
+    color: #22d3ee;
+}
+
+.profit-version-pill {
+    padding: 0.28rem 0.52rem;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.profit-icon-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 9px;
+    background: rgba(10, 10, 10, 0.58);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.profit-icon-btn:hover {
+    border-color: rgba(6, 182, 212, 0.65);
+    background: rgba(6, 182, 212, 0.1);
+    color: #67e8f9;
+}
+
+.profit-icon-btn.danger:hover {
+    border-color: rgba(251, 113, 133, 0.68);
+    background: rgba(251, 113, 133, 0.1);
+    color: #fda4af;
+}
+
+.profit-game-edit-form,
+.profit-expense-edit-form {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    gap: 0.75rem;
+    align-items: end;
+    padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(6, 182, 212, 0.06);
+}
+
+.profit-game-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    padding: 1rem 1.1rem 0;
+}
+
+.profit-game-metrics article {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 12px;
+    background: rgba(23, 23, 23, 0.7);
+}
+
+.profit-game-metrics strong {
+    overflow: hidden;
+    margin: 0.1rem 0;
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-revenue-note,
+.profit-revenue-error {
+    margin: 0.75rem 1.1rem 0;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.profit-revenue-note {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(6, 182, 212, 0.28);
+    background: rgba(6, 182, 212, 0.06);
+    color: var(--text-muted);
+}
+
+.profit-revenue-note i {
+    color: #22d3ee;
+}
+
+.profit-revenue-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(251, 113, 133, 0.38);
+    background: rgba(251, 113, 133, 0.08);
+    color: #fecdd3;
+}
+
+.profit-revenue-error i {
+    margin-top: 0.2rem;
+    color: #fb7185;
+}
+
+.profit-revenue-error div {
+    display: flex;
+    flex-direction: column;
+}
+
+.profit-revenue-error span {
+    color: var(--text-secondary);
+}
+
+.profit-expenses-section {
+    padding: 1rem 1.1rem 1.1rem;
+}
+
+.profit-add-expense-form,
+.profit-expense-edit-form {
+    display: grid;
+    grid-template-columns: minmax(135px, 0.55fr) minmax(220px, 1.7fr) minmax(150px, 0.7fr) auto;
+    gap: 0.65rem;
+    align-items: end;
+}
+
+.profit-add-expense-form {
+    margin-top: 0.75rem;
+    padding: 0.8rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 12px;
+    background: rgba(23, 23, 23, 0.58);
+}
+
+.profit-expense-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.profit-expense-row {
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 11px;
+    background: rgba(23, 23, 23, 0.48);
+}
+
+.profit-expense-view {
+    display: grid;
+    grid-template-columns: minmax(92px, auto) minmax(0, 1fr) auto auto;
+    padding: 0.65rem 0.75rem;
+}
+
+.profit-category-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.26rem 0.48rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.profit-category-pill.category-animations,
+.profit-category-pill.category-vfx {
+    border-color: rgba(168, 85, 247, 0.44);
+    background: rgba(168, 85, 247, 0.11);
+    color: #d8b4fe;
+}
+
+.profit-category-pill.category-models,
+.profit-category-pill.category-map {
+    border-color: rgba(6, 182, 212, 0.42);
+    background: rgba(6, 182, 212, 0.1);
+    color: #67e8f9;
+}
+
+.profit-category-pill.category-advertising {
+    border-color: rgba(249, 115, 22, 0.44);
+    background: rgba(249, 115, 22, 0.11);
+    color: #fdba74;
+}
+
+.profit-expense-description {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.profit-expense-description strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profit-expense-description small {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.profit-expense-amount {
+    color: #fdba74;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.profit-expense-edit-form {
+    padding: 0.75rem;
+    border: 0;
+    background: rgba(6, 182, 212, 0.06);
+}
+
+.profit-no-expenses {
+    padding: 0.9rem;
+    border: 1px dashed rgba(148, 163, 184, 0.26);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    text-align: center;
+}
+
+#admin-owned-content.is-busy {
+    cursor: progress;
+}
+
+#admin-owned-content.is-busy button,
+#admin-owned-content.is-busy input,
+#admin-owned-content.is-busy select {
+    cursor: progress;
+    opacity: 0.7;
+}
+
+@media (max-width: 920px) {
+    .profit-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profit-add-expense-form,
+    .profit-expense-edit-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profit-add-expense-btn,
+    .profit-form-actions {
+        align-self: end;
+    }
+}
+
+@media (max-width: 680px) {
+    .profit-tracker-card {
+        padding: 1.1rem;
+    }
+
+    .profit-tracker-heading,
+    .profit-game-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .profit-tracker-heading .btn {
+        width: 100%;
+    }
+
+    .profit-add-game-form,
+    .profit-game-edit-form,
+    .profit-game-metrics,
+    .profit-add-expense-form,
+    .profit-expense-edit-form {
+        grid-template-columns: 1fr;
+    }
+
+    .profit-game-actions {
+        justify-content: flex-end;
+    }
+
+    .profit-expense-view {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .profit-category-pill {
+        justify-self: start;
+    }
+
+    .profit-expense-description {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .profit-expense-amount {
+        grid-column: 1;
+        grid-row: 3;
+    }
+
+    .profit-row-actions {
+        grid-column: 2;
+        grid-row: 1 / 4;
+    }
+}
+
+@media (max-width: 440px) {
+    .profit-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .profit-summary-stat {
+        min-height: 98px;
+    }
+
+    .profit-game-identity h3 {
+        max-width: 210px;
+    }
+
+    .profit-game-metrics,
+    .profit-expenses-section,
+    .profit-game-header {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }
+}
+
 .nav-menu {
     display: flex;
     list-style: none;
@@ -1982,15 +2571,6 @@ body {
     margin-bottom: 2rem;
 }
 
-.admin-systems-gateway {
-    margin-bottom: 1.25rem;
-}
-
-.admin-systems-gateway-btn {
-    padding-left: 1.15rem;
-    padding-right: 1.15rem;
-}
-
 .admin-section-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -2050,50 +2630,8 @@ body {
     color: #c7d2fe;
 }
 
-.admin-tools-heading {
-    margin-bottom: 0.7rem;
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-}
-
-.admin-tools-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-}
-
-.admin-tool-link {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    text-decoration: none;
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 1rem 1.15rem;
-    background: rgba(10, 10, 10, 0.7);
-    transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
-}
-
-.admin-tool-link:hover {
-    border-color: rgba(249, 115, 22, 0.75);
-    background: rgba(249, 115, 22, 0.08);
-    transform: translateY(-2px);
-}
-
 .admin-tool-link-content {
     min-width: 0;
-}
-
-.admin-tool-link .admin-tool-title {
-    margin-bottom: 0.25rem;
-    color: var(--text-primary);
-}
-
-.admin-tool-link .admin-tool-note {
-    margin-bottom: 0;
 }
 
 .admin-tool-link-icon {
@@ -2134,22 +2672,6 @@ body {
 .admin-tool-note {
     color: var(--text-secondary);
     margin-bottom: 1.25rem;
-}
-
-.admin-shared-config {
-    margin-bottom: 1rem;
-    color: #67e8f9;
-    border: 1px solid rgba(6, 182, 212, 0.38);
-    border-radius: 10px;
-    background: rgba(6, 182, 212, 0.08);
-    padding: 0.7rem 0.8rem;
-    font-size: 0.9rem;
-}
-
-.admin-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
 }
 
 .admin-inline-actions {
@@ -2475,28 +2997,6 @@ body {
     width: fit-content;
 }
 
-.admin-catalog-label {
-    margin-top: 0.7rem;
-}
-
-.admin-catalog-output {
-    width: 100%;
-    min-height: 180px;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    background: rgba(10, 10, 10, 0.95);
-    color: var(--text-primary);
-    font-family: 'Consolas', 'Menlo', monospace;
-    font-size: 0.86rem;
-    line-height: 1.45;
-    padding: 0.75rem 0.85rem;
-    resize: vertical;
-}
-
-.admin-catalog-output-lg {
-    min-height: 240px;
-}
-
 .admin-status {
     margin-top: 1rem;
     font-weight: 600;
@@ -2512,99 +3012,6 @@ body {
 
 .admin-status.info {
     color: #22d3ee;
-}
-
-.admin-copy-progress {
-    margin-top: 0.85rem;
-    padding: 0.8rem 0.9rem;
-    border: 1px solid rgba(6, 182, 212, 0.35);
-    border-radius: 12px;
-    background: rgba(6, 182, 212, 0.08);
-}
-
-.admin-copy-progress-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.45rem;
-}
-
-.admin-copy-progress-label {
-    color: #67e8f9;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.admin-copy-progress-percent {
-    color: #22d3ee;
-    font-size: 0.9rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.admin-copy-progress-track {
-    width: 100%;
-    height: 10px;
-    border-radius: 999px;
-    overflow: hidden;
-    border: 1px solid rgba(6, 182, 212, 0.28);
-    background: rgba(8, 8, 8, 0.85);
-}
-
-.admin-copy-progress-fill {
-    display: block;
-    width: 0;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #06b6d4 0%, #22d3ee 100%);
-    box-shadow: 0 0 16px rgba(34, 211, 238, 0.4);
-    transition: width 0.35s ease;
-}
-
-.admin-copy-progress-meta {
-    margin-top: 0.45rem;
-    color: var(--text-secondary);
-    font-size: 0.84rem;
-    font-variant-numeric: tabular-nums;
-}
-
-.admin-results {
-    margin-top: 1.1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-}
-
-.admin-result-summary {
-    padding: 0.85rem 1rem;
-    border: 1px solid rgba(249, 115, 22, 0.4);
-    border-radius: 12px;
-    background: rgba(249, 115, 22, 0.08);
-    color: var(--text-secondary);
-}
-
-.admin-target-result {
-    padding: 0.85rem 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-    background: rgba(10, 10, 10, 0.75);
-}
-
-.admin-target-result h4 {
-    margin-bottom: 0.35rem;
-}
-
-.admin-target-result p {
-    color: var(--text-secondary);
-    font-size: 0.92rem;
-}
-
-.admin-target-errors {
-    margin-top: 0.45rem;
-    color: #fda4af;
-    font-size: 0.84rem;
-    white-space: pre-wrap;
 }
 
 .admin-access-denied {

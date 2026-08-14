@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Profit Tracker - RoDark Studios</title>
+    <meta name="description" content="RoDark Studios per-game revenue, expense, and profit tracker">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css?v=profit-tracker-1">
+    <link rel="icon" type="image/png" href="/official_company_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo nav-logo-link" aria-label="RoDark Studios home">
+                <img src="/official_company_logo.png" alt="RoDark Studios Logo" class="logo">
+                <span class="logo-text">RoDark Studios</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item"><a href="/#home" class="nav-link">Home</a></li>
+                <li class="nav-item"><a href="/#games" class="nav-link">Games</a></li>
+                <li class="nav-item"><a href="/#team" class="nav-link">Team</a></li>
+                <li class="nav-item"><a href="/#contact" class="nav-link">Socials</a></li>
+                <li id="nav-admin-item" class="nav-item hidden"><a href="/admin" class="nav-link">Admin</a></li>
+            </ul>
+            <div class="nav-account">
+                <button id="nav-username" class="nav-username guest" type="button">Sign in with Roblox</button>
+                <button id="nav-signout-btn" class="nav-signout hidden" type="button">Sign out</button>
+            </div>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="auth-page-main">
+        <section class="auth-section">
+            <div class="container">
+                <h1 class="section-title">Game Profit Tracker</h1>
+                <div class="legal-shell profit-tracker-shell">
+                    <article class="legal-card profit-tracker-card">
+                        <p class="admin-tool-back-link-wrap">
+                            <a href="/admin" class="admin-tool-back-link">
+                                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                                Back to admin
+                            </a>
+                        </p>
+
+                        <div id="admin-owned-content" class="hidden">
+                            <div class="profit-tracker-heading">
+                                <div>
+                                    <h2 class="admin-tool-title">Games accounting</h2>
+                                    <p class="admin-tool-note">
+                                        Revenue is estimated in USD from Roblox analytics using the current standard DevEx rate.
+                                    </p>
+                                </div>
+                                <button id="profit-tracker-refresh" class="btn btn-secondary admin-compact-btn" type="button">
+                                    <i class="fas fa-rotate" aria-hidden="true"></i>
+                                    Refresh revenue
+                                </button>
+                            </div>
+
+                            <div class="profit-concurrency-note">
+                                <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                                <p>
+                                    Concurrent edits are protected. If another admin changes a game first, your stale change is stopped and the latest data is reloaded.
+                                </p>
+                            </div>
+
+                            <p id="profit-tracker-status" class="admin-status info hidden" role="status" aria-live="polite"></p>
+
+                            <section id="profit-tracker-summary" class="profit-summary" aria-label="Portfolio summary"></section>
+                            <p id="profit-tracker-rate" class="profit-rate-note"></p>
+
+                            <section class="profit-add-game-card" aria-labelledby="profit-add-game-heading">
+                                <div class="profit-section-heading">
+                                    <div>
+                                        <h3 id="profit-add-game-heading">Add a game</h3>
+                                        <p>Use the Roblox universe ID, not a place or user ID.</p>
+                                    </div>
+                                </div>
+                                <form id="profit-add-game-form" class="profit-add-game-form">
+                                    <label class="admin-field">
+                                        <span class="admin-label">Display name</span>
+                                        <input class="admin-input" name="displayName" type="text" maxlength="120" autocomplete="off" placeholder="Game name" required>
+                                    </label>
+                                    <label class="admin-field">
+                                        <span class="admin-label">Universe ID</span>
+                                        <input class="admin-input" name="universeId" type="text" inputmode="numeric" pattern="[0-9]+" autocomplete="off" placeholder="1234567890" required>
+                                    </label>
+                                    <button class="btn btn-primary profit-add-game-btn" type="submit">
+                                        <i class="fas fa-plus" aria-hidden="true"></i>
+                                        Add game
+                                    </button>
+                                </form>
+                            </section>
+
+                            <p id="profit-tracker-empty" class="profit-empty hidden">
+                                <i class="fas fa-chart-line" aria-hidden="true"></i>
+                                <strong>No games tracked yet</strong>
+                                <span>Add the first game above to start tracking its revenue and expenses.</span>
+                            </p>
+                            <div id="profit-tracker-games" class="profit-game-list"></div>
+                        </div>
+
+                        <div id="admin-access-denied" class="admin-access-denied hidden">
+                            <p class="admin-denied-message">Admin access is required for this page.</p>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-links">
+                    <a href="/privacy" class="footer-link">Privacy Policy</a>
+                    <span class="footer-divider">|</span>
+                    <a href="/terms" class="footer-link">Terms of Service</a>
+                </p>
+                <p class="footer-copyright">
+                    &copy; <span id="current-year">2026</span> RoDark Studios. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/script.js?v=20260610-game-config-targets"></script>
+    <script src="/admin-profit-tracker.js?v=profit-tracker-1"></script>
+</body>
+</html>

@@ -107,7 +107,6 @@ The current schema lives in `railway/postgres-schema.sql`.
 - `/consultation/thanks`
 - `/admin`
 - `/admin/consultations`
-- `/admin/tools`
-- `/admin/tools/game-configuration`
+- `/admin/profit-tracker`
 - `/admin/discord-bot`
 - `/api/health`

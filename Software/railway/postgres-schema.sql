@@ -39,18 +39,6 @@ create table if not exists discord_bot_control (
     updated_by_username text
 );
 
-create table if not exists admin_platform_settings (
-    id smallint primary key check (id = 1),
-    openai_model text not null default 'gpt-5.4',
-    updated_by_user_id text,
-    updated_by_username text,
-    updated_at timestamptz not null default now()
-);
-
-insert into admin_platform_settings (id)
-values (1)
-on conflict (id) do nothing;
-
 insert into discord_bot_control (id)
 values (1)
 on conflict (id) do nothing;
@@ -100,6 +88,36 @@ on consultation_bookings (created_at desc);
 
 create index if not exists consultation_bookings_payment_status_idx
 on consultation_bookings (payment_status);
+
+create table if not exists admin_profit_tracker_games (
+    id uuid primary key,
+    display_name text not null,
+    universe_id bigint not null unique,
+    version bigint not null default 1 check (version > 0),
+    created_by_user_id text,
+    created_by_username text,
+    updated_by_user_id text,
+    updated_by_username text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists admin_profit_tracker_expenses (
+    id uuid primary key,
+    game_id uuid not null references admin_profit_tracker_games(id) on delete cascade,
+    amount_cents bigint not null check (amount_cents > 0),
+    description text not null,
+    category text not null check (category in ('animations', 'models', 'vfx', 'map', 'advertising', 'other')),
+    created_by_user_id text,
+    created_by_username text,
+    updated_by_user_id text,
+    updated_by_username text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists admin_profit_tracker_expenses_game_id_idx
+on admin_profit_tracker_expenses (game_id, created_at desc);
 
 create sequence if not exists discord_bot_ticket_id_seq
     as bigint

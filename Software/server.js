@@ -12,12 +12,9 @@ const robloxGameIcon = require('./api/roblox/game-icon');
 const robloxGames = require('./api/roblox/games');
 const robloxGroupGames = require('./api/roblox/group-games');
 const robloxGroupStats = require('./api/roblox/group-stats');
-const adminCopyMonetization = require('./api/admin/roblox-copy-monetization');
-const adminListMonetizationItems = require('./api/admin/roblox-list-monetization-items');
-const adminSyncExperienceConfigs = require('./api/admin/roblox-sync-experience-configs');
 const adminDiscordBotControl = require('./api/admin/discord-bot-control');
-const adminPlatformSettings = require('./api/admin/platform-settings');
 const adminConsultations = require('./api/admin/consultations');
+const adminProfitTracker = require('./api/admin/profit-tracker');
 const consultationConfig = require('./api/consultations/config');
 const consultationCheckout = require('./api/consultations/checkout');
 const consultationConfirm = require('./api/consultations/confirm');
@@ -56,13 +53,8 @@ const pageRoutes = {
     '/consultation/thanks': 'consultation-thanks.html',
     '/admin': 'admin.html',
     '/admin/consultations': 'admin-consultations.html',
-    '/admin/tools': 'admin-tools.html',
-    '/admin/discord-bot': 'admin-discord-bot.html',
-    '/admin/tools/copy-monetization': 'admin-copy-monetization.html',
-    '/admin/tools/list-monetization-ids': 'admin-list-monetization-ids.html',
-    '/admin/tools/sync-game-description': 'admin-sync-game-description.html',
-    '/admin/tools/sync-live-configs': 'admin-sync-live-configs.html',
-    '/admin/tools/game-configuration': 'admin-game-configuration.html'
+    '/admin/profit-tracker': 'admin-profit-tracker.html',
+    '/admin/discord-bot': 'admin-discord-bot.html'
 };
 
 const htmlRedirects = {
@@ -75,13 +67,8 @@ const htmlRedirects = {
     '/consultation-thanks.html': '/consultation/thanks',
     '/admin.html': '/admin',
     '/admin-consultations.html': '/admin/consultations',
-    '/admin-tools.html': '/admin/tools',
-    '/admin-discord-bot.html': '/admin/discord-bot',
-    '/admin-copy-monetization.html': '/admin/tools/copy-monetization',
-    '/admin-list-monetization-ids.html': '/admin/tools/list-monetization-ids',
-    '/admin-sync-game-description.html': '/admin/tools/sync-game-description',
-    '/admin-sync-live-configs.html': '/admin/tools/sync-live-configs',
-    '/admin-game-configuration.html': '/admin/tools/game-configuration'
+    '/admin-profit-tracker.html': '/admin/profit-tracker',
+    '/admin-discord-bot.html': '/admin/discord-bot'
 };
 
 const apiRoutes = {
@@ -102,11 +89,8 @@ const apiRoutes = {
     '/api/consultations/confirm': consultationConfirm,
     '/api/consultations/webhook': consultationWebhook,
     '/api/admin/consultations': adminConsultations,
-    '/api/admin/roblox-copy-monetization': adminCopyMonetization,
-    '/api/admin/roblox-list-monetization-items': adminListMonetizationItems,
-    '/api/admin/roblox-sync-experience-configs': adminSyncExperienceConfigs,
-    '/api/admin/discord-bot-control': adminDiscordBotControl,
-    '/api/admin/platform-settings': adminPlatformSettings
+    '/api/admin/profit-tracker': adminProfitTracker,
+    '/api/admin/discord-bot-control': adminDiscordBotControl
 };
 
 const mimeTypes = {
