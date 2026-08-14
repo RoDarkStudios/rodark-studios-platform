@@ -320,31 +320,40 @@ async function fetchUniverseRevenue(universeId) {
     const apiKey = getRobloxOpenCloudApiKey();
     const metadata = await fetchUniverseMetadata(universeId);
     const history = calculateHistoryWindow(metadata.createdAt);
-    const initialPayload = await analyticsRequest({
-        method: 'POST',
-        url: `${ROBLOX_ANALYTICS_BASE_URL}/v1/universes/${encodeURIComponent(String(universeId))}/metrics`,
-        apiKey,
-        body: {
-            metric: 'DailyRevenue',
-            granularity: 'None',
-            breakdown: ['RevenueSource'],
-            limit: 100,
-            startTime: history.start.toISOString(),
-            endTime: history.end.toISOString()
-        }
-    });
-    const completedPayload = await resolveAnalyticsOperation(initialPayload, apiKey);
-    const revenueRobux = extractNonCreatorRewardsRevenueRobux(completedPayload);
+    const robloxGameCreatedAt = metadata.createdAt ? metadata.createdAt.toISOString() : null;
 
-    return {
-        status: 'available',
-        revenueRobux,
-        historyStart: history.start.toISOString(),
-        historyEnd: history.end.toISOString(),
-        historyComplete: history.historyComplete,
-        robloxGameCreatedAt: metadata.createdAt ? metadata.createdAt.toISOString() : null,
-        fetchedAt: new Date().toISOString()
-    };
+    try {
+        const initialPayload = await analyticsRequest({
+            method: 'POST',
+            url: `${ROBLOX_ANALYTICS_BASE_URL}/v1/universes/${encodeURIComponent(String(universeId))}/metrics`,
+            apiKey,
+            body: {
+                metric: 'DailyRevenue',
+                granularity: 'None',
+                breakdown: ['RevenueSource'],
+                limit: 100,
+                startTime: history.start.toISOString(),
+                endTime: history.end.toISOString()
+            }
+        });
+        const completedPayload = await resolveAnalyticsOperation(initialPayload, apiKey);
+        const revenueRobux = extractNonCreatorRewardsRevenueRobux(completedPayload);
+
+        return {
+            status: 'available',
+            revenueRobux,
+            historyStart: history.start.toISOString(),
+            historyEnd: history.end.toISOString(),
+            historyComplete: history.historyComplete,
+            robloxGameCreatedAt,
+            fetchedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        if (error && typeof error === 'object') {
+            error.robloxGameCreatedAt = robloxGameCreatedAt;
+        }
+        throw error;
+    }
 }
 
 async function getUniverseRevenue(universeId, options) {

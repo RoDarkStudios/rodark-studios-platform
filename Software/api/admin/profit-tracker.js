@@ -43,12 +43,51 @@ function serializeRevenueError(error) {
         code: error && error.code ? String(error.code) : 'ROBLOX_ANALYTICS_ERROR',
         message: error && error.message
             ? String(error.message)
-            : 'Revenue is temporarily unavailable'
+            : 'Revenue is temporarily unavailable',
+        robloxGameCreatedAt: error && error.robloxGameCreatedAt
+            ? String(error.robloxGameCreatedAt)
+            : null
     };
 }
 
 function calculateDevExCents(robux, usdPer1000Robux) {
     return Math.round((robux * usdPer1000Robux * 100) / 1000);
+}
+
+function parseDateTimestamp(value) {
+    const timestamp = Date.parse(String(value || ''));
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function compareGamesByUniverseCreatedAt(left, right) {
+    const leftUniverseCreatedAt = parseDateTimestamp(
+        left && left.revenue && left.revenue.robloxGameCreatedAt
+    );
+    const rightUniverseCreatedAt = parseDateTimestamp(
+        right && right.revenue && right.revenue.robloxGameCreatedAt
+    );
+
+    if (leftUniverseCreatedAt !== rightUniverseCreatedAt) {
+        if (leftUniverseCreatedAt === null) {
+            return 1;
+        }
+        if (rightUniverseCreatedAt === null) {
+            return -1;
+        }
+        return rightUniverseCreatedAt - leftUniverseCreatedAt;
+    }
+
+    const leftTrackedAt = parseDateTimestamp(left && left.createdAt) || 0;
+    const rightTrackedAt = parseDateTimestamp(right && right.createdAt) || 0;
+    if (leftTrackedAt !== rightTrackedAt) {
+        return rightTrackedAt - leftTrackedAt;
+    }
+
+    return String(left && left.displayName || '').localeCompare(
+        String(right && right.displayName || ''),
+        'en',
+        { sensitivity: 'base' }
+    );
 }
 
 async function addRevenueToGames(games, force) {
@@ -97,6 +136,7 @@ async function handleGet(req, res) {
     const games = await listProfitTrackerGames();
     const forceRevenueRefresh = String(req.query && req.query.refresh || '') === '1';
     const gamesWithRevenue = await addRevenueToGames(games, forceRevenueRefresh);
+    gamesWithRevenue.sort(compareGamesByUniverseCreatedAt);
 
     return sendJson(res, 200, {
         games: gamesWithRevenue,
