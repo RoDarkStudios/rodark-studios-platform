@@ -297,7 +297,6 @@ function renderProfitGameTile(game) {
             </span>
             <span class="profit-game-tile-identity">
                 <strong>${escapeProfitHtml(game.displayName)}</strong>
-                <small>Universe ${escapeProfitHtml(game.universeId)}</small>
             </span>
             <span class="profit-game-tile-result ${profitClass}">
                 <small>Estimated profit</small>
