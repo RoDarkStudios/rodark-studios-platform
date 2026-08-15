@@ -393,6 +393,7 @@ module.exports = {
     RobloxAnalyticsError,
     calculateHistoryWindow,
     extractNonCreatorRewardsRevenueRobux,
+    getRobloxOpenCloudApiKey,
     getUniverseRevenue,
     isCreatorRewardsRevenueSource,
     invalidateUniverseRevenue

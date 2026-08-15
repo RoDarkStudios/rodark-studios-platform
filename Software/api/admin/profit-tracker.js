@@ -3,7 +3,6 @@ const { requireAdmin } = require('../_lib/admin-auth');
 const {
     DEFAULT_DEVEX_USD_PER_1000_ROBUX,
     EXPENSE_CATEGORIES,
-    ProfitTrackerStoreError,
     createProfitTrackerExpense,
     createProfitTrackerGame,
     deleteProfitTrackerExpense,
@@ -13,9 +12,10 @@ const {
     updateProfitTrackerExpense,
     updateProfitTrackerGame
 } = require('../_lib/admin-profit-tracker-store');
-const { fetchRobloxGames } = require('../_lib/roblox-games');
+const { fetchRobloxUniverse } = require('../_lib/roblox-games');
 const {
     ANALYTICS_RETENTION_DAYS,
+    getRobloxOpenCloudApiKey,
     getUniverseRevenue,
     invalidateUniverseRevenue
 } = require('../_lib/roblox-analytics');
@@ -137,27 +137,37 @@ function getAction(body) {
 
 async function resolveRobloxGame(universeId) {
     const normalizedUniverseId = normalizeUniverseId(universeId);
-    let games;
+    let game;
 
     try {
-        games = await fetchRobloxGames([normalizedUniverseId]);
+        game = await fetchRobloxUniverse(
+            normalizedUniverseId,
+            getRobloxOpenCloudApiKey()
+        );
     } catch (error) {
         const lookupError = new Error(error && error.message
             ? String(error.message)
-            : 'Roblox game metadata lookup failed');
-        lookupError.statusCode = 502;
-        lookupError.code = 'ROBLOX_GAME_LOOKUP_FAILED';
-        lookupError.publicMessage = 'The game name could not be loaded from Roblox. Try again.';
+            : 'Roblox Open Cloud universe lookup failed');
+        lookupError.statusCode = error && error.code === 'ROBLOX_API_KEY_MISSING' ? 503 : 502;
+        if (error && error.code === 'ROBLOX_API_KEY_MISSING') {
+            lookupError.code = 'ROBLOX_API_KEY_MISSING';
+            lookupError.publicMessage = 'The Roblox Open Cloud API key is not configured.';
+        } else if (error && (error.robloxStatus === 401 || error.robloxStatus === 403)) {
+            lookupError.code = 'ROBLOX_UNIVERSE_READ_PERMISSION_REQUIRED';
+            lookupError.publicMessage = 'The Roblox Open Cloud API key needs universe:read access to this game.';
+        } else {
+            lookupError.code = 'ROBLOX_UNIVERSE_LOOKUP_FAILED';
+            lookupError.publicMessage = 'The game name could not be loaded from Roblox Open Cloud. Try again.';
+        }
         throw lookupError;
     }
 
-    const game = games.find((item) => String(item && item.universeId) === normalizedUniverseId);
     if (!game || !game.name) {
-        throw new ProfitTrackerStoreError(
-            'Roblox could not find a game with that universe ID',
-            400,
-            'ROBLOX_GAME_NOT_FOUND'
-        );
+        const nameError = new Error('Roblox Open Cloud did not return a name for that universe ID');
+        nameError.statusCode = 502;
+        nameError.code = 'ROBLOX_UNIVERSE_NAME_UNAVAILABLE';
+        nameError.publicMessage = 'Roblox Open Cloud did not return a name for that universe ID.';
+        throw nameError;
     }
 
     return {
@@ -166,10 +176,21 @@ async function resolveRobloxGame(universeId) {
     };
 }
 
+async function addRobloxNamesToGames(games) {
+    return mapWithConcurrency(games, REVENUE_FETCH_CONCURRENCY, async (game) => {
+        const robloxGame = await resolveRobloxGame(game.universeId);
+        return {
+            ...game,
+            displayName: robloxGame.displayName
+        };
+    });
+}
+
 async function handleGet(req, res) {
     const games = await listProfitTrackerGames();
     const forceRevenueRefresh = String(req.query && req.query.refresh || '') === '1';
-    const gamesWithRevenue = await addRevenueToGames(games, forceRevenueRefresh);
+    const gamesWithRobloxNames = await addRobloxNamesToGames(games);
+    const gamesWithRevenue = await addRevenueToGames(gamesWithRobloxNames, forceRevenueRefresh);
     gamesWithRevenue.sort(compareGamesByUniverseCreatedAt);
 
     return sendJson(res, 200, {
