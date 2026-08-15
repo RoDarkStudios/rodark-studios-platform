@@ -232,7 +232,7 @@ body {
 
 .profit-add-game-form {
     display: grid;
-    grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+    grid-template-columns: repeat(2, minmax(160px, 1fr)) auto;
     gap: 0.75rem;
     align-items: end;
     margin-top: 0.8rem;

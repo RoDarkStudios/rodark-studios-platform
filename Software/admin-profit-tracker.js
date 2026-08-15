@@ -339,12 +339,9 @@ function renderProfitGame(game) {
 
             <form class="profit-game-edit-form hidden" data-form="edit-game">
                 <label class="admin-field">
-                    <span class="admin-label">Display name</span>
-                    <input class="admin-input" name="displayName" type="text" maxlength="120" value="${escapeProfitHtml(game.displayName)}" required>
-                </label>
-                <label class="admin-field">
                     <span class="admin-label">Universe ID</span>
                     <input class="admin-input" name="universeId" type="text" inputmode="numeric" pattern="[0-9]+" value="${escapeProfitHtml(game.universeId)}" required>
+                    <small class="profit-field-note">The game name is loaded automatically from Roblox when you save</small>
                 </label>
                 <label class="admin-field">
                     <span class="admin-label">Creator Rewards total (Robux)</span>
@@ -533,10 +530,9 @@ function bindProfitTrackerEvents() {
             const formData = new FormData(addGameForm);
             const saved = await runProfitTrackerMutation('POST', {
                 action: 'createGame',
-                displayName: formData.get('displayName'),
                 universeId: formData.get('universeId'),
                 devExUsdPer1000Robux: formData.get('devExUsdPer1000Robux')
-            }, 'Adding game...', 'Game added.');
+            }, 'Loading the game from Roblox...', 'Game added.');
             if (saved) {
                 addGameForm.reset();
             }
@@ -596,11 +592,10 @@ function bindProfitTrackerEvents() {
                 action: 'updateGame',
                 gameId: game.id,
                 expectedVersion: game.version,
-                displayName: formData.get('displayName'),
                 universeId: formData.get('universeId'),
                 creatorRewardsRobux: formData.get('creatorRewardsRobux'),
                 devExUsdPer1000Robux: formData.get('devExUsdPer1000Robux')
-            }, 'Saving game...', 'Game saved.');
+            }, 'Loading the game from Roblox...', 'Game saved.');
             return;
         }
 

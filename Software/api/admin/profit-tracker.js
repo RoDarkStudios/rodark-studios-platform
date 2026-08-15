@@ -3,14 +3,17 @@ const { requireAdmin } = require('../_lib/admin-auth');
 const {
     DEFAULT_DEVEX_USD_PER_1000_ROBUX,
     EXPENSE_CATEGORIES,
+    ProfitTrackerStoreError,
     createProfitTrackerExpense,
     createProfitTrackerGame,
     deleteProfitTrackerExpense,
     deleteProfitTrackerGame,
     listProfitTrackerGames,
+    normalizeUniverseId,
     updateProfitTrackerExpense,
     updateProfitTrackerGame
 } = require('../_lib/admin-profit-tracker-store');
+const { fetchRobloxGames } = require('../_lib/roblox-games');
 const {
     ANALYTICS_RETENTION_DAYS,
     getUniverseRevenue,
@@ -132,6 +135,37 @@ function getAction(body) {
     return String(body && body.action || '').trim();
 }
 
+async function resolveRobloxGame(universeId) {
+    const normalizedUniverseId = normalizeUniverseId(universeId);
+    let games;
+
+    try {
+        games = await fetchRobloxGames([normalizedUniverseId]);
+    } catch (error) {
+        const lookupError = new Error(error && error.message
+            ? String(error.message)
+            : 'Roblox game metadata lookup failed');
+        lookupError.statusCode = 502;
+        lookupError.code = 'ROBLOX_GAME_LOOKUP_FAILED';
+        lookupError.publicMessage = 'The game name could not be loaded from Roblox. Try again.';
+        throw lookupError;
+    }
+
+    const game = games.find((item) => String(item && item.universeId) === normalizedUniverseId);
+    if (!game || !game.name) {
+        throw new ProfitTrackerStoreError(
+            'Roblox could not find a game with that universe ID',
+            400,
+            'ROBLOX_GAME_NOT_FOUND'
+        );
+    }
+
+    return {
+        displayName: game.name,
+        universeId: normalizedUniverseId
+    };
+}
+
 async function handleGet(req, res) {
     const games = await listProfitTrackerGames();
     const forceRevenueRefresh = String(req.query && req.query.refresh || '') === '1';
@@ -148,9 +182,10 @@ async function handleGet(req, res) {
 async function handlePost(body, user, res) {
     const action = getAction(body);
     if (action === 'createGame') {
+        const robloxGame = await resolveRobloxGame(body.universeId);
         const result = await createProfitTrackerGame({
-            displayName: body.displayName,
-            universeId: body.universeId,
+            displayName: robloxGame.displayName,
+            universeId: robloxGame.universeId,
             devExUsdPer1000Robux: body.devExUsdPer1000Robux,
             user
         });
@@ -175,11 +210,12 @@ async function handlePost(body, user, res) {
 async function handlePatch(body, user, res) {
     const action = getAction(body);
     if (action === 'updateGame') {
+        const robloxGame = await resolveRobloxGame(body.universeId);
         const result = await updateProfitTrackerGame({
             gameId: body.gameId,
             expectedVersion: body.expectedVersion,
-            displayName: body.displayName,
-            universeId: body.universeId,
+            displayName: robloxGame.displayName,
+            universeId: robloxGame.universeId,
             creatorRewardsRobux: body.creatorRewardsRobux,
             devExUsdPer1000Robux: body.devExUsdPer1000Robux,
             user
@@ -264,11 +300,14 @@ module.exports = async (req, res) => {
                 ? 400
                 : 500;
         const isSafeClientError = safeStatusCode >= 400 && safeStatusCode < 500;
+        const publicMessage = error && typeof error.publicMessage === 'string'
+            ? error.publicMessage
+            : null;
 
         return sendJson(res, safeStatusCode, {
-            error: isSafeClientError
+            error: publicMessage || (isSafeClientError
                 ? String(error.message || 'Invalid profit tracker request')
-                : 'Failed to manage the game profit tracker',
+                : 'Failed to manage the game profit tracker'),
             code: error && error.code ? String(error.code) : undefined,
             currentVersion: error && error.currentVersion !== undefined
                 ? error.currentVersion
