@@ -1160,20 +1160,6 @@ body {
     display: none !important;
 }
 
-.credibility-strip {
-    background: #101010;
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    padding: 1.25rem 0;
-}
-
-.credibility-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.75rem;
-}
-
-.credibility-grid div,
 .consultation-proof-grid div {
     border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 12px;
@@ -1182,7 +1168,6 @@ body {
     text-align: center;
 }
 
-.credibility-grid strong,
 .consultation-proof-grid strong {
     display: block;
     color: var(--primary-color);
@@ -1190,7 +1175,6 @@ body {
     line-height: 1.1;
 }
 
-.credibility-grid span,
 .consultation-proof-grid span {
     display: block;
     margin-top: 0.25rem;
@@ -3471,7 +3455,6 @@ body {
         height: 150px;
     }
 
-    .credibility-grid,
     .consultation-proof-grid,
     .consultation-step-grid,
     .consultation-admin-summary,
