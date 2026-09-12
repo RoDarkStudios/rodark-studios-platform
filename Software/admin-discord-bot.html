@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=20260912-discord-deploy">
+    <link rel="stylesheet" href="/styles.css?v=20260912-admin-cleanup">
     <link rel="icon" type="image/png" href="/official_company_logo.png">
 </head>
 <body>
@@ -56,24 +56,6 @@
                                     <button class="admin-discord-tab is-active" type="button" role="tab" aria-selected="true" data-discord-tab-target="discord-tab-status">
                                         Status
                                     </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-server">
-                                        Server
-                                    </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-infrastructure">
-                                        Server Layout
-                                    </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-startup-sync">
-                                        Startup Sync
-                                    </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-tickets">
-                                        Tickets
-                                    </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-levels">
-                                        Levels
-                                    </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-updates">
-                                        Updates
-                                    </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-transcripts">
                                         Transcripts
                                     </button>
@@ -90,304 +72,13 @@
                                         </div>
                                     </div>
 
-                                    <button id="discord-bot-toggle-btn" class="btn btn-primary admin-submit-btn" type="button" disabled>
-                                        Connect bot
-                                    </button>
-                                </section>
-
-                                <section id="discord-tab-server" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-server-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-server-title" class="admin-tool-title">Discord Server</h2>
-                                            <p class="admin-tool-note">
-                                                Set the one Discord server this bot should manage.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <label class="admin-field">
-                                        <span class="admin-label">Server ID</span>
-                                        <input
-                                            id="discord-guild-id"
-                                            class="admin-input"
-                                            type="text"
-                                            inputmode="numeric"
-                                            autocomplete="off"
-                                            placeholder="Discord server ID"
-                                        >
-                                    </label>
-
-                                    <button id="discord-guild-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
-                                        Save server ID
-                                    </button>
-                                </section>
-
-                                <section id="discord-tab-startup-sync" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-startup-sync-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-startup-sync-title" class="admin-tool-title">Startup Channel Sync</h2>
-                                            <p class="admin-tool-note">
-                                                On startup, sync the fixed rules, info, roles, staff-info, and game-test-info messages.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div class="admin-discord-field-grid">
-                                        <label class="admin-field">
-                                            <span class="admin-label">Rules Channel</span>
-                                            <input
-                                                id="discord-content-rules-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Info Channel</span>
-                                            <input
-                                                id="discord-content-info-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Roles Channel</span>
-                                            <input
-                                                id="discord-content-roles-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Staff-Info Channel</span>
-                                            <input
-                                                id="discord-content-staff-info-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Game-Test-Info Channel</span>
-                                            <input
-                                                id="discord-content-game-test-info-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-                                    </div>
-
-                                    <p id="discord-channel-lookup-summary" class="admin-tool-note hidden"></p>
-
-                                    <datalist id="discord-text-channel-options"></datalist>
-
-                                    <button id="discord-startup-sync-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
-                                        Save startup sync settings
-                                    </button>
-                                </section>
-
-                                <section id="discord-tab-tickets" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-ticket-system-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-ticket-system-title" class="admin-tool-title">Ticket System</h2>
-                                            <p class="admin-tool-note">
-                                                Create a private ticket panel and send new tickets into one category.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div class="admin-discord-field-grid">
-                                        <label class="admin-field">
-                                            <span class="admin-label">Ticket Category</span>
-                                            <input
-                                                id="discord-ticket-category-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-category-channel-options"
-                                                placeholder="Search Discord categories"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Ticket Panel Channel</span>
-                                            <input
-                                                id="discord-ticket-panel-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-                                    </div>
-
-                                    <div class="admin-field admin-ticket-role-field">
-                                        <span class="admin-label">Ticket Helper Roles</span>
-                                        <div class="admin-inline-actions">
-                                            <input
-                                                id="discord-ticket-helper-role-input"
-                                                class="admin-input admin-inline-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-role-options"
-                                                placeholder="Search Discord roles"
-                                            >
-                                            <button id="discord-ticket-helper-role-add-btn" class="btn btn-secondary admin-compact-btn" type="button">
-                                                Add role
-                                            </button>
-                                        </div>
-                                        <div id="discord-ticket-helper-role-list" class="admin-selected-list" aria-live="polite"></div>
-                                    </div>
-
-                                    <p class="admin-tool-note">
-                                        Selected helper roles can view new tickets and are briefly pinged when a ticket opens. The category controls where ticket channels are created.
-                                    </p>
-
-                                    <datalist id="discord-category-channel-options"></datalist>
-                                    <datalist id="discord-role-options"></datalist>
-
-                                    <button id="discord-ticket-system-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
-                                        Save ticket settings
-                                    </button>
-                                </section>
-
-                                <section id="discord-tab-levels" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-level-system-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-level-system-title" class="admin-tool-title">Level System</h2>
-                                            <p class="admin-tool-note">
-                                                Count community messages, assign level roles, and unlock embedded links after the configured level.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <label class="admin-checkbox-row">
-                                        <input id="discord-level-system-enabled" type="checkbox">
-                                        <span>Enable message leveling</span>
-                                    </label>
-
-                                    <label class="admin-checkbox-row">
-                                        <input id="discord-level-mention-enabled" type="checkbox">
-                                        <span>Mention members when they level up</span>
-                                    </label>
-
-                                    <div class="admin-discord-field-grid">
-                                        <label class="admin-field">
-                                            <span class="admin-label">Level-Up Announcement Channel</span>
-                                            <input
-                                                id="discord-level-announcement-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Embed Links Unlock Level</span>
-                                            <select id="discord-level-attachment-unlock-level" class="admin-input">
-                                                <option value="5">Level 5 (about 50 counted messages)</option>
-                                                <option value="10">Level 10</option>
-                                                <option value="15">Level 15</option>
-                                                <option value="25">Level 25</option>
-                                                <option value="50">Level 50</option>
-                                                <option value="75">Level 75</option>
-                                                <option value="100">Level 100</option>
-                                            </select>
-                                        </label>
-                                    </div>
-
-                                    <p class="admin-tool-note">
-                                        When enabled, the bot ensures Level 5, 10, 15, 25, 50, 75, and 100 roles exist. One message per user can count every 10 seconds, Level 5 takes about 50 counted messages, and later levels require progressively more XP. Turning this off stops counting messages and assigning roles, but it does not delete roles from Discord.
-                                    </p>
-
-                                    <button id="discord-level-system-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
-                                        Save level settings
-                                    </button>
-                                </section>
-
-                                <section id="discord-tab-updates" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-game-updates-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-game-updates-title" class="admin-tool-title">Game Updates</h2>
-                                            <p class="admin-tool-note">
-                                                Send structured game update announcements to one selected channel.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div class="admin-discord-field-grid">
-                                        <label class="admin-field">
-                                            <span class="admin-label">Game Updates Channel</span>
-                                            <input
-                                                id="discord-game-updates-channel-id"
-                                                class="admin-input"
-                                                type="text"
-                                                autocomplete="off"
-                                                list="discord-text-channel-options"
-                                                placeholder="Search Discord channels"
-                                            >
-                                        </label>
-
-                                        <label class="admin-field">
-                                            <span class="admin-label">Announcement Title</span>
-                                            <input
-                                                id="discord-game-update-title"
-                                                class="admin-input"
-                                                type="text"
-                                                maxlength="120"
-                                                autocomplete="off"
-                                                placeholder="Update title"
-                                            >
-                                        </label>
-                                    </div>
-
-                                    <label class="admin-field admin-discord-announcement-body">
-                                        <span class="admin-label">Announcement Body</span>
-                                        <textarea
-                                            id="discord-game-update-body"
-                                            class="admin-textarea"
-                                            maxlength="3500"
-                                            placeholder="What changed in this update?"
-                                        ></textarea>
-                                    </label>
-
-                                    <label class="admin-checkbox-row">
-                                        <input id="discord-game-updates-ping-everyone" type="checkbox" checked>
-                                        <span>Ping @everyone when sending updates</span>
-                                    </label>
-
-                                    <p class="admin-tool-note">
-                                        The dashboard adds the production Play now link automatically and the bot reacts with five preset emojis. When enabled, @everyone is used for the notification and then hidden from the final message.
-                                    </p>
-
                                     <div class="admin-inline-actions">
-                                        <button id="discord-game-updates-save-btn" class="btn btn-secondary admin-submit-btn" type="button" disabled>
-                                            Save updates channel
+                                        <button id="discord-bot-toggle-btn" class="btn btn-primary" type="button" disabled>
+                                            Connect bot
                                         </button>
-                                        <button id="discord-game-update-send-btn" class="btn btn-primary admin-submit-btn" type="button" disabled>
-                                            Send update announcement
-                                        </button>
+                                        <button id="infra-deploy" class="btn btn-primary" type="button" disabled>Deploy</button>
                                     </div>
+                                    <p id="infra-status" class="admin-tool-note" role="status" aria-live="polite"></p>
                                 </section>
 
                                 <section id="discord-tab-transcripts" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-ticket-transcripts-title" hidden>
@@ -418,10 +109,6 @@
                                     </div>
                                 </section>
 
-                                <section id="discord-tab-infrastructure" class="admin-discord-tab-panel" role="tabpanel" aria-label="Server deployment" hidden>
-                                    <button id="infra-deploy" class="btn btn-primary" type="button" disabled>Deploy</button>
-                                    <p id="infra-status" class="admin-tool-note" role="status" aria-live="polite"></p>
-                                </section>
                                 <p id="discord-bot-status-message" class="admin-status info hidden"></p>
                             </div>
                         </div>
@@ -450,7 +137,7 @@
         </div>
     </footer>
 
-    <script src="/script.js?v=20260912-discord-deploy"></script>
-    <script src="/discord-infrastructure.js?v=20260912-deploy"></script>
+    <script src="/script.js?v=20260912-admin-cleanup"></script>
+    <script src="/discord-infrastructure.js?v=20260912-admin-cleanup"></script>
 </body>
 </html>

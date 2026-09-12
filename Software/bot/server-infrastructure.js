@@ -1,5 +1,5 @@
 const defaultStore = require('../api/_lib/discord-infrastructure-store');
-const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, clone } = require('./server-blueprint');
+const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, clone, manifest } = require('./server-blueprint');
 
 async function captureSnapshot(rest, guildId, botId, spec) {
     const root = `/guilds/${guildId}`;
@@ -24,9 +24,11 @@ function controlWithLayout(control, active) {
     return { ...control, guildId: active.spec.guildId,
         infrastructure: active,
         startupContentSync: { rulesChannelId: c.rules, infoChannelId: c.info, rolesChannelId: c.roles, staffInfoChannelId: c['staff-info'], gameTestInfoChannelId: '' },
-        ticketSystem: { ...control.ticketSystem, categoryChannelId: c['category:tickets'], panelChannelId: c.help, helperRoleIds: [r.staff] },
-        levelSystem: { ...control.levelSystem, enabled: true, announcementChannelId: c['level-ups'] },
-        gameUpdates: { ...control.gameUpdates, channelId: c['game-updates'], pingEveryoneEnabled: false }
+        ticketSystem: { ...control.ticketSystem, categoryChannelId: c['category:tickets'], panelChannelId: c.help, helperRoleIds: [r.staff, r.owner].filter(Boolean) },
+        levelSystem: { ...control.levelSystem, enabled: active.spec.levels.enabled ?? manifest.levels.enabled,
+            attachmentUnlockLevel: active.spec.levels.attachmentUnlockLevel ?? manifest.levels.attachmentUnlockLevel,
+            mentionLevelUps: active.spec.levels.mentionLevelUps ?? manifest.levels.mentionLevelUps,
+            announcementChannelId: c['level-ups'] }
     };
 }
 

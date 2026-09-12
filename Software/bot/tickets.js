@@ -48,7 +48,14 @@ function getTicketSystemControl(control) {
     };
 }
 
-function buildTicketPanelPayload() {
+function buildTicketPanelPayload(control) {
+    const active = control?.infrastructure;
+    const bugReportChannels = active
+        ? active.spec.games.map(game => active.bindings.channel[`${game.key}/bug-reports`]).filter(Boolean)
+        : [BUG_REPORT_CHANNEL_ID];
+    const bugReportDestinations = bugReportChannels.length
+        ? bugReportChannels.map(id => `<#${id}>`).join(', ')
+        : 'your game’s bug reports forum';
     const embed = new EmbedBuilder()
         .setTitle('Open a Ticket')
         .setColor(0xf97316)
@@ -58,7 +65,7 @@ function buildTicketPanelPayload() {
             '**Do not open tickets for:**',
             ...TICKET_PANEL_EXCLUSIONS.map((text) => `- ${text}`),
             '',
-            `⚠️ Bug reports go in <#${BUG_REPORT_CHANNEL_ID}>, not tickets. They are still read.`
+            `⚠️ Bug reports go in ${bugReportDestinations}, not tickets. They are still read.`
         ].join('\n'));
 
     const row = new ActionRowBuilder().addComponents(
@@ -312,7 +319,7 @@ async function ensureTicketPanel(client, control) {
         panelMessage = await panelChannel.messages.fetch(ticketSystem.panelMessageId).catch(() => null);
     }
 
-    const payload = buildTicketPanelPayload();
+    const payload = buildTicketPanelPayload(control);
     if (panelMessage && panelMessage.editable) {
         await panelMessage.edit(payload);
         return;

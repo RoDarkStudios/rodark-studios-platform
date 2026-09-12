@@ -1,7 +1,7 @@
+const { guildId: DISCORD_GUILD_ID, levels: LEVEL_SETTINGS } = require('../../discord/server.json');
 const { postgresQuery } = require('./postgres');
 
 const CONTROL_ID = 1;
-const LEVEL_ATTACHMENT_UNLOCK_LEVELS = [5, 10, 15, 25, 50, 75, 100];
 
 function toIsoString(value) {
     if (value instanceof Date) {
@@ -53,15 +53,6 @@ function normalizeOptionalSnowflakeArray(value, fieldName) {
     return normalizedValues;
 }
 
-function normalizeLevelUnlockLevel(value) {
-    const parsedValue = Number.parseInt(value || '5', 10);
-    if (!LEVEL_ATTACHMENT_UNLOCK_LEVELS.includes(parsedValue)) {
-        throw new Error('Attachment unlock level must be one of 5, 10, 15, 25, 50, 75, or 100');
-    }
-
-    return parsedValue;
-}
-
 async function ensureDiscordBotControlSchema() {
     await postgresQuery(`
         create table if not exists discord_bot_control (
@@ -76,16 +67,14 @@ async function ensureDiscordBotControlSchema() {
             content_roles_channel_id text,
             content_staff_info_channel_id text,
             content_game_test_info_channel_id text,
-            game_updates_channel_id text,
             tickets_category_channel_id text,
             tickets_panel_channel_id text,
             tickets_panel_message_id text,
             tickets_helper_role_ids text[] not null default '{}',
-            level_system_enabled boolean not null default false,
+            level_system_enabled boolean not null default true,
             level_announcement_channel_id text,
             level_attachment_unlock_level integer not null default 5,
-            level_mention_enabled boolean not null default true,
-            game_updates_ping_everyone_enabled boolean not null default true,
+            level_mention_enabled boolean not null default false,
             updated_at timestamptz not null default now(),
             updated_by_user_id text,
             updated_by_username text
@@ -124,16 +113,6 @@ async function ensureDiscordBotControlSchema() {
 
     await postgresQuery(`
         alter table discord_bot_control
-        add column if not exists game_updates_channel_id text
-    `);
-
-    await postgresQuery(`
-        alter table discord_bot_control
-        add column if not exists game_updates_ping_everyone_enabled boolean not null default true
-    `);
-
-    await postgresQuery(`
-        alter table discord_bot_control
         add column if not exists tickets_category_channel_id text
     `);
 
@@ -154,7 +133,7 @@ async function ensureDiscordBotControlSchema() {
 
     await postgresQuery(`
         alter table discord_bot_control
-        add column if not exists level_system_enabled boolean not null default false
+        add column if not exists level_system_enabled boolean not null default true
     `);
 
     await postgresQuery(`
@@ -169,7 +148,7 @@ async function ensureDiscordBotControlSchema() {
 
     await postgresQuery(`
         alter table discord_bot_control
-        add column if not exists level_mention_enabled boolean not null default true
+        add column if not exists level_mention_enabled boolean not null default false
     `);
 
     await postgresQuery(`
@@ -310,17 +289,13 @@ function mapRowToDiscordBotControl(row) {
         updatedAt: toIsoString(row.updated_at),
         updatedByUserId: row.updated_by_user_id ? String(row.updated_by_user_id) : null,
         updatedByUsername: row.updated_by_username ? String(row.updated_by_username) : null,
-        guildId: row.guild_id ? String(row.guild_id) : null,
+        guildId: DISCORD_GUILD_ID,
         startupContentSync: {
             rulesChannelId: row.content_rules_channel_id ? String(row.content_rules_channel_id) : null,
             infoChannelId: row.content_info_channel_id ? String(row.content_info_channel_id) : null,
             rolesChannelId: row.content_roles_channel_id ? String(row.content_roles_channel_id) : null,
             staffInfoChannelId: row.content_staff_info_channel_id ? String(row.content_staff_info_channel_id) : null,
             gameTestInfoChannelId: row.content_game_test_info_channel_id ? String(row.content_game_test_info_channel_id) : null
-        },
-        gameUpdates: {
-            channelId: row.game_updates_channel_id ? String(row.game_updates_channel_id) : null,
-            pingEveryoneEnabled: row.game_updates_ping_everyone_enabled !== false
         },
         ticketSystem: {
             categoryChannelId: row.tickets_category_channel_id ? String(row.tickets_category_channel_id) : null,
@@ -331,10 +306,10 @@ function mapRowToDiscordBotControl(row) {
                 : []
         },
         levelSystem: {
-            enabled: Boolean(row.level_system_enabled),
+            enabled: LEVEL_SETTINGS.enabled,
             announcementChannelId: row.level_announcement_channel_id ? String(row.level_announcement_channel_id) : null,
-            attachmentUnlockLevel: Number(row.level_attachment_unlock_level) || 5,
-            mentionLevelUps: row.level_mention_enabled !== false
+            attachmentUnlockLevel: LEVEL_SETTINGS.attachmentUnlockLevel,
+            mentionLevelUps: LEVEL_SETTINGS.mentionLevelUps
         }
     };
 }
@@ -357,8 +332,6 @@ async function getDiscordBotControl() {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
-            game_updates_channel_id,
-            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -386,9 +359,8 @@ async function updateDiscordBotControl(patch, user) {
     const desiredEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'desiredEnabled')
         ? Boolean(patch.desiredEnabled)
         : currentControl.desiredEnabled;
-    const guildId = patch && Object.prototype.hasOwnProperty.call(patch, 'guildId')
-        ? normalizeOptionalSnowflake(patch.guildId, 'Discord server ID')
-        : (currentControl.guildId ? String(currentControl.guildId) : null);
+    if (patch?.guildId !== undefined && String(patch.guildId) !== DISCORD_GUILD_ID) throw new Error('Discord server ID is fixed in the repository');
+    const guildId = DISCORD_GUILD_ID;
     const contentRulesChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'contentRulesChannelId')
         ? normalizeOptionalSnowflake(patch.contentRulesChannelId, 'Rules channel ID')
         : (currentControl.startupContentSync && currentControl.startupContentSync.rulesChannelId
@@ -414,14 +386,6 @@ async function updateDiscordBotControl(patch, user) {
         : (currentControl.startupContentSync && currentControl.startupContentSync.gameTestInfoChannelId
             ? String(currentControl.startupContentSync.gameTestInfoChannelId)
             : null);
-    const gameUpdatesChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'gameUpdatesChannelId')
-        ? normalizeOptionalSnowflake(patch.gameUpdatesChannelId, 'Game updates channel ID')
-        : (currentControl.gameUpdates && currentControl.gameUpdates.channelId
-            ? String(currentControl.gameUpdates.channelId)
-            : null);
-    const gameUpdatesPingEveryoneEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'gameUpdatesPingEveryoneEnabled')
-        ? Boolean(patch.gameUpdatesPingEveryoneEnabled)
-        : !(currentControl.gameUpdates && currentControl.gameUpdates.pingEveryoneEnabled === false);
     const ticketsCategoryChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'ticketsCategoryChannelId')
         ? normalizeOptionalSnowflake(patch.ticketsCategoryChannelId, 'Tickets category ID')
         : (currentControl.ticketSystem && currentControl.ticketSystem.categoryChannelId
@@ -437,20 +401,14 @@ async function updateDiscordBotControl(patch, user) {
         : (currentControl.ticketSystem && Array.isArray(currentControl.ticketSystem.helperRoleIds)
             ? currentControl.ticketSystem.helperRoleIds.map((value) => String(value)).filter(Boolean)
             : []);
-    const levelSystemEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'levelSystemEnabled')
-        ? Boolean(patch.levelSystemEnabled)
-        : Boolean(currentControl.levelSystem && currentControl.levelSystem.enabled);
+    const levelSystemEnabled = LEVEL_SETTINGS.enabled;
     const levelAnnouncementChannelId = patch && Object.prototype.hasOwnProperty.call(patch, 'levelAnnouncementChannelId')
         ? normalizeOptionalSnowflake(patch.levelAnnouncementChannelId, 'Level-up announcement channel ID')
         : (currentControl.levelSystem && currentControl.levelSystem.announcementChannelId
             ? String(currentControl.levelSystem.announcementChannelId)
             : null);
-    const levelAttachmentUnlockLevel = patch && Object.prototype.hasOwnProperty.call(patch, 'levelAttachmentUnlockLevel')
-        ? normalizeLevelUnlockLevel(patch.levelAttachmentUnlockLevel)
-        : normalizeLevelUnlockLevel(currentControl.levelSystem && currentControl.levelSystem.attachmentUnlockLevel);
-    const levelMentionEnabled = patch && Object.prototype.hasOwnProperty.call(patch, 'levelMentionEnabled')
-        ? Boolean(patch.levelMentionEnabled)
-        : (currentControl.levelSystem ? currentControl.levelSystem.mentionLevelUps !== false : true);
+    const levelAttachmentUnlockLevel = LEVEL_SETTINGS.attachmentUnlockLevel;
+    const levelMentionEnabled = LEVEL_SETTINGS.mentionLevelUps;
 
     const result = await postgresQuery(`
         update discord_bot_control
@@ -462,8 +420,6 @@ async function updateDiscordBotControl(patch, user) {
             content_roles_channel_id = $6,
             content_staff_info_channel_id = $7,
             content_game_test_info_channel_id = $8,
-            game_updates_channel_id = $16,
-            game_updates_ping_everyone_enabled = $17,
             tickets_category_channel_id = $9,
             tickets_panel_channel_id = $10,
             tickets_helper_role_ids = $11,
@@ -476,8 +432,8 @@ async function updateDiscordBotControl(patch, user) {
             level_attachment_unlock_level = $14,
             level_mention_enabled = $15,
             updated_at = now(),
-            updated_by_user_id = $18,
-            updated_by_username = $19,
+            updated_by_user_id = $16,
+            updated_by_username = $17,
             last_error = case when $2 = false then null else last_error end
         where id = $1
         returning
@@ -494,8 +450,6 @@ async function updateDiscordBotControl(patch, user) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
-            game_updates_channel_id,
-            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -520,8 +474,6 @@ async function updateDiscordBotControl(patch, user) {
         levelAnnouncementChannelId,
         levelAttachmentUnlockLevel,
         levelMentionEnabled,
-        gameUpdatesChannelId,
-        gameUpdatesPingEveryoneEnabled,
         user && user.id ? String(user.id) : null,
         user && user.username ? String(user.username) : null
     ]);
@@ -550,8 +502,6 @@ async function setDiscordTicketPanelMessageId(panelMessageId) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
-            game_updates_channel_id,
-            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,
@@ -592,8 +542,6 @@ async function setDiscordBotRuntimeStatus(runtimeStatus, lastError) {
             content_roles_channel_id,
             content_staff_info_channel_id,
             content_game_test_info_channel_id,
-            game_updates_channel_id,
-            game_updates_ping_everyone_enabled,
             tickets_category_channel_id,
             tickets_panel_channel_id,
             tickets_panel_message_id,

@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 2;
+const ENGINE_VERSION = 3;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -70,7 +70,7 @@ function validateManifest(spec) {
 
 function compileBlueprint(control = {}, spec = manifest) {
     validateManifest(spec);
-    const threshold = Number(control.levelSystem?.attachmentUnlockLevel || 5);
+    const threshold = Number(spec.levels.attachmentUnlockLevel ?? 5);
     if (!spec.levels.milestones.includes(threshold)) throw new Error('Invalid existing level permission threshold.');
     const roles = spec.roles.map((role) => ({ ...role,
         color: Number.parseInt(role.color.replace('#', ''), 16), mentionable: false, hoist: Boolean(role.hoist),

@@ -3159,10 +3159,6 @@ body {
     margin-top: 0.9rem;
 }
 
-.admin-discord-announcement-body {
-    margin-top: 0.9rem;
-}
-
 .admin-selected-list {
     display: flex;
     flex-wrap: wrap;
@@ -3304,6 +3300,10 @@ body {
     border-radius: 10px;
     background: rgba(10, 10, 10, 0.45);
     padding: 1rem;
+}
+
+#discord-tab-status .admin-inline-actions {
+    margin-top: 1rem;
 }
 
 .admin-discord-status-dot {

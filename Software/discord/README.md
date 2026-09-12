@@ -1,6 +1,6 @@
 # Discord server configuration
 
-`server.json` defines the RoDark Studios server. Edit this file, commit and push, wait for both Railway services to update, then open **Admin → Discord Bot → Server Layout → Deploy**. This feature has one button. The bot checks and applies changes automatically; the page only shows progress or errors. Pushing code does not apply the new layout to Discord.
+`server.json` defines the RoDark Studios server. Edit this file, commit and push, wait for both Railway services to update, then open **Admin → Discord Bot → Status → Deploy**. This feature has one button. The bot checks and applies changes automatically; the page only shows progress or errors. Pushing code does not apply the new layout to Discord.
 
 ## First deployment and later updates
 
@@ -12,11 +12,11 @@ The Owner role, the bot's own roles and Discord-managed roles cannot be wiped as
 
 ## Layout and permissions
 
-The current definition creates 10 categories and 42 channels. All normal channel names use `emoji・name`. The honeypot retains its existing name and warning-before-opening behaviour. Private staff information and the moderation log are read only for Staff. Tickets remain visible to their opener, Staff, Owners and the bot.
+The current definition creates 10 categories and 42 channels. All normal channel names use `emoji・name`. The honeypot retains its existing name and warning-before-opening behaviour. Private staff information and the moderation log are read only for Staff. Tickets remain visible to their opener, Staff, Owners and the bot. Every new ticket pings Staff and Owners. Its panel uses the `help` channel binding; startup information and level-up messages also use their declared channel bindings.
 
 Staff can moderate people, messages and voice chat, but cannot manage the server, roles or channels. Staff do not receive Manage Threads because that permission also permits changing protected forum tags. Instead, `/forum-moderate` lets them lock, reopen or delete a member's post in the declared game forums. It cannot change Fixed, Closed or Implemented tags or moderate an Owner's post. Only Owners can create dev-discussion posts; members can reply.
 
-Content Creators are manually assigned through normal ticket applications and can post in each game's YouTube channel with a six-hour slowmode. Notifications are opt-in roles; Owners mention them manually. Existing level milestones (5, 10, 15, 25, 50, 75, 100) and the configured Embed Links unlock level are retained. Uploads are disabled in game chat and private-server channels, and allowed in media; link and GIF previews still follow the existing level gate. Plain links can be posted without Embed Links.
+Content Creators are manually assigned through normal ticket applications and can post in each game's YouTube channel with a six-hour slowmode. Notifications are opt-in roles; Owners mention them manually. Level settings live in `server.json`: leveling is enabled, Embed Links unlocks at Level 5, and level-up announcements do not ping members. Existing milestones (5, 10, 15, 25, 50, 75, 100) and XP are retained. Uploads are disabled in game chat and private-server channels, and allowed in media; link and GIF previews still follow the existing level gate. Plain links can be posted without Embed Links.
 
 Advanced Community Onboarding asks members to select one or more games and optionally notification roles. The selected games populate their channel list, and members can change choices in Channels & Roles. Unselected games remain discoverable in Browse Channels: the selection controls clutter, not confidentiality. Member is assigned by onboarding and when an existing member next chats. The honeypot is never an onboarding destination.
 
@@ -41,3 +41,5 @@ Gateway events trigger read-only drift checks, with a periodic refresh for misse
 Run `node --test bot/*.test.js` from `Software`. Tests use fake Discord calls and an isolated Postgres-compatible database; they do not modify the real server.
 
 Discord references: [Guild and onboarding API](https://docs.discord.com/developers/resources/guild), [channels and forum tags](https://docs.discord.com/developers/resources/channel), [permissions and role hierarchy](https://docs.discord.com/developers/topics/permissions), [forum post permissions](https://docs.discord.com/developers/topics/threads), [Community Onboarding](https://support.discord.com/hc/en-us/articles/11074987197975-Community-Onboarding-FAQ).
+
+The website has only Status (Connect/Disconnect and Deploy) and Transcripts. Server ID, channels, ticket helpers and level behaviour are repository configuration. Announcements are posted manually in Discord.

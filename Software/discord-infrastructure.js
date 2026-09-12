@@ -1,5 +1,5 @@
 (() => {
-    const panel = document.getElementById('discord-tab-infrastructure');
+    const panel = document.getElementById('discord-tab-status');
     if (!panel) return;
     const button = document.getElementById('infra-deploy');
     const status = document.getElementById('infra-status');
@@ -43,7 +43,7 @@
             working = false; render(); status.textContent = error.message; status.classList.add('infra-error');
         }
     });
-    document.querySelector('[data-discord-tab-target="discord-tab-infrastructure"]').addEventListener('click', () => { void load(); });
+    document.querySelector('[data-discord-tab-target="discord-tab-status"]').addEventListener('click', () => { void load(); });
     const timer = setInterval(() => { if (!panel.hidden && !document.hidden) void load(); }, 4000);
     window.addEventListener('pagehide', () => clearInterval(timer), { once: true });
 })();

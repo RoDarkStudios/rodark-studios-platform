@@ -23,7 +23,7 @@ The app is deployed as a normal Node.js service on Railway from the `Software` d
 - `ROBLOX_OAUTH_CLIENT_SECRET`
 - `ROBLOX_OPEN_CLOUD_API_KEY` (used to read tracked-game revenue; grant `universe.analytics:read` for every tracked universe)
 - `DATABASE_URL` (Railway Postgres connection used for shared admin, profit-tracker, and Discord-bot data)
-- `DISCORD_BOT_TOKEN` (required by the Discord bot service; also required by the web service for Discord dashboard channel/role lookups)
+- `DISCORD_BOT_TOKEN` (required only by the Discord bot worker)
 
 Optional:
 - `ROBLOX_OAUTH_REDIRECT_URI`

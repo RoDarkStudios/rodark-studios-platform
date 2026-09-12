@@ -46,7 +46,7 @@ ROBLOX_OAUTH_REDIRECT_URI=https://your-railway-or-custom-domain/api/auth/callbac
 
 Set `OPENAI_API_KEY` on the Discord bot Railway service for contextual moderation. The model is fixed to `gpt-5.6-luna` with high reasoning. Optional `DISCORD_MODERATOR_ROLE_IDS`, `DISCORD_MODERATION_LOG_CHANNEL_ID` and `DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS` also belong on that service. See [moderation setup](bot/MODERATION.md). Old ticket AI environment variables are no longer used and can be removed.
 
-`DISCORD_BOT_TOKEN` is also needed on the web service if you want `/admin/discord-bot` to show searchable Discord channel and role pickers instead of manual IDs.
+The web dashboard uses Postgres for Status, Deploy and Transcripts. Only the Discord bot worker needs `DISCORD_BOT_TOKEN`.
 
 ## Roblox OAuth
 
@@ -83,4 +83,4 @@ Run the Discord bot as a second Railway service from this same GitHub repo.
 
 The website dashboard at `/admin/discord-bot` sets the desired bot state in Postgres. The bot service reads that state and connects or disconnects from Discord.
 
-The **Server Layout** tab deploys `discord/server.json`. Both services must run the same pushed version; mismatches are rejected before Discord writes. The website queues previews and deployments in the shared database, and the bot processes them with its existing token. No additional environment variables are required. Database tables are created automatically. Keep the Postgres state across deployments so retained channels keep their IDs and message history. See [the server configuration guide](discord/README.md) for the initial rebuild, role hierarchy requirements and recovery.
+The **Status** tab deploys `discord/server.json`. Both services must run the same pushed version; mismatches are rejected before Discord writes. The website queues previews and deployments in the shared database, and the bot processes them with its existing token. No additional environment variables are required. Database tables are created automatically. Keep the Postgres state across deployments so retained channels keep their IDs and message history. See [the server configuration guide](discord/README.md) for the initial rebuild, role hierarchy requirements and recovery.

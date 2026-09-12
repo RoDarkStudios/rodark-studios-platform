@@ -158,7 +158,11 @@ test('creator-only posting, owner-started discussions, media uploads and the exi
     assert.ok(effective(blueprint, 'animal-tag/chat', ['level-5']) & P.EmbedLinks);
     assert.equal(effective(blueprint, 'animal-tag/dev-discussions', ['staff']) & P.SendMessages, 0n);
     assert.ok(effective(blueprint, 'animal-tag/dev-discussions', ['member']) & P.SendMessagesInThreads);
-    const changed = compileBlueprint({ ...control, levelSystem: { attachmentUnlockLevel: 25 } });
+    const staleDashboardSetting = compileBlueprint({ ...control, levelSystem: { attachmentUnlockLevel: 25 } });
+    assert.equal(staleDashboardSetting.levelUnlock, 5);
+    const spec = clone(blueprint.spec);
+    spec.levels.attachmentUnlockLevel = 25;
+    const changed = compileBlueprint(control, spec);
     assert.equal(BigInt(changed.roles.find((role) => role.key === 'level-15').permissions) & P.EmbedLinks, 0n);
     assert.ok(BigInt(changed.roles.find((role) => role.key === 'level-25').permissions) & P.EmbedLinks);
 });
@@ -342,9 +346,13 @@ test('runtime uses the last deployed blueprint and bindings, keeping pending fil
     const fake = fakeDiscord(), { state } = await deploy(fake);
     const runtime = controlWithLayout(control, state.active);
     assert.equal(runtime.ticketSystem.panelChannelId, state.resources.channel.help);
+    assert.deepEqual(runtime.ticketSystem.helperRoleIds, [state.resources.role.staff, state.resources.role.owner]);
     assert.equal(runtime.levelSystem.announcementChannelId, state.resources.channel['level-ups']);
+    assert.equal(runtime.levelSystem.enabled, true);
+    assert.equal(runtime.levelSystem.attachmentUnlockLevel, 5);
+    assert.equal(runtime.levelSystem.mentionLevelUps, false);
     assert.equal(runtime.infrastructure.spec.separator, '・');
-    assert.equal(runtime.gameUpdates.pingEveryoneEnabled, false);
+    assert.equal(runtime.gameUpdates, undefined);
 });
 
 module.exports = { fakeDiscord, memoryStore, workerFor };

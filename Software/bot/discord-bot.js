@@ -157,8 +157,7 @@ function createClient() {
                 contentRulesChannelId: channels.rules, contentInfoChannelId: channels.info, contentRolesChannelId: channels.roles,
                 contentStaffInfoChannelId: channels['staff-info'], contentGameTestInfoChannelId: null,
                 ticketsCategoryChannelId: channels['category:tickets'], ticketsPanelChannelId: channels.help,
-                ticketsHelperRoleIds: [active.bindings.role.staff], levelSystemEnabled: true, levelAnnouncementChannelId: channels['level-ups'],
-                gameUpdatesChannelId: channels['game-updates'], gameUpdatesPingEveryoneEnabled: false
+                ticketsHelperRoleIds: [active.bindings.role.staff, active.bindings.role.owner], levelAnnouncementChannelId: channels['level-ups']
             }, actor);
             const effective = controlWithLayout(updated, active);
             currentControl = effective;

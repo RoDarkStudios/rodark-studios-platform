@@ -91,11 +91,12 @@ DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS
 
 ## Discord Bot Notes
 
-- The server layout is defined in `discord/server.json`. Owners apply it with the single **Deploy** button under **Server Layout** on `/admin/discord-bot`; pushing code alone does not rebuild Discord. The first deploy replaces old channels, while later deployments preserve retained channel IDs and history. See [deployment, permissions and recovery](discord/README.md).
+- The server layout is defined in `discord/server.json`. Owners apply it with the single **Deploy** button under **Status** on `/admin/discord-bot`; pushing code alone does not rebuild Discord. The first deploy replaces old channels, while later deployments preserve retained channel IDs and history. See [deployment, permissions and recovery](discord/README.md).
 - The worker automatically maintains an `ignore│do-not-type` anti-spam honeypot. Any message there triggers a permanent ban and one-hour message cleanup. See [honeypot setup, permissions and behaviour](bot/HONEYPOT.md).
-- Before the first infrastructure deployment, startup channel IDs can be configured in `/admin/discord-bot`. After deployment, channel IDs and ticket helper roles are managed by the server definition; the bot refreshes its information panels in place.
+- The server ID is fixed in `discord/server.json`. Infrastructure deployment connects the bot's information messages to their defined channels and refreshes them in place. Announcements and game updates are posted manually in Discord; the website has no announcement composer or startup-channel editor.
 - Contextual community moderation is the bot's only AI feature. It uses `gpt-5.6-luna` with high reasoning, at most once per minute per active channel. Swearing is allowed; clear bullying, aggressive personal attacks, racial slurs and threats can trigger timeouts, with human ban review for serious cases. See [moderation setup, safeguards, costs and evaluation](bot/MODERATION.md).
-- Support tickets open normally without AI screening. Private ticket permissions, helper pings, duplicate prevention, closing and transcripts remain in place.
+- The website has only **Status** (Connect/Disconnect and Deploy) and **Transcripts**. Ticket and level settings live in the repository. Leveling is enabled, Embed Links unlocks at Level 5, and level-up announcements do not ping members.
+- Support tickets open normally without AI screening and ping both Staff and Owners. Private ticket permissions, duplicate prevention, closing and saved transcripts remain in place.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.
 
 ## Database

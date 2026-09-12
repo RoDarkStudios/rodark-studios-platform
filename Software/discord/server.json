@@ -15,7 +15,7 @@
     { "key": "booster", "name": "Server Booster", "color": "#f47fff", "hoist": true, "managedBooster": true },
     { "key": "member", "name": "Member", "color": "#000000", "profile": "member" }
   ],
-  "levels": { "milestones": [5, 10, 15, 25, 50, 75, 100], "preservePermissions": true },
+  "levels": { "milestones": [5, 10, 15, 25, 50, 75, 100], "preservePermissions": true, "enabled": true, "attachmentUnlockLevel": 5, "mentionLevelUps": false },
   "notifications": [
     { "key": "announcements", "name": "Announcements", "emoji": "📣", "description": "Studio announcements and game updates" },
     { "key": "polls", "name": "Polls Feedback", "emoji": "📊", "description": "Polls and opportunities to give feedback" }
