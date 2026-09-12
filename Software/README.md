@@ -91,7 +91,7 @@ DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS
 
 ## Discord Bot Notes
 
-- The server layout is defined in `discord/server.json`. Owners review and apply it through **Server Layout** on `/admin/discord-bot`; pushing code alone does not rebuild Discord. The first deploy replaces old channels, while later deployments preserve retained channel IDs and history. See [deployment, permissions and recovery](discord/README.md).
+- The server layout is defined in `discord/server.json`. Owners apply it with the single **Deploy** button under **Server Layout** on `/admin/discord-bot`; pushing code alone does not rebuild Discord. The first deploy replaces old channels, while later deployments preserve retained channel IDs and history. See [deployment, permissions and recovery](discord/README.md).
 - The worker automatically maintains an `ignore│do-not-type` anti-spam honeypot. Any message there triggers a permanent ban and one-hour message cleanup. See [honeypot setup, permissions and behaviour](bot/HONEYPOT.md).
 - Before the first infrastructure deployment, startup channel IDs can be configured in `/admin/discord-bot`. After deployment, channel IDs and ticket helper roles are managed by the server definition; the bot refreshes its information panels in place.
 - Contextual community moderation is the bot's only AI feature. It uses `gpt-5.6-luna` with high reasoning, at most once per minute per active channel. Swearing is allowed; clear bullying, aggressive personal attacks, racial slurs and threats can trigger timeouts, with human ban review for serious cases. See [moderation setup, safeguards, costs and evaluation](bot/MODERATION.md).

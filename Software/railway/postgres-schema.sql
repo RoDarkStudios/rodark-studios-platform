@@ -279,6 +279,7 @@ create table if not exists discord_infrastructure_jobs (
     expires_at timestamptz,
     finished_at timestamptz
 );
+alter table discord_infrastructure_jobs add column if not exists auto_apply boolean not null default false;
 create unique index if not exists discord_infrastructure_one_operation
     on discord_infrastructure_jobs(guild_id)
     where status in ('preview_queued','previewing','deploy_queued','applying');

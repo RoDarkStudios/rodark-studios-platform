@@ -25,21 +25,17 @@ function createHandler(dependencies = {}) {
                     online: control.desiredEnabled && control.runtimeStatus === 'online',
                     initialized: state.initialized, maintenance: state.maintenance, lastSuccessAt: state.last_success_at,
                     lastCheckedAt: state.last_checked_at, drift: state.drift, activeVersion: state.active?.version || null,
-                    jobs, blueprint: { roles: blueprint.roles, channels: blueprint.channels, onboarding: blueprint.spec.onboarding,
-                        games: blueprint.spec.games, notifications: blueprint.spec.notifications, settings: blueprint.spec.settings } });
+                    jobs });
             }
             if (String(req.headers.origin || '') !== getRequestOrigin(req) || !String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
                 return sendJson(res, 403, { error: 'Use the deployment controls on this website.' });
             }
             const body = await readJsonBody(req);
-            if (!body || Object.keys(body).some((key) => !['action', 'previewId', 'version'].includes(key))) return sendJson(res, 400, { error: 'Only a preview or deployment request is accepted.' });
+            if (!body || Object.keys(body).some((key) => !['action', 'version'].includes(key))) return sendJson(res, 400, { error: 'Only a deployment request is accepted.' });
             if (body.version !== blueprint.version) return sendJson(res, 409, { error: 'The configuration changed. Refresh this page.' });
             const actor = { id: String(auth.user.id), username: String(auth.user.username || auth.user.name || '') };
-            if (body.action === 'preview') return sendJson(res, 202, { job: await persistence.queuePreview(blueprint.guildId, blueprint.version, actor) });
-            if (body.action === 'deploy' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.previewId || '')) {
-                return sendJson(res, 202, { job: await persistence.queueDeploy(blueprint.guildId, body.previewId, blueprint.version, actor) });
-            }
-            return sendJson(res, 400, { error: 'Choose Preview changes or Deploy.' });
+            if (body.action === 'deploy') return sendJson(res, 202, { job: await persistence.queuePreview(blueprint.guildId, blueprint.version, actor, true) });
+            return sendJson(res, 400, { error: 'Choose Deploy.' });
         } catch (error) {
             console.error('[discord-infrastructure-api]', error.message);
             return sendJson(res, error.statusCode || 500, { error: error.message || 'The deployment controls are unavailable.' });

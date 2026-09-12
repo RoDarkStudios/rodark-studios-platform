@@ -139,18 +139,23 @@ function createInfrastructureWorker(client, { store = defaultStore, finishConten
                 if (job) {
                     try {
                         if (job.version !== blueprint.version) {
-                            await store.finish(job.id, 'stale', 'The website and bot configuration changed or have not finished deploying. Refresh and generate a new preview.');
+                            await store.finish(job.id, 'stale', 'The website and bot configuration changed or have not finished updating. Refresh and click Deploy again.');
                             return;
                         }
                         const tickets = await store.openTicketIds(blueprint.guildId);
                         const snapshot = await captureSnapshot(client.rest, blueprint.guildId, client.user.id, blueprint.spec);
                         if (job.status === 'previewing') {
                             const plan = buildPlan(blueprint, snapshot, currentState, tickets);
-                            await store.ready(job.id, plan);
+                            if (job.auto_apply && plan.errors.length) await store.finish(job.id, 'failed', plan.errors.join(' '));
+                            else if (job.auto_apply && !plan.operations.length) await store.finish(job.id, 'succeeded');
+                            else {
+                                // Atomically queue application so closing the browser or restarting loses no authorization.
+                                await store.ready(job.id, plan, job.auto_apply);
+                            }
                         } else {
                             if (!job.plan || job.plan.errors.length || new Date(job.expires_at).getTime() <= now() ||
                                 job.plan.fingerprint !== snapshotHash(snapshot, tickets, job.plan.initial)) {
-                                await store.finish(job.id, 'stale', 'Discord changed since this preview, or the preview expired. Generate a fresh preview before deploying.');
+                                await store.finish(job.id, 'stale', 'Discord changed after the deployment check, or the check expired. Click Deploy to try again.');
                                 return;
                             }
                             // Recompute trusted operations; never execute plan data supplied by a browser.
@@ -167,7 +172,7 @@ function createInfrastructureWorker(client, { store = defaultStore, finishConten
                                 finishContent: (active) => finishContent(active, job.actor), closeTicket });
                             const live = await captureSnapshot(client.rest, blueprint.guildId, client.user.id, blueprint.spec);
                             const verified = buildPlan(blueprint, live, { initialized: true, resources: bindings, active: { version: blueprint.version } }, await store.openTicketIds(blueprint.guildId));
-                            if (verified.errors.length || verified.operations.length) throw new Error(`Verification found remaining changes: ${[...verified.errors, ...verified.operations.map((op) => op.label)].slice(0, 8).join('; ')}. Generate a new preview to finish.`);
+                            if (verified.errors.length || verified.operations.length) throw new Error(`Verification found remaining changes: ${[...verified.errors, ...verified.operations.map((op) => op.label)].slice(0, 8).join('; ')}. Click Deploy again to finish.`);
                             await store.activate(blueprint.guildId, { version: blueprint.version, spec: blueprint.spec, bindings }, bindings);
                             await store.finish(job.id, 'succeeded');
                             dirty = false; lastDriftCheck = now();

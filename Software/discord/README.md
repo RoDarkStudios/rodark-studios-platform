@@ -1,6 +1,6 @@
 # Discord server configuration
 
-`server.json` defines the RoDark Studios server. Edit this file, commit and push, wait for both Railway services to update, then open **Admin → Discord Bot → Server Layout → Preview changes → Deploy**. Pushing code does not apply the new layout to Discord.
+`server.json` defines the RoDark Studios server. Edit this file, commit and push, wait for both Railway services to update, then open **Admin → Discord Bot → Server Layout → Deploy**. This feature has one button. The bot checks and applies changes automatically; the page only shows progress or errors. Pushing code does not apply the new layout to Discord.
 
 ## First deployment and later updates
 
@@ -8,7 +8,7 @@ The first deployment deliberately replaces existing channels and categories. The
 
 Later deployments match stable `key` values to Discord IDs saved in Postgres. Renaming a channel, moving it, editing permissions or updating forum tags preserves that channel and its history. Keep keys unchanged when renaming things. Removing an entry deletes its channel and history; changing its channel type replaces it. Reintroducing a removed key creates a new channel. Forum threads and registered open tickets under the configured Tickets category are dynamic content, so ordinary deployments preserve them.
 
-The Owner role, the bot's own roles and Discord-managed roles cannot be wiped as ordinary infrastructure. Before the first deployment, keep exactly one **Owner** role with Administrator above the bot, and give the bot Administrator. All other roles the bot must edit or remove, including Bloxlink's highest role, must be below it. Preview reports hierarchy blockers. Discord assigns the native Server Booster role automatically; the blueprint styles it if it exists.
+The Owner role, the bot's own roles and Discord-managed roles cannot be wiped as ordinary infrastructure. Before the first deployment, keep exactly one **Owner** role with Administrator above the bot, and give the bot Administrator. All other roles the bot must edit or remove, including Bloxlink's highest role, must be below it. Deployment stops before writes if these checks fail. Discord assigns the native Server Booster role automatically; the blueprint styles it if it exists.
 
 ## Layout and permissions
 
@@ -24,11 +24,11 @@ Advanced Community Onboarding asks members to select one or more games and optio
 
 The website authenticates studio owners using the existing Roblox group rank check (254 or higher). Requests are restricted to the same website origin. It queues work in Postgres; the bot alone calls Discord using its existing token. No new environment variables are required. The new database tables are created automatically and are included in `railway/postgres-schema.sql`.
 
-Preview only reads Discord. It lists operations and blockers, captures the configuration version and live state, and expires after 15 minutes. Deploy rejects stale previews. A Postgres advisory lock serializes bot setup and deployment across replicas. During application, layout maintenance, tickets and AI moderation pause; new resource IDs are checkpointed immediately. Bot messages and integrations are connected to their new IDs before the deployment is verified and activated.
+Deploy queues a durable job. The bot first reads Discord, validates permissions and records the configuration version and live state, then automatically queues application. This transition is atomic and continues after the browser closes. The bot rechecks live state before writes and rejects stale or expired checks. A Postgres advisory lock serializes bot setup and deployment across replicas. During application, layout maintenance, tickets and AI moderation pause; new resource IDs are checkpointed immediately. Bot messages and integrations are connected to their new IDs before deployment is verified and activated.
 
-Discord has no atomic transaction or rollback for a server rebuild. If an operation fails or the bot restarts, the dashboard reports it and maintenance remains paused. Generate a fresh preview and deploy the remaining changes. Saved IDs allow recovery without recreating already-created channels. Keep the Postgres database: restoring or deleting infrastructure state can lose the ID mapping and incorrectly request a first rebuild.
+Discord has no atomic transaction or rollback for a server rebuild. If application fails or the bot restarts midway, the dashboard reports it and maintenance remains paused. Click Deploy again to check and apply the remaining changes. Saved IDs allow recovery without recreating already-created channels. Keep the Postgres database: restoring or deleting infrastructure state can lose the ID mapping and incorrectly request a first rebuild.
 
-Gateway events trigger read-only drift checks, with a periodic refresh for missed events. Drift compares against the last successfully deployed definition, not unpublished edits. Extra channels or editable roles created manually appear as removals in the next preview. Actual repair still requires Deploy.
+Gateway events trigger read-only drift checks, with a periodic refresh for missed events. Drift compares against the last successfully deployed definition, not unpublished edits. Extra channels or editable roles created manually are removed on the next deployment. Actual repair still requires Deploy.
 
 ## Implementation and checks
 
@@ -36,7 +36,7 @@ Gateway events trigger read-only drift checks, with a periodic refresh for misse
 - `bot/server-infrastructure.js`: Discord snapshots, ordered application, verification and drift.
 - `api/_lib/discord-infrastructure-store.js`: durable state, job queue and deployment lock.
 - `api/admin/discord-infrastructure.js`: owner-only website endpoint.
-- `discord-infrastructure.js`: preview, deployment progress and configuration viewer.
+- `discord-infrastructure.js`: the Deploy button and progress/error status.
 
 Run `node --test bot/*.test.js` from `Software`. Tests use fake Discord calls and an isolated Postgres-compatible database; they do not modify the real server.
 

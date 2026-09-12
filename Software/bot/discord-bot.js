@@ -203,7 +203,7 @@ function createClient() {
                 if (liveState.maintenance) return;
                 if (await handleTicketInteraction(interaction, control)) return;
                 if (!control.infrastructure) await handleChannelPurgeInteraction(interaction);
-                else if (interaction.commandName === 'purge-channel') await interaction.reply({ content: 'This server layout is managed through Preview → Deploy on the website.', ephemeral: true });
+                else if (interaction.commandName === 'purge-channel') await interaction.reply({ content: 'This server layout is managed through Deploy on the website.', ephemeral: true });
             });
             if (!locked && interaction.isRepliable?.() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: 'The bot is synchronising the server. Please try again shortly.', ephemeral: true });

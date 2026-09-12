@@ -878,7 +878,7 @@ function renderDiscordBotControl(control, options) {
             'discord-ticket-helper-role-add-btn', 'discord-ticket-system-save-btn', 'discord-level-announcement-channel-id',
             'discord-level-system-enabled', 'discord-game-updates-channel-id', 'discord-game-updates-ping-everyone', 'discord-game-updates-save-btn']) {
             const field = document.getElementById(id);
-            if (field) { field.disabled = true; field.title = 'Managed through Server Layout → Preview → Deploy'; }
+            if (field) { field.disabled = true; field.title = 'Managed through Server Layout → Deploy'; }
         }
     }
 }

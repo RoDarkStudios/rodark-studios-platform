@@ -160,7 +160,7 @@ function createModerationSystem(client, {
         const logId = managed?.bindings.channel['moderation-log'] || config.logChannelId;
         let logChannel = logId ? guild.channels.cache.get(logId)
             : guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && channel.topic === LOG_TOPIC);
-        if (logId && !logChannel) throw new Error('Configured moderation log channel is not in the target server. Preview the server layout to restore it.');
+        if (logId && !logChannel) throw new Error('Configured moderation log channel is not in the target server. Click Deploy on the website to restore it.');
         if (logChannel && logChannel.type !== ChannelType.GuildText) throw new Error('Moderation log must be a text channel');
         const readers = [...new Set([...roles.map((role) => role.id), ...[...guild.roles.cache.values()].filter((role) => /^(owner|owners)$/i.test(role.name) && !role.managed).map((role) => role.id)])];
         let overwrites = [

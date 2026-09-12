@@ -14,11 +14,11 @@ async function getState(guildId) {
     await postgres.postgresQuery('insert into discord_infrastructure_state(guild_id) values ($1) on conflict do nothing', [guildId]);
     return (await postgres.postgresQuery('select * from discord_infrastructure_state where guild_id = $1', [guildId])).rows[0];
 }
-async function queuePreview(guildId, version, actor) {
+async function queuePreview(guildId, version, actor, autoApply = false) {
     await getState(guildId);
     try {
-        return (await postgres.postgresQuery(`insert into discord_infrastructure_jobs(id, guild_id, version, actor, status)
-            values ($1,$2,$3,$4::jsonb,'preview_queued') returning *`, [randomUUID(), guildId, version, JSON.stringify(actor)])).rows[0];
+        return (await postgres.postgresQuery(`insert into discord_infrastructure_jobs(id, guild_id, version, actor, status, auto_apply)
+            values ($1,$2,$3,$4::jsonb,'preview_queued',$5) returning *`, [randomUUID(), guildId, version, JSON.stringify(actor), autoApply])).rows[0];
     } catch (error) { if (error.code === '23505') throw conflict('A server operation is already queued or running.'); throw error; }
 }
 async function queueDeploy(guildId, id, version, actor) {
@@ -46,7 +46,7 @@ async function withGuildLock(guildId, callback) {
     try {
         acquired = (await connection.query("select pg_try_advisory_lock(hashtextextended('discord-infrastructure:' || $1, 0)) as acquired", [guildId])).rows[0].acquired;
         if (!acquired) return false;
-        await callback({ assertHeld() { if (lost) throw new Error('The deployment lock connection was lost. Generate a fresh preview before retrying.'); } });
+        await callback({ assertHeld() { if (lost) throw new Error('The deployment lock connection was lost. Click Deploy to try again.'); } });
         return true;
     } finally {
         if (acquired && !lost) await connection.query("select pg_advisory_unlock(hashtextextended('discord-infrastructure:' || $1, 0))", [guildId]).catch(() => { lost = true; });
@@ -57,7 +57,7 @@ async function withGuildLock(guildId, callback) {
 // Called only while holding the session lock: no other worker can still own these jobs.
 async function recoverInterrupted(guildId) {
     await postgres.postgresQuery(`update discord_infrastructure_jobs set status = 'failed',
-        error = 'The bot restarted during this operation. Generate a new preview to inspect and finish the remaining changes.', updated_at = now(), finished_at = now()
+        error = 'The bot restarted during this operation. Click Deploy again to check and finish the remaining changes.', updated_at = now(), finished_at = now()
         where guild_id = $1 and status in ('previewing','applying')`, [guildId]);
 }
 async function claimJob(guildId) {
@@ -67,9 +67,9 @@ async function claimJob(guildId) {
             and status in ('preview_queued','deploy_queued') order by created_at limit 1)
         returning *`, [guildId])).rows[0] || null;
 }
-async function ready(id, plan) {
-    await postgres.postgresQuery(`update discord_infrastructure_jobs set status = 'ready', plan = $2::jsonb,
-        expires_at = now() + interval '15 minutes', updated_at = now() where id = $1`, [id, JSON.stringify(plan)]);
+async function ready(id, plan, autoApply = false) {
+    await postgres.postgresQuery(`update discord_infrastructure_jobs set status = case when $3 then 'deploy_queued' else 'ready' end, plan = $2::jsonb,
+        expires_at = now() + interval '15 minutes', updated_at = now() where id = $1`, [id, JSON.stringify(plan), autoApply]);
 }
 async function finish(id, status, error = null) {
     if (!['succeeded', 'failed', 'stale'].includes(status)) throw new Error('Invalid deployment result.');

@@ -24,6 +24,7 @@ test('deployment persistence uses PostgreSQL constraints, scopes previews to the
         const state = await store.getState(GUILD);
         assert.equal(state.initialized, false);
         const first = await store.queuePreview(GUILD, 'release-1', { id: 'owner' });
+        assert.equal(first.auto_apply, false);
         await assert.rejects(store.queuePreview(GUILD, 'release-1', { id: 'other-owner' }), /already queued/);
         assert.equal((await store.claimJob(GUILD)).status, 'previewing');
         const plan = { errors: [], operations: [{ kind: 'channel', key: 'help' }], fingerprint: 'fingerprint' };
@@ -54,6 +55,12 @@ test('deployment persistence uses PostgreSQL constraints, scopes previews to the
         await store.setDrift(GUILD, { changes: ['Channel moved'] });
         assert.deepEqual((await store.getState(GUILD)).drift.changes, ['Channel moved']);
         assert.ok((await store.latestJobs(GUILD)).some((job) => job.progress[0]?.label === 'Created help'));
+        const oneClick = await store.queuePreview(GUILD, 'release-1', { id: 'owner' }, true);
+        assert.equal(oneClick.auto_apply, true);
+        await store.claimJob(GUILD); await store.ready(oneClick.id, plan, true);
+        assert.equal((await store.latestJobs(GUILD))[0].status, 'deploy_queued');
+        await store.recoverInterrupted(GUILD);
+        assert.equal((await store.claimJob(GUILD)).status, 'applying');
     } finally { await db.close(); }
 });
 
@@ -65,9 +72,9 @@ test('only authenticated studio owners can queue work, cross-site requests are r
     const version = compileBlueprint().version;
     let calls = 0, auth = { user: null, isAdmin: false, rank: null };
     const handler = createHandler({ authorize: async () => auth, getControl: async () => ({ guildId: GUILD }), store: {
-        queuePreview: async (_guild, _version, actor) => { calls++; return { actor }; }, queueDeploy: async () => { calls++; return {}; }
+        queuePreview: async (_guild, _version, actor, autoApply) => { assert.equal(autoApply, true); calls++; return { actor }; }
     } });
-    const request = { method: 'POST', headers: { host: 'www.rodarkstudios.com', 'x-forwarded-proto': 'https', origin: 'https://www.rodarkstudios.com', 'content-type': 'application/json' }, body: { action: 'preview', version } };
+    const request = { method: 'POST', headers: { host: 'www.rodarkstudios.com', 'x-forwarded-proto': 'https', origin: 'https://www.rodarkstudios.com', 'content-type': 'application/json' }, body: { action: 'deploy', version } };
     let res = response(); await handler(request, res); assert.equal(res.code, 401);
     auth = { user: { id: 'staff' }, isAdmin: false, rank: 200 };
     res = response(); await handler(request, res); assert.equal(res.code, 403);

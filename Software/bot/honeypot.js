@@ -117,7 +117,7 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
         const saved = await store.getState(guild.id);
         const channels = await guild.channels.fetch();
         let channel = managed ? channels.get(managed.honeypot) : saved?.channelId ? channels.get(saved.channelId) : null;
-        if (managed && !channel) throw new Error('The deployed honeypot is missing. Preview and deploy the server layout to restore it.');
+        if (managed && !channel) throw new Error('The deployed honeypot is missing. Click Deploy on the website to restore it.');
         if (!channel) {
             const candidates = channels.filter((candidate) => candidate && candidate.type === ChannelType.GuildText && isHoneypotName(candidate.name));
             if (candidates.size > 1) {
@@ -129,7 +129,7 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
             throw new Error(`Honeypot channel ${channel.id} must be a normal text channel.`);
         }
         let category = managed ? channels.get(managed['category:ignore']) : channels.find((candidate) => candidate?.type === ChannelType.GuildCategory && candidate.name === 'IGNORE');
-        if (managed && !category) throw new Error('The deployed IGNORE category is missing. Preview and deploy the server layout to restore it.');
+        if (managed && !category) throw new Error('The deployed IGNORE category is missing. Click Deploy on the website to restore it.');
         if (!category) {
             category = await guild.channels.create({ name: 'IGNORE', type: ChannelType.GuildCategory, position: 1, reason: 'Separate the spam trap from normal chat' });
         }

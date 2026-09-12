@@ -278,7 +278,7 @@ function memoryStore() {
         recoverInterrupted: async () => { for (const job of jobs) if (['previewing', 'applying'].includes(job.status)) job.status = 'failed'; },
         claimJob: async () => { const job = jobs.find((item) => ['preview_queued', 'deploy_queued'].includes(item.status)); if (!job) return null;
             job.status = job.status === 'preview_queued' ? 'previewing' : 'applying'; return clone(job); },
-        openTicketIds: async () => [], ready: async (id, plan) => Object.assign(jobs.find((job) => job.id === id), { status: 'ready', plan, expires_at: new Date(Date.now() + 60_000).toISOString() }),
+        openTicketIds: async () => [], ready: async (id, plan, autoApply = false) => Object.assign(jobs.find((job) => job.id === id), { status: autoApply ? 'deploy_queued' : 'ready', plan, expires_at: new Date(Date.now() + 60_000).toISOString() }),
         finish: async (id, status, error) => Object.assign(jobs.find((job) => job.id === id), { status, error }),
         progress: async () => {}, beginApply: async (_guild, resources) => Object.assign(state, { maintenance: true, resources: clone(resources) }),
         saveResources: async (_guild, resources) => { state.resources = clone(resources); },
@@ -299,6 +299,28 @@ test('worker previews make no Discord writes and a stale approved preview never 
     fake.server.channels[0].name = 'Changed after preview'; job.status = 'deploy_queued';
     await worker.tick(control);
     assert.equal(job.status, 'stale'); assert.equal(fake.server.writes.length, 0); assert.equal(store.state.maintenance, false);
+});
+
+test('one deploy request prepares and applies without another browser request; blockers cause no writes', async () => {
+    const fake = fakeDiscord(), store = memoryStore(), worker = workerFor(fake, store), job = queue(store, 'single-click');
+    job.auto_apply = true;
+    await worker.tick(control);
+    assert.equal(job.status, 'deploy_queued'); assert.equal(fake.server.writes.length, 0);
+    await worker.tick(control);
+    assert.equal(job.status, 'succeeded', job.error); assert.equal(store.state.initialized, true);
+    const retained = clone(store.state.resources.channel);
+    const again = queue(store, 'unchanged'); again.auto_apply = true;
+    const writes = fake.server.writes.length;
+    await worker.tick(control);
+    assert.equal(again.status, 'succeeded'); assert.equal(fake.server.writes.length, writes);
+    assert.deepEqual(store.state.resources.channel, retained);
+
+    const blocked = fakeDiscord(), blockedStore = memoryStore(), blockedJob = queue(blockedStore, 'blocked');
+    blockedJob.auto_apply = true;
+    blocked.server.roles.find((role) => role.name === 'Owner').permissions = '0';
+    await workerFor(blocked, blockedStore).tick(control);
+    assert.equal(blockedJob.status, 'failed'); assert.match(blockedJob.error, /Owner/);
+    assert.equal(blocked.server.writes.length, 0);
 });
 
 test('interrupted rebuilds checkpoint new IDs; a fresh preview finishes without wiping newly retained channels', async () => {

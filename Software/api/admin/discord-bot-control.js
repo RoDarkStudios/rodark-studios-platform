@@ -660,7 +660,7 @@ module.exports = async (req, res) => {
                 [body.gameUpdates?.pingEveryoneEnabled, false]
             ];
             if (immutable.some(([requested, deployed]) => requested !== undefined && JSON.stringify(requested ?? '') !== JSON.stringify(deployed ?? ''))) {
-                return sendJson(res, 409, { error: 'Channels, roles and onboarding are managed in the server configuration. Use Server Layout → Preview → Deploy.' });
+                return sendJson(res, 409, { error: 'Channels, roles and onboarding are managed in the server configuration. Use Server Layout → Deploy.' });
             }
         }
         const operation = String(body && body.operation ? body.operation : '').trim().toLowerCase();
