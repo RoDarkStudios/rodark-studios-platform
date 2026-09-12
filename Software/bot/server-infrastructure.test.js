@@ -178,19 +178,19 @@ test('Staff can moderate members and messages but cannot change infrastructure o
         assert.equal(value & (P.SendMessages | P.ManageMessages), 0n);
     }
     assert.equal(effective(blueprint, 'animal-tag/bug-reports', ['staff']) & P.ManageThreads, 0n);
-    assert.equal(effective(blueprint, 'staff-chat', ['member']) & P.ViewChannel, 0n);
+    assert.equal(effective(blueprint, 'staff-chat', []) & P.ViewChannel, 0n);
 });
 
 test('creator-only posting, owner-started discussions, media uploads and the existing level preview gate compose correctly', () => {
     const blueprint = compileBlueprint(control);
-    assert.equal(effective(blueprint, 'animal-tag/youtube-videos', ['member']) & P.SendMessages, 0n);
+    assert.equal(effective(blueprint, 'animal-tag/youtube-videos', []) & P.SendMessages, 0n);
     assert.ok(effective(blueprint, 'animal-tag/youtube-videos', ['creator']) & P.SendMessages);
     assert.equal(effective(blueprint, 'animal-tag/chat', ['level-100']) & P.AttachFiles, 0n);
-    assert.ok(effective(blueprint, 'animal-tag/media', ['member']) & P.AttachFiles);
-    assert.equal(effective(blueprint, 'animal-tag/chat', ['member']) & P.EmbedLinks, 0n);
+    assert.ok(effective(blueprint, 'animal-tag/media', []) & P.AttachFiles);
+    assert.equal(effective(blueprint, 'animal-tag/chat', []) & P.EmbedLinks, 0n);
     assert.ok(effective(blueprint, 'animal-tag/chat', ['level-5']) & P.EmbedLinks);
     assert.equal(effective(blueprint, 'animal-tag/dev-discussions', ['staff']) & P.SendMessages, 0n);
-    assert.ok(effective(blueprint, 'animal-tag/dev-discussions', ['member']) & P.SendMessagesInThreads);
+    assert.ok(effective(blueprint, 'animal-tag/dev-discussions', []) & P.SendMessagesInThreads);
     const staleDashboardSetting = compileBlueprint({ ...control, levelSystem: { attachmentUnlockLevel: 25 } });
     assert.equal(staleDashboardSetting.levelUnlock, 5);
     const spec = clone(blueprint.spec);
@@ -216,7 +216,9 @@ test('native onboarding selects games without access locks, meets public-channel
         const bits = effective(blueprint, key, []);
         return (bits & (P.ViewChannel | P.SendMessages)) === (P.ViewChannel | P.SendMessages);
     })).size >= 5);
-    for (const option of body.prompts[0].options) assert.ok(option.role_ids.includes('member'));
+    for (const [index, option] of body.prompts[0].options.entries()) {
+        assert.deepEqual(option.role_ids, [`game-${blueprint.spec.games[index].key}`]);
+    }
 });
 
 test('new onboarding prompts have request IDs and persist Discord returned IDs for subsequent updates', async () => {
@@ -316,17 +318,48 @@ test('missing mention protection is created with only blocking and raid protecti
     assert.deepEqual(fake.server.writes, []);
 });
 
-test('initial deployment removes every old channel and unlisted role, removes Bloxlink, and preserves member/creator/staff role identities', async () => {
+test('initial deployment removes every old channel and unlisted role, removes Bloxlink, and preserves creator/staff role identities', async () => {
     const fake = fakeDiscord(), oldChannels = fake.server.channels.map((channel) => channel.id);
     const { state, plan } = await deploy(fake);
     assert.equal(plan.initial, true);
     assert.ok(oldChannels.every((id) => !fake.server.channels.some((channel) => channel.id === id) && !fake.server.messages.has(id)));
     assert.ok(!fake.server.roles.some((role) => role.name === 'Developer' || role.name === 'Bloxlink'));
     assert.equal(fake.server.members[BLOXLINK], undefined);
-    for (const key of ['owner', 'bot', 'staff', 'member', 'creator']) assert.equal(state.resources.role[key], fake.ids[key]);
+    for (const key of ['owner', 'bot', 'staff', 'creator']) assert.equal(state.resources.role[key], fake.ids[key]);
+    assert.ok(!fake.server.roles.some(role => role.id === fake.ids.member));
+    assert.equal(state.resources.role.member, undefined);
     assert.equal(fake.server.channels.length, compileBlueprint(control).channels.length);
     const trapCreate = fake.server.writes.find((entry) => entry.method === 'post' && entry.body?.name === 'ignore│do-not-type');
     assert.ok(BigInt(trapCreate.body.permission_overwrites[0].deny) & P.SendMessages);
+});
+
+test('retiring Member removes the role and onboarding references while preserving other roles and channel history', async () => {
+    const fake = fakeDiscord(), blueprint = compileBlueprint(control), legacySpec = clone(blueprint.spec);
+    legacySpec.roles.push({ key: 'member', name: 'Member', color: '#000000', profile: 'member' });
+    const first = await deploy(fake, {}, compileBlueprint(control, legacySpec));
+    const memberId = first.state.resources.role.member;
+    // Reproduce the previous deployment's onboarding assignments.
+    for (const option of fake.server.onboarding.prompts[0].options) option.role_ids.push(memberId);
+    const channelId = first.state.resources.channel['general-chat'];
+    fake.server.messages.get(channelId).push('Keep this conversation');
+    const next = await deploy(fake, first.state, blueprint);
+    assert.equal(next.plan.initial, false);
+    assert.deepEqual(next.plan.operations.filter(op => op.kind.startsWith('delete_')).map(op => [op.kind, op.id]), [['delete_role', memberId]]);
+    assert.ok(!fake.server.roles.some(role => role.id === memberId));
+    assert.equal(next.state.resources.role.member, undefined);
+    assert.equal(next.state.active.spec.roles.some(role => role.key === 'member'), false);
+    for (const [key, id] of Object.entries(first.state.resources.role)) {
+        if (key !== 'member') assert.equal(next.state.resources.role[key], id);
+    }
+    assert.deepEqual(next.state.resources.channel, first.state.resources.channel);
+    assert.deepEqual(fake.server.messages.get(channelId), ['Keep this conversation']);
+    assert.equal(fake.server.onboarding.enabled, true);
+    assert.deepEqual(next.state.resources.prompt, first.state.resources.prompt);
+    for (const [index, option] of fake.server.onboarding.prompts[0].options.entries()) {
+        assert.deepEqual(option.role_ids, [next.state.resources.role[`game-${blueprint.spec.games[index].key}`]]);
+    }
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, next.state).operations, []);
 });
 
 test('a completed deployment is idempotent and later channel edits preserve channel IDs and messages', async () => {

@@ -297,13 +297,11 @@ async function syncRolesChannel(channel, control) {
             `${getRoleMention(guild, 'RoDark Studios Bot')}\n> Our custom bot for support, automation, and moderation.`,
             `${getRoleMention(guild, 'Staff')}\n> Helps members, handles tickets, and enforces the rules.`,
             `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator. Create a ticket to apply.`,
-            `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`,
-            `${getRoleMention(guild, 'Member')}\n> Verified member of the RoDark Studios community.`
+            `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`
         ].join('\n\n'));
 
     if (control?.infrastructure) {
         const active = control.infrastructure;
-        embed.setDescription(embed.data.description.replace('Verified member of the RoDark Studios community.', 'A member of the RoDark Studios community. Roblox verification is not required.'));
         embed.addFields(
             { name: 'Game roles', value: active.spec.games.map((game) => `${getRoleMention(guild, game.name)} — ${game.name} channels`).join('\n') },
             { name: 'Optional notifications', value: `${getRoleMention(guild, 'Announcements')} — announcements and game updates\n${getRoleMention(guild, 'Polls Feedback')} — polls and feedback requests\nChoose either, both or neither in **Channels & Roles**.` },

@@ -12,8 +12,7 @@
   "roles": [
     { "key": "staff", "name": "Staff", "color": "#22c55e", "hoist": true, "profile": "staff" },
     { "key": "creator", "name": "Content Creator", "color": "#e76f73", "hoist": true, "profile": "creator" },
-    { "key": "booster", "name": "Server Booster", "color": "#f47fff", "hoist": true, "managedBooster": true },
-    { "key": "member", "name": "Member", "color": "#000000", "profile": "member" }
+    { "key": "booster", "name": "Server Booster", "color": "#f47fff", "hoist": true, "managedBooster": true }
   ],
   "levels": { "milestones": [5, 10, 15, 25, 50, 75, 100], "preservePermissions": true, "enabled": true, "attachmentUnlockLevel": 5, "mentionLevelUps": false },
   "notifications": [

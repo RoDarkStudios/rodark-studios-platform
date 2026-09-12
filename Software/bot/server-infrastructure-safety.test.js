@@ -118,6 +118,7 @@ test('information messages fit Discord limits and use deployed game/help/forum i
     assert.ok(!text.includes('Coding Simulator 2'));
     assert.ok(!text.includes('1208767046184345610'));
     assert.ok(text.includes('Ordinary swearing'));
+    assert.doesNotMatch(messages.find(message => message.title === 'Server Roles').description, /\bMember\b|Verified member/);
 });
 
 test('forum moderation delegates post operations to Staff without allowing status-tag changes or moderation of Owner posts', async () => {

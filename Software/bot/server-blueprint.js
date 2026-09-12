@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 10;
+const ENGINE_VERSION = 11;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -185,7 +185,7 @@ function onboardingBody(blueprint, bindings, previous = {}) {
     };
     return { enabled: true, mode: 1, default_channel_ids: spec.onboarding.defaultChannels.map((key) => bindings.channel[key]), prompts: [
         prompt('games', spec.onboarding.gamesQuestion, spec.games.map((game) => ({ key: game.key, title: game.name, description: `Channels for ${game.name}`, emoji_name: game.emoji,
-            role_ids: [bindings.role[`game-${game.key}`], bindings.role.member],
+            role_ids: [bindings.role[`game-${game.key}`]],
             channel_ids: blueprint.channels.filter((channel) => channel.game === game.key).map((channel) => bindings.channel[channel.key])
         })), Boolean(spec.onboarding.gamesRequired)),
         prompt('notifications', spec.onboarding.notificationsQuestion, spec.notifications.map((notice) => ({ key: notice.key, title: notice.name, description: notice.description, emoji_name: notice.emoji,

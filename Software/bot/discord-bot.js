@@ -10,7 +10,7 @@ const { createModerationSystem } = require('./moderation');
 const { createInfrastructureWorker, controlWithLayout } = require('./server-infrastructure');
 const infrastructureStore = require('../api/_lib/discord-infrastructure-store');
 const { closeDiscordTicketRecord } = require('../api/_lib/discord-ticket-store');
-const { ensureCommunityCommands, handleCommunityInteraction, ensureMemberRole } = require('./server-community');
+const { ensureCommunityCommands, handleCommunityInteraction } = require('./server-community');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
@@ -235,7 +235,6 @@ function createClient() {
             await nextModeration.handleMessage(message, control).catch((error) => {
                 console.error('Discord moderation queue failed:', error.message);
             });
-            if (message.member) await ensureMemberRole(message.member, control).catch((error) => console.error('[member-role]', error.message));
             const handled = await handleLevelMessage(message, control);
             if (handled) {
                 await setDiscordBotRuntimeStatus('online', nextModeration.getError());

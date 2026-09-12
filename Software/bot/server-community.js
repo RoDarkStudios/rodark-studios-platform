@@ -48,12 +48,4 @@ async function handleCommunityInteraction(interaction, control) {
     return true;
 }
 
-async function ensureMemberRole(member, control) {
-    const active = control?.infrastructure;
-    const roleId = active?.bindings.role.member;
-    if (!member || !roleId || member.user.bot || member.guild.id !== active.spec.guildId || member.roles.cache.has(roleId)) return;
-    if (member.id === member.guild.ownerId || member.roles.cache.has(active.bindings.role.owner)) return;
-    await member.roles.add(roleId, 'Community member; Roblox verification is not required');
-}
-
-module.exports = { ensureCommunityCommands, handleCommunityInteraction, ensureMemberRole };
+module.exports = { ensureCommunityCommands, handleCommunityInteraction };
