@@ -104,12 +104,12 @@ function fakeDiscord() {
         rest: { get, post: write('post'), patch: write('patch'), put: write('put'), delete: write('delete') } };
 }
 
-async function deploy(fake, state = {}, blueprint = compileBlueprint(control), tickets = []) {
+async function deploy(fake, state = {}, blueprint = compileBlueprint(control), tickets = [], options = {}) {
     const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
     const plan = buildPlan(blueprint, snapshot, state, tickets);
     assert.deepEqual(plan.errors, []);
     const bindings = await applyPlan({ blueprint, plan, snapshot, rest: fake.rest, saveResources: async () => {}, finishContent: async () => {},
-        closeTicket: async () => {}, progress: async () => {}, guard: () => {} });
+        closeTicket: async () => {}, progress: async () => {}, guard: () => {}, ...options });
     return { plan, state: { initialized: true, resources: bindings, active: { version: blueprint.version, spec: blueprint.spec, bindings } } };
 }
 
@@ -130,7 +130,12 @@ test('the agreed layout has 10 categories, 42 channels, all three game sets, exa
     assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 10);
     assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 42);
     assert.equal(blueprint.channels.find((channel) => channel.key === 'help').name, '🎫・help');
-    for (const game of blueprint.spec.games) assert.equal(blueprint.channels.filter((channel) => channel.game === game.key).length, 7);
+    for (const game of blueprint.spec.games) {
+        assert.equal(blueprint.channels.filter((channel) => channel.game === game.key).length, 7);
+        assert.equal(blueprint.channels.find(channel => channel.key === `category:game-${game.key}`).name, game.name);
+    }
+    assert.deepEqual(blueprint.channels.filter(channel => channel.type === 4).map(channel => channel.name),
+        ['IGNORE', 'Staff', 'Info', 'Tickets', 'Announcements', 'Dig for Eggs', 'Animal Tag', 'My Coding Company', 'General', 'Voice']);
     assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 0);
     assert.equal(blueprint.roles.filter((role) => role.key.startsWith('level-')).length, 7);
 });
@@ -356,3 +361,83 @@ test('runtime uses the last deployed blueprint and bindings, keeping pending fil
 });
 
 module.exports = { fakeDiscord, memoryStore, workerFor };
+
+test('Community assignments are read back and repaired before any old channel is deleted', async () => {
+    const fake = fakeDiscord(), patch = fake.rest.patch, pauses = [];
+    let guildWrites = 0;
+    fake.rest.patch = async (path, options) => {
+        if (path === `/guilds/${GUILD}` && ++guildWrites === 1) {
+            // Reproduce a settings response that has not applied the channel handoff.
+            const body = { ...options.body };
+            delete body.rules_channel_id; delete body.public_updates_channel_id; delete body.safety_alerts_channel_id;
+            return patch(path, { ...options, body });
+        }
+        return patch(path, options);
+    };
+    const result = await deploy(fake, {}, compileBlueprint(control), [], { wait: async ms => pauses.push(ms) });
+    assert.equal(guildWrites, 2);
+    assert.equal(fake.server.guild.rules_channel_id, result.state.resources.channel.rules);
+    assert.ok(pauses.length > 0);
+    const handoffIndex = fake.server.writes.findIndex(write => write.path === `/guilds/${GUILD}` && Object.keys(write.body).length === 3);
+    const firstDelete = fake.server.writes.findIndex(write => write.method === 'delete' && write.path.startsWith('/channels/'));
+    assert.ok(handoffIndex >= 0 && firstDelete > handoffIndex);
+    assert.equal(fake.server.channels.length, compileBlueprint(control).channels.length);
+    const positions = fake.server.writes.find(write => write.method === 'patch' && write.path === `/guilds/${GUILD}/channels`);
+    assert.ok(positions.body.every(entry => !Object.hasOwn(entry, 'parent_id')));
+});
+
+test('unconfirmed Community assignments stop the rebuild before deletion or information publishing', async () => {
+    const fake = fakeDiscord(), patch = fake.rest.patch, originalIds = fake.server.channels.map(channel => channel.id);
+    let published = false;
+    fake.rest.patch = async (path, options) => {
+        if (path !== `/guilds/${GUILD}`) return patch(path, options);
+        const body = { ...options.body };
+        delete body.rules_channel_id; delete body.public_updates_channel_id; delete body.safety_alerts_channel_id;
+        return patch(path, { ...options, body });
+    };
+    await assert.rejects(deploy(fake, {}, compileBlueprint(control), [], { wait: async () => {}, finishContent: async () => { published = true; } }), /not confirmed/);
+    assert.equal(published, false);
+    assert.ok(originalIds.every(id => fake.server.channels.some(channel => channel.id === id)));
+    assert.ok(!fake.server.writes.some(write => write.method === 'delete' && write.path.startsWith('/channels/')));
+});
+
+test('a transient Discord 50074 after the handoff is retried and cleanup completes', async () => {
+    const fake = fakeDiscord(), remove = fake.rest.delete, oldRules = fake.server.guild.rules_channel_id, pauses = [];
+    let attempts = 0;
+    fake.rest.delete = async (path, options) => {
+        if (path === `/channels/${oldRules}` && ++attempts <= 2) throw Object.assign(new Error('Cannot delete a channel required for community servers'), { code: 50074, status: 400 });
+        return remove(path, options);
+    };
+    await deploy(fake, {}, compileBlueprint(control), [], { wait: async ms => pauses.push(ms) });
+    assert.equal(attempts, 3);
+    assert.deepEqual(pauses, [1000, 2000]);
+    assert.ok(!fake.server.channels.some(channel => channel.id === oldRules));
+});
+
+test('retrying a failed Community cleanup keeps checkpointed channels and then publishes rules, info and roles', async () => {
+    const fake = fakeDiscord(), remove = fake.rest.delete, oldRules = fake.server.guild.rules_channel_id;
+    const blueprint = compileBlueprint(control), state = { initialized: false, resources: { role: {}, channel: {} } };
+    const published = [];
+    const options = { wait: async () => {}, saveResources: async bindings => { state.resources = clone(bindings); }, finishContent: async active => published.push(active) };
+    fake.rest.delete = async (path, options) => {
+        if (path === `/channels/${oldRules}`) throw Object.assign(new Error('Cannot delete a channel required for community servers'), { code: 50074, status: 400 });
+        return remove(path, options);
+    };
+    await assert.rejects(deploy(fake, state, blueprint, [], options), /Delete channel and history: rules failed/);
+    assert.equal(published.length, 0);
+    const checkpoint = clone(state.resources.channel);
+    const categoryId = checkpoint['category:game-animal-tag'];
+    fake.server.channels.find(channel => channel.id === categoryId).name = '🐾・animal-tag';
+    fake.server.messages.get(checkpoint['general-chat']).push('Keep messages posted during the partial deployment');
+    fake.rest.delete = remove;
+    const result = await deploy(fake, state, blueprint, [], options);
+    assert.deepEqual(result.state.resources.channel, checkpoint);
+    assert.ok(!fake.server.channels.some(channel => channel.id === oldRules));
+    assert.equal(fake.server.channels.length, blueprint.channels.length);
+    assert.equal(fake.server.channels.find(channel => channel.id === categoryId).name, 'Animal Tag');
+    assert.equal(published.length, 1);
+    for (const key of ['rules', 'info', 'roles', 'staff-info', 'help']) assert.equal(published[0].bindings.channel[key], checkpoint[key]);
+    assert.deepEqual(fake.server.messages.get(checkpoint['general-chat']), ['Keep messages posted during the partial deployment']);
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, result.state).operations, []);
+});

@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 3;
+const ENGINE_VERSION = 4;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -83,7 +83,7 @@ function compileBlueprint(control = {}, spec = manifest) {
     for (const notice of spec.notifications) roles.push({ key: `ping-${notice.key}`, name: notice.name, color: 0, hoist: false, mentionable: false, permissions: '0' });
     if (new Set(roles.map((role) => role.name.toLowerCase())).size !== roles.length || roles.some((role) => !Number.isInteger(role.color) || role.color < 0 || role.color > 0xffffff)) throw new Error('Role names must be unique and colors must be valid RGB values.');
     const categories = spec.categories.flatMap((category) => category.games ? spec.games.map((game) => ({
-        key: `game-${game.key}`, name: `${game.emoji}${spec.separator}${game.key}`,
+        key: `game-${game.key}`, name: game.name,
         channels: spec.gameChannels.map((channel) => ({ ...clone(channel), key: `${game.key}/${channel.key}`, game: game.key }))
     })) : [clone(category)]);
     const channels = [];

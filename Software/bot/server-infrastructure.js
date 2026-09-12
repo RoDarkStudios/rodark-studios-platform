@@ -1,4 +1,5 @@
 const defaultStore = require('../api/_lib/discord-infrastructure-store');
+const { setTimeout: delay } = require('node:timers/promises');
 const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, clone, manifest } = require('./server-blueprint');
 
 async function captureSnapshot(rest, guildId, botId, spec) {
@@ -41,7 +42,7 @@ function operationPriority(op, blueprint) {
         delete_channel: 60, delete_role: 65, sort_roles: 70, sort_channels: 75, content: 80, onboarding: 90 }[op.kind] ?? 100;
 }
 
-async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finishContent, closeTicket, progress, guard }) {
+async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finishContent, closeTicket, progress, guard, wait = delay }) {
     const bindings = clone(plan.bindings);
     const root = `/guilds/${blueprint.guildId}`;
     const reason = 'Apply reviewed RoDark Studios server configuration';
@@ -50,11 +51,47 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
         try { return await rest[method](path, { ...(body !== undefined ? { body } : {}), reason }); }
         catch (error) { if (method === 'delete' && error.status === 404) return null; throw error; }
     };
+    const communityChannels = () => {
+        const targets = { rules_channel_id: bindings.channel.rules, public_updates_channel_id: bindings.channel['staff-info'],
+            safety_alerts_channel_id: bindings.channel['moderation-log'] };
+        if (Object.values(targets).some(id => !id)) throw new Error('Create the replacement Community channels before removing old channels.');
+        return targets;
+    };
+    // A successful PATCH alone is not enough: Discord can still report the old
+    // required channels while the change propagates. Never start deletion then.
+    async function confirmCommunityChannels() {
+        const targets = communityChannels();
+        for (const pause of [0, 500, 1000, 2000, 4000]) {
+            if (pause) await wait(pause);
+            guard();
+            const live = await rest.get(root);
+            if (live.features.includes('COMMUNITY') && Object.entries(targets).every(([key, id]) => live[key] === id)) return;
+            if (pause !== 4000) await write('patch', root, targets);
+        }
+        throw new Error('Discord has not confirmed the replacement Community channels. Old channels were kept. Click Deploy again to resume.');
+    }
+    async function deleteRetiredChannel(op) {
+        if (Object.values(bindings.channel).includes(op.id)) throw new Error(`Refusing to delete a retained channel: ${op.label}`);
+        for (const pause of [0, 1000, 2000, 4000, 8000]) {
+            if (pause) {
+                await progress({ label: `Waiting for Discord to release the old Community channel: ${op.label}` });
+                await wait(pause);
+                await confirmCommunityChannels();
+            }
+            try { await write('delete', `/channels/${op.id}`); return; }
+            catch (error) {
+                if (Number(error.code) !== 50074 || pause === 8000) {
+                    throw new Error(`${op.label} failed: ${error.message}. Click Deploy again to resume the remaining cleanup.`, { cause: error });
+                }
+            }
+        }
+    }
     const operations = [...plan.operations].sort((a, b) => operationPriority(a, blueprint) - operationPriority(b, blueprint));
     if (snapshot.onboarding.enabled && operations.some((op) => ['delete_channel', 'onboarding'].includes(op.kind))) {
         await write('put', `${root}/onboarding`, { enabled: false });
         await progress({ label: 'Temporarily pause onboarding while its channels are replaced' });
     }
+    let deletionReady = false;
     for (const [index, op] of operations.entries()) {
         guard();
         if (op.kind === 'role') {
@@ -84,10 +121,12 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             if (!currentId && channel.type === 15 && payload.flags) await write('patch', `/channels/${result.id}`, { flags: payload.flags });
         } else if (op.kind === 'guild') {
             await write('patch', root, { ...blueprint.spec.settings, name: blueprint.spec.name,
-                rules_channel_id: bindings.channel.rules, public_updates_channel_id: bindings.channel['staff-info'], safety_alerts_channel_id: bindings.channel['moderation-log'],
+                ...communityChannels(),
                 ...(!snapshot.guild.features.includes('COMMUNITY') ? { features: ['COMMUNITY'] } : {}) });
+            await confirmCommunityChannels();
         } else if (op.kind === 'delete_channel') {
-            await write('delete', `/channels/${op.id}`);
+            if (!deletionReady) { await confirmCommunityChannels(); deletionReady = true; }
+            await deleteRetiredChannel(op);
             await closeTicket(op.id);
         } else if (op.kind === 'delete_role') {
             await write('delete', `${root}/roles/${op.id}`);
@@ -99,8 +138,9 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             const rows = [...blueprint.roles].reverse().filter((role) => bindings.role[role.key]).map((role, i) => ({ id: bindings.role[role.key], position: i + 1 }));
             await write('patch', `${root}/roles`, rows);
         } else if (op.kind === 'sort_channels') {
-            await write('patch', `${root}/channels`, blueprint.channels.map((channel) => ({ id: bindings.channel[channel.key], position: channel.position,
-                ...(channel.parentKey ? { parent_id: bindings.channel[channel.parentKey], lock_permissions: false } : {}) })));
+            // Individual channel updates already set parents. Discord permits
+            // at most one parent change in a bulk positioning request.
+            await write('patch', `${root}/channels`, blueprint.channels.map((channel) => ({ id: bindings.channel[channel.key], position: channel.position })));
         } else if (op.kind === 'content') {
             await finishContent({ version: blueprint.version, spec: blueprint.spec, bindings });
         } else if (op.kind === 'onboarding') {

@@ -29,32 +29,32 @@
     { "key": "ignore", "name": "IGNORE", "channels": [
       { "key": "honeypot", "name": "ignore│do-not-type", "type": "text", "profile": "honeypot", "topic": "DO NOT TYPE HERE. Any message, image, file, link or reply triggers an immediate permanent ban. This is a spam trap." }
     ] },
-    { "key": "staff", "name": "🛡️・staff", "profile": "staff", "channels": [
+    { "key": "staff", "name": "Staff", "profile": "staff", "channels": [
       { "key": "staff-info", "name": "📘・staff-info", "type": "text", "profile": "staff-readonly" },
       { "key": "staff-chat", "name": "💬・staff-chat", "type": "text", "profile": "staff" },
       { "key": "staff-vc", "name": "🔊・staff-vc", "type": "voice", "profile": "staff" },
       { "key": "moderation-log", "name": "🛡️・ai-moderation-log", "type": "text", "profile": "moderation-log", "topic": "RoDark Studios contextual moderation • Private evidence and human ban reviews" }
     ] },
-    { "key": "info", "name": "ℹ️・info", "channels": [
+    { "key": "info", "name": "Info", "channels": [
       { "key": "rules", "name": "📕・rules", "type": "text", "profile": "readonly" },
       { "key": "info", "name": "ℹ️・info", "type": "text", "profile": "readonly" },
       { "key": "roles", "name": "🏷️・roles", "type": "text", "profile": "readonly" },
       { "key": "help", "name": "🎫・help", "type": "text", "profile": "readonly" }
     ] },
-    { "key": "tickets", "name": "🎫・tickets", "profile": "staff", "dynamicTickets": true, "channels": [] },
-    { "key": "announcements", "name": "📣・announcements", "channels": [
+    { "key": "tickets", "name": "Tickets", "profile": "staff", "dynamicTickets": true, "channels": [] },
+    { "key": "announcements", "name": "Announcements", "channels": [
       { "key": "announcements", "name": "📣・announcements", "type": "announcement", "profile": "readonly" },
       { "key": "game-updates", "name": "🆕・game-updates", "type": "announcement", "profile": "readonly" },
       { "key": "codes", "name": "🎁・codes", "type": "text", "profile": "readonly" },
       { "key": "polls-feedback", "name": "📊・polls-feedback", "type": "text", "profile": "readonly" }
     ] },
     { "games": true },
-    { "key": "general", "name": "💬・general", "channels": [
+    { "key": "general", "name": "General", "channels": [
       { "key": "general-chat", "name": "💬・general-chat", "type": "text", "profile": "media" },
       { "key": "memes", "name": "😂・memes", "type": "text", "profile": "media" },
       { "key": "level-ups", "name": "🏆・level-ups", "type": "text", "profile": "readonly" }
     ] },
-    { "key": "voice", "name": "🔊・voice", "channels": [
+    { "key": "voice", "name": "Voice", "channels": [
       { "key": "lounge-1", "name": "🔊・lounge-1", "type": "voice", "userLimit": 0 },
       { "key": "lounge-2", "name": "🔊・lounge-2", "type": "voice", "userLimit": 0 },
       { "key": "duo", "name": "👥・duo", "type": "voice", "userLimit": 2 },
