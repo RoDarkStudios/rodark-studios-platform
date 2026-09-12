@@ -289,7 +289,6 @@ async function syncRolesChannel(channel) {
         .setDescription([
             `${getRoleMention(guild, 'Owner')}\n> Owns and runs RoDark Studios.`,
             `${getRoleMention(guild, 'RoDark Studios Bot')}\n> Our custom bot for support, automation, and moderation.`,
-            `${getRoleMention(guild, 'Developer')}\n> Helps create and improve RoDark Studios games.`,
             `${getRoleMention(guild, 'Staff')}\n> Helps members, handles tickets, and enforces the rules.`,
             `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator. Create a ticket to apply.`,
             `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`,
@@ -311,7 +310,7 @@ async function syncStaffInfoChannel(channel) {
                 name: 'Staff Jobs',
                 value: [
                     `1. **Bug report follow-up** - Watch <#${BUG_REPORT_CHANNEL_ID}> and <#${TESTING_BUG_REPORT_CHANNEL_ID}>. If a report is vague, promptly ask for what happened, how to reproduce it, screenshots or video, and an F9 developer console screenshot if errors may be involved.`,
-                    `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs owner or developer help, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
+                    `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs help beyond what you can provide, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
                     '3. **Community help** - Stay up to date on how the game works, answer general questions, help people out, and keep an active, helpful community presence.',
                     '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.'
                 ].join('\n'),
