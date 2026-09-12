@@ -87,7 +87,7 @@
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "content": {
     "rules": [
-      "No bullying, extreme language or persistent ragebaiting. Listen to staff."
+      "Be nice. No bullying, extreme language or persistent ragebaiting. Listen to staff."
     ]
   }
 }
