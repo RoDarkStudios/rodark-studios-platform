@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:bot": "node bot/discord-bot.js"
+    "start:bot": "node bot/discord-bot.js",
+    "test:bot": "node --test bot/*.test.js"
   },
   "engines": {
     "node": ">=20"

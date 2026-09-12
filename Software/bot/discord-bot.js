@@ -5,6 +5,7 @@ const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
+const { createHoneypotSystem } = require('./honeypot');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
@@ -14,6 +15,7 @@ const OBSOLETE_COMMAND_CLEANUP_TTL_MS = 10 * 60 * 1000;
 let client = null;
 let connecting = false;
 let currentControl = null;
+let honeypotSystem = null;
 let lastTicketPanelSyncKey = '';
 let lastTicketPanelSyncAt = 0;
 let lastLevelSystemSyncKey = '';
@@ -130,11 +132,21 @@ function createClient() {
             GatewayIntentBits.MessageContent
         ]
     });
+    const nextHoneypot = createHoneypotSystem(nextClient);
+    honeypotSystem = nextHoneypot;
 
     nextClient.once('ready', async () => {
         const tag = nextClient.user && nextClient.user.tag ? nextClient.user.tag : 'Discord bot';
         console.log(`${tag} is online.`);
         await setDiscordBotRuntimeStatus('online', null);
+
+        let honeypotError = null;
+        try {
+            await nextHoneypot.ensure(currentControl || await getDiscordBotControl(), { force: true });
+        } catch (error) {
+            honeypotError = error.message;
+            console.error('Discord honeypot setup failed:', error);
+        }
 
         try {
             const control = currentControl || await getDiscordBotControl();
@@ -144,7 +156,7 @@ function createClient() {
             await syncLevelSystemIfNeeded(nextClient, control, { force: true });
             await ensureChannelPurgeCommand(nextClient, control, { force: true });
             await deleteObsoleteGuildCommands(nextClient, control, { force: true });
-            await setDiscordBotRuntimeStatus('online', null);
+            await setDiscordBotRuntimeStatus('online', honeypotError);
         } catch (error) {
             console.error('Discord startup sync failed:', error);
             await setDiscordBotRuntimeStatus('online', `Startup sync failed: ${String(error.message || 'unknown error')}`);
@@ -189,12 +201,13 @@ function createClient() {
         try {
             const control = currentControl || await getDiscordBotControl();
             currentControl = control;
+            if (await nextHoneypot.handleMessage(message, control)) return;
             const handled = await handleLevelMessage(message, control);
             if (handled) {
                 await setDiscordBotRuntimeStatus('online', null);
             }
         } catch (error) {
-            console.error('Discord level system message handling failed:', error);
+            console.error('Discord message handling failed:', error);
             await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
         }
     });
@@ -244,6 +257,7 @@ async function disconnectBot() {
 
     const currentClient = client;
     client = null;
+    honeypotSystem = null;
 
     if (currentClient) {
         currentClient.removeAllListeners();
@@ -267,6 +281,7 @@ async function syncBotState() {
     if (control && control.desiredEnabled) {
         await connectBot();
         if (client && client.isReady()) {
+            await honeypotSystem.ensure(control);
             await syncTicketPanelIfNeeded(client, control);
             await syncLevelSystemIfNeeded(client, control);
             await ensureChannelPurgeCommand(client, control);

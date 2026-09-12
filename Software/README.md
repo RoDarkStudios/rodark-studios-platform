@@ -90,6 +90,7 @@ OPENAI_TICKET_REVIEW_TIMEOUT_MS
 
 ## Discord Bot Notes
 
+- The worker automatically maintains an `ignore│do-not-type` anti-spam honeypot. Any message there triggers a permanent ban and one-hour message cleanup. See [honeypot setup, permissions and behaviour](bot/HONEYPOT.md).
 - The bot also supports startup channel sync from `/admin/discord-bot`. Configure the fixed channel IDs for `rules`, `info`, `roles`, `staff-info`, and `game-test-info`, then reconnect or restart the bot to resync those channels.
 - Ticket requests are reviewed with OpenAI before a private channel is created. The default model is `gpt-5.5` with `OPENAI_TICKET_REVIEW_REASONING_EFFORT=medium`; set `OPENAI_TICKET_REVIEW_MODEL` on the bot worker to override it.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.

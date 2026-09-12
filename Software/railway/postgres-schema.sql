@@ -192,3 +192,20 @@ create table if not exists discord_bot_member_levels (
     updated_at timestamptz not null default now(),
     primary key (guild_id, user_id)
 );
+
+create table if not exists discord_bot_honeypots (
+    guild_id text primary key,
+    channel_id text not null,
+    warning_message_id text
+);
+
+create table if not exists discord_bot_honeypot_bans (
+    message_id text primary key,
+    guild_id text not null,
+    channel_id text not null,
+    user_id text not null,
+    banned_at timestamptz not null default now()
+);
+
+create index if not exists discord_bot_honeypot_bans_guild_idx
+on discord_bot_honeypot_bans (guild_id);
