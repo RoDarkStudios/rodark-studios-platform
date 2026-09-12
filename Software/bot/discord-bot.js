@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const { getDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_lib/discord-bot-control-store');
+const { getDiscordBotControl, updateDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_lib/discord-bot-control-store');
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
@@ -7,6 +7,10 @@ const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 const { createHoneypotSystem } = require('./honeypot');
 const { createModerationSystem } = require('./moderation');
+const { createInfrastructureWorker, controlWithLayout } = require('./server-infrastructure');
+const infrastructureStore = require('../api/_lib/discord-infrastructure-store');
+const { closeDiscordTicketRecord } = require('../api/_lib/discord-ticket-store');
+const { ensureCommunityCommands, handleCommunityInteraction, ensureMemberRole } = require('./server-community');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
@@ -18,6 +22,9 @@ let connecting = false;
 let currentControl = null;
 let honeypotSystem = null;
 let moderationSystem = null;
+let infrastructureSystem = null;
+let startupNeeded = true;
+let syncingState = false;
 let lastTicketPanelSyncKey = '';
 let lastTicketPanelSyncAt = 0;
 let lastLevelSystemSyncKey = '';
@@ -132,6 +139,7 @@ function createClient() {
         intents: [
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.AutoModerationConfiguration,
             GatewayIntentBits.MessageContent
         ]
     });
@@ -139,57 +147,66 @@ function createClient() {
     honeypotSystem = nextHoneypot;
     const nextModeration = createModerationSystem(nextClient);
     moderationSystem = nextModeration;
+    const nextInfrastructure = createInfrastructureWorker(nextClient, {
+        beforeApply: () => nextModeration.pause(),
+        onProgress: () => setDiscordBotRuntimeStatus('online', null),
+        closeTicket: (channelId) => closeDiscordTicketRecord(channelId, nextClient.user.id),
+        finishContent: async (active, actor) => {
+            const channels = active.bindings.channel;
+            const updated = await updateDiscordBotControl({ guildId: active.spec.guildId,
+                contentRulesChannelId: channels.rules, contentInfoChannelId: channels.info, contentRolesChannelId: channels.roles,
+                contentStaffInfoChannelId: channels['staff-info'], contentGameTestInfoChannelId: null,
+                ticketsCategoryChannelId: channels['category:tickets'], ticketsPanelChannelId: channels.help,
+                ticketsHelperRoleIds: [active.bindings.role.staff], levelSystemEnabled: true, levelAnnouncementChannelId: channels['level-ups'],
+                gameUpdatesChannelId: channels['game-updates'], gameUpdatesPingEveryoneEnabled: false
+            }, actor);
+            const effective = controlWithLayout(updated, active);
+            currentControl = effective;
+            await nextClient.guilds.cache.get(active.spec.guildId).roles.fetch();
+            await nextClient.guilds.cache.get(active.spec.guildId).channels.fetch();
+            await runStartupSync(nextClient, effective);
+            await syncTicketPanelIfNeeded(nextClient, effective, { force: true });
+            await syncLevelSystemIfNeeded(nextClient, effective, { force: true });
+            await nextHoneypot.ensure(effective, { force: true });
+            await nextModeration.ensure(effective, { force: true });
+            await ensureCommunityCommands(nextClient, effective, { force: true });
+        }
+    });
+    infrastructureSystem = nextInfrastructure;
+    for (const event of ['channelCreate', 'channelUpdate', 'channelDelete', 'roleCreate', 'roleUpdate', 'roleDelete', 'guildUpdate', 'autoModerationRuleCreate', 'autoModerationRuleUpdate', 'autoModerationRuleDelete']) {
+        nextClient.on(event, () => nextInfrastructure.markDirty());
+    }
 
     nextClient.once('ready', async () => {
         const tag = nextClient.user && nextClient.user.tag ? nextClient.user.tag : 'Discord bot';
         console.log(`${tag} is online.`);
         await setDiscordBotRuntimeStatus('online', null);
 
-        nextModeration.start(() => currentControl);
-        try {
-            await nextModeration.ensure(currentControl || await getDiscordBotControl(), { force: true });
-        } catch (error) {
-            console.error('Discord AI moderation setup failed:', error.message);
-        }
-
-        let honeypotError = null;
-        try {
-            await nextHoneypot.ensure(currentControl || await getDiscordBotControl(), { force: true });
-        } catch (error) {
-            honeypotError = error.message;
-            console.error('Discord honeypot setup failed:', error);
-        }
-
-        try {
-            const control = currentControl || await getDiscordBotControl();
-            currentControl = control;
-            await runStartupSync(nextClient, control);
-            await syncTicketPanelIfNeeded(nextClient, control, { force: true });
-            await syncLevelSystemIfNeeded(nextClient, control, { force: true });
-            await ensureChannelPurgeCommand(nextClient, control, { force: true });
-            await deleteObsoleteGuildCommands(nextClient, control, { force: true });
-            await setDiscordBotRuntimeStatus('online', [honeypotError, nextModeration.getError()].filter(Boolean).join('; ') || null);
-        } catch (error) {
-            console.error('Discord startup sync failed:', error);
-            await setDiscordBotRuntimeStatus('online', `Startup sync failed: ${String(error.message || 'unknown error')}`);
-        }
+        // All layout-mutating startup work runs under the infrastructure lock in syncBotState.
+        startupNeeded = true;
+        nextInfrastructure.markDirty();
     });
 
     nextClient.on('interactionCreate', async (interaction) => {
         try {
-            const control = currentControl || await getDiscordBotControl();
-            currentControl = control;
-            if (await nextModeration.handleInteraction(interaction)) return;
-            const ticketHandled = await handleTicketInteraction(interaction, control);
-            if (ticketHandled) {
-                await setDiscordBotRuntimeStatus('online', nextModeration.getError());
+            const state = nextInfrastructure.getState();
+            if (state?.maintenance) {
+                if (interaction.isRepliable?.()) await interaction.reply({ content: 'The server layout is being updated. Please try again after deployment finishes.', ephemeral: true });
                 return;
             }
-
-            const purgeHandled = await handleChannelPurgeInteraction(interaction);
-            if (purgeHandled) {
-                await setDiscordBotRuntimeStatus('online', nextModeration.getError());
-                return;
+            const control = nextInfrastructure.effectiveControl(currentControl || await getDiscordBotControl());
+            currentControl = control;
+            if (await nextModeration.handleInteraction(interaction)) return;
+            if (await handleCommunityInteraction(interaction, control)) return;
+            const locked = await infrastructureStore.withGuildLock(control.guildId || interaction.guildId, async () => {
+                const liveState = await infrastructureStore.getState(control.guildId || interaction.guildId);
+                if (liveState.maintenance) return;
+                if (await handleTicketInteraction(interaction, control)) return;
+                if (!control.infrastructure) await handleChannelPurgeInteraction(interaction);
+                else if (interaction.commandName === 'purge-channel') await interaction.reply({ content: 'This server layout is managed through Preview → Deploy on the website.', ephemeral: true });
+            });
+            if (!locked && interaction.isRepliable?.() && !interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: 'The bot is synchronising the server. Please try again shortly.', ephemeral: true });
             }
         } catch (error) {
             console.error('Discord interaction failed:', error);
@@ -212,12 +229,14 @@ function createClient() {
 
     nextClient.on('messageCreate', async (message) => {
         try {
-            const control = currentControl || await getDiscordBotControl();
+            if (nextInfrastructure.getState()?.maintenance) return;
+            const control = nextInfrastructure.effectiveControl(currentControl || await getDiscordBotControl());
             currentControl = control;
             if (await nextHoneypot.handleMessage(message, control)) return;
             await nextModeration.handleMessage(message, control).catch((error) => {
                 console.error('Discord moderation queue failed:', error.message);
             });
+            if (message.member) await ensureMemberRole(message.member, control).catch((error) => console.error('[member-role]', error.message));
             const handled = await handleLevelMessage(message, control);
             if (handled) {
                 await setDiscordBotRuntimeStatus('online', nextModeration.getError());
@@ -291,6 +310,8 @@ async function disconnectBot() {
     honeypotSystem = null;
     const currentModeration = moderationSystem;
     moderationSystem = null;
+    infrastructureSystem = null;
+    startupNeeded = true;
     await currentModeration?.stop();
 
     if (currentClient) {
@@ -310,25 +331,35 @@ async function disconnectBot() {
 }
 
 async function syncBotState() {
+    if (syncingState) return;
+    syncingState = true;
+    try {
     const control = await getDiscordBotControl();
-    currentControl = control;
+    currentControl = infrastructureSystem ? infrastructureSystem.effectiveControl(control) : control;
     if (control && control.desiredEnabled) {
         await connectBot();
         if (client && client.isReady()) {
-            await moderationSystem.ensure(control).catch((error) => {
-                console.error('Discord AI moderation configuration failed:', error.message);
+            await infrastructureSystem.tick(control, async (effective) => {
+                currentControl = effective;
+                moderationSystem.resume();
+                moderationSystem.start(() => currentControl);
+                await moderationSystem.ensure(effective, { force: startupNeeded });
+                await honeypotSystem.ensure(effective, { force: startupNeeded });
+                if (startupNeeded) await runStartupSync(client, effective);
+                await syncTicketPanelIfNeeded(client, effective, { force: startupNeeded });
+                await syncLevelSystemIfNeeded(client, effective, { force: startupNeeded });
+                if (effective.infrastructure) await ensureCommunityCommands(client, effective, { force: startupNeeded });
+                else await ensureChannelPurgeCommand(client, effective, { force: startupNeeded });
+                await deleteObsoleteGuildCommands(client, effective, { force: startupNeeded });
+                startupNeeded = false;
+                await setDiscordBotRuntimeStatus('online', moderationSystem.getError());
             });
-            if (moderationSystem.getError()) await setDiscordBotRuntimeStatus('online', moderationSystem.getError());
-            await honeypotSystem.ensure(control);
-            await syncTicketPanelIfNeeded(client, control);
-            await syncLevelSystemIfNeeded(client, control);
-            await ensureChannelPurgeCommand(client, control);
-            await deleteObsoleteGuildCommands(client, control);
         }
         return;
     }
 
     await disconnectBot();
+    } finally { syncingState = false; }
 }
 
 async function shutdown() {

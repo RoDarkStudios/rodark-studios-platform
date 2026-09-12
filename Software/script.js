@@ -870,6 +870,17 @@ function renderDiscordBotControl(control, options) {
         channelLookupSummary.textContent = lookupMessage;
         channelLookupSummary.classList.toggle('hidden', !lookupMessage);
     }
+    if (control && control.serverLayoutManaged) {
+        for (const id of ['discord-guild-id', 'discord-guild-save-btn', 'discord-startup-sync-save-btn',
+            'discord-content-rules-channel-id', 'discord-content-info-channel-id', 'discord-content-roles-channel-id',
+            'discord-content-staff-info-channel-id', 'discord-content-game-test-info-channel-id',
+            'discord-ticket-category-channel-id', 'discord-ticket-panel-channel-id', 'discord-ticket-helper-role-input',
+            'discord-ticket-helper-role-add-btn', 'discord-ticket-system-save-btn', 'discord-level-announcement-channel-id',
+            'discord-level-system-enabled', 'discord-game-updates-channel-id', 'discord-game-updates-ping-everyone', 'discord-game-updates-save-btn']) {
+            const field = document.getElementById(id);
+            if (field) { field.disabled = true; field.title = 'Managed through Server Layout → Preview → Deploy'; }
+        }
+    }
 }
 
 function setDiscordBotStatusMessage(message, type) {

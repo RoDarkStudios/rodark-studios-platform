@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "guildId": "849976422135103498",
+  "name": "RoDark Studios",
+  "separator": "・",
+  "settings": {
+    "verification_level": 1,
+    "explicit_content_filter": 2,
+    "default_message_notifications": 1
+  },
+  "bootstrap": { "ownerRoleName": "Owner", "removeBotRoleNames": ["Bloxlink"] },
+  "roles": [
+    { "key": "staff", "name": "Staff", "color": "#22c55e", "hoist": true, "profile": "staff" },
+    { "key": "creator", "name": "Content Creator", "color": "#e76f73", "hoist": true, "profile": "creator" },
+    { "key": "booster", "name": "Server Booster", "color": "#f47fff", "hoist": true, "managedBooster": true },
+    { "key": "member", "name": "Member", "color": "#000000", "profile": "member" }
+  ],
+  "levels": { "milestones": [5, 10, 15, 25, 50, 75, 100], "preservePermissions": true },
+  "notifications": [
+    { "key": "announcements", "name": "Announcements", "emoji": "📣", "description": "Studio announcements and game updates" },
+    { "key": "polls", "name": "Polls Feedback", "emoji": "📊", "description": "Polls and opportunities to give feedback" }
+  ],
+  "games": [
+    { "key": "dig-for-eggs", "name": "Dig for Eggs", "emoji": "🥚" },
+    { "key": "animal-tag", "name": "Animal Tag", "emoji": "🐾" },
+    { "key": "my-coding-company", "name": "My Coding Company", "emoji": "💻" }
+  ],
+  "categories": [
+    { "key": "ignore", "name": "IGNORE", "channels": [
+      { "key": "honeypot", "name": "ignore│do-not-type", "type": "text", "profile": "honeypot", "topic": "DO NOT TYPE HERE. Any message, image, file, link or reply triggers an immediate permanent ban. This is a spam trap." }
+    ] },
+    { "key": "staff", "name": "🛡️・staff", "profile": "staff", "channels": [
+      { "key": "staff-info", "name": "📘・staff-info", "type": "text", "profile": "staff-readonly" },
+      { "key": "staff-chat", "name": "💬・staff-chat", "type": "text", "profile": "staff" },
+      { "key": "staff-vc", "name": "🔊・staff-vc", "type": "voice", "profile": "staff" },
+      { "key": "moderation-log", "name": "🛡️・ai-moderation-log", "type": "text", "profile": "moderation-log", "topic": "RoDark Studios contextual moderation • Private evidence and human ban reviews" }
+    ] },
+    { "key": "info", "name": "ℹ️・info", "channels": [
+      { "key": "rules", "name": "📕・rules", "type": "text", "profile": "readonly" },
+      { "key": "info", "name": "ℹ️・info", "type": "text", "profile": "readonly" },
+      { "key": "roles", "name": "🏷️・roles", "type": "text", "profile": "readonly" },
+      { "key": "help", "name": "🎫・help", "type": "text", "profile": "readonly" }
+    ] },
+    { "key": "tickets", "name": "🎫・tickets", "profile": "staff", "dynamicTickets": true, "channels": [] },
+    { "key": "announcements", "name": "📣・announcements", "channels": [
+      { "key": "announcements", "name": "📣・announcements", "type": "announcement", "profile": "readonly" },
+      { "key": "game-updates", "name": "🆕・game-updates", "type": "announcement", "profile": "readonly" },
+      { "key": "codes", "name": "🎁・codes", "type": "text", "profile": "readonly" },
+      { "key": "polls-feedback", "name": "📊・polls-feedback", "type": "text", "profile": "readonly" }
+    ] },
+    { "games": true },
+    { "key": "general", "name": "💬・general", "channels": [
+      { "key": "general-chat", "name": "💬・general-chat", "type": "text", "profile": "media" },
+      { "key": "memes", "name": "😂・memes", "type": "text", "profile": "media" },
+      { "key": "level-ups", "name": "🏆・level-ups", "type": "text", "profile": "readonly" }
+    ] },
+    { "key": "voice", "name": "🔊・voice", "channels": [
+      { "key": "lounge-1", "name": "🔊・lounge-1", "type": "voice", "userLimit": 0 },
+      { "key": "lounge-2", "name": "🔊・lounge-2", "type": "voice", "userLimit": 0 },
+      { "key": "duo", "name": "👥・duo", "type": "voice", "userLimit": 2 },
+      { "key": "squad", "name": "🎮・squad", "type": "voice", "userLimit": 4 },
+      { "key": "party", "name": "🎉・party", "type": "voice", "userLimit": 8 }
+    ] }
+  ],
+  "gameChannels": [
+    { "key": "chat", "name": "💬・chat", "type": "text", "profile": "chat", "topic": "Chat about this game. Share uploads in media; link previews unlock through the level system." },
+    { "key": "media", "name": "📸・media", "type": "text", "profile": "media", "topic": "Share screenshots, clips and moments from this game." },
+    { "key": "private-servers", "name": "🔗・private-servers", "type": "text", "profile": "chat", "topic": "Share Roblox private-server links and find people to play with." },
+    { "key": "youtube-videos", "name": "▶️・youtube-videos", "type": "text", "profile": "creators", "slowmode": 21600, "topic": "Approved Content Creators can share videos about this game once every six hours. Apply through help." },
+    { "key": "bug-reports", "name": "🐛・bug-reports", "type": "forum", "profile": "forum", "requireTag": true, "layout": "list", "tags": [
+      { "key": "minor", "name": "Minor Bug", "emoji": "🟢" },
+      { "key": "moderate", "name": "Moderate Bug", "emoji": "🟠" },
+      { "key": "major", "name": "Major Bug", "emoji": "🔴" },
+      { "key": "fixed", "name": "Fixed", "emoji": "✅", "moderated": true },
+      { "key": "closed", "name": "Closed", "emoji": "🔒", "moderated": true }
+    ], "topic": "Choose the severity that best fits your report. Describe what happened, what you expected, and steps to reproduce it. Include screenshots, video or F9 console errors where useful. Owners mark reports Fixed or Closed." },
+    { "key": "feature-suggestions", "name": "💡・feature-suggestions", "type": "forum", "profile": "forum", "layout": "list", "tags": [
+      { "key": "implemented", "name": "Implemented", "emoji": "✅", "moderated": true }
+    ], "topic": "Share one suggestion per post. Explain how it would improve the game and check for similar suggestions first. Owners mark completed suggestions Implemented." },
+    { "key": "dev-discussions", "name": "🛠️・dev-discussions", "type": "forum", "profile": "owner-forum", "layout": "list", "tags": [], "topic": "Owners start discussions about development, balancing and progression. Everyone is welcome to reply and share constructive feedback." }
+  ],
+  "onboarding": {
+    "gamesQuestion": "Which games do you play?",
+    "gamesRequired": true,
+    "notificationsQuestion": "Which pings / notifications would you like?",
+    "defaultChannels": ["rules", "info", "roles", "help", "announcements", "game-updates", "general-chat", "memes", "level-ups"]
+  },
+  "autoModerationRules": [],
+  "content": {
+    "rules": [
+      "Follow Discord and Roblox terms at all times.",
+      "Treat everyone respectfully. Harassment, hate speech, or targeted abuse is not allowed. Ordinary swearing and friendly banter are fine.",
+      "Do not spam, flood channels, or deliberately disrupt conversations.",
+      "Keep content appropriate for the server and the channel you are using.",
+      "Do not share private or personal information without permission.",
+      "Do not post scams, malware, phishing, exploits, or other harmful material.",
+      "Use channels for their intended purpose and stay reasonably on topic.",
+      "Do not repeatedly ping staff or members without a valid reason.",
+      "Behave respectfully in voice chat and do not troll, mic spam, or harass others.",
+      "Respect staff decisions and raise concerns calmly through help."
+    ]
+  }
+}

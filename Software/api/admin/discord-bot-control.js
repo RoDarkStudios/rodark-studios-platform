@@ -1,7 +1,7 @@
 const { methodNotAllowed, readJsonBody, sendJson } = require('../_lib/http');
 const { requireAdmin } = require('../_lib/admin-auth');
 const {
-    getDiscordBotControl,
+    getDiscordBotControl: getRawDiscordBotControl,
     updateDiscordBotControl
 } = require('../_lib/discord-bot-control-store');
 const { getStoredGameConfig } = require('../_lib/admin-game-config-store');
@@ -11,6 +11,14 @@ const {
 } = require('../_lib/discord-ticket-store');
 
 const DISCORD_API_BASE_URL = 'https://discord.com/api/v10';
+const infrastructureStore = require('../_lib/discord-infrastructure-store');
+const { controlWithLayout } = require('../../bot/server-infrastructure');
+const { manifest } = require('../../bot/server-blueprint');
+async function getDiscordBotControl() {
+    const control = await getRawDiscordBotControl();
+    const state = await infrastructureStore.getState(manifest.guildId);
+    return { ...controlWithLayout(control, state.active), serverLayoutManaged: Boolean(state.initialized || state.maintenance), serverLayoutMaintenance: state.maintenance };
+}
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const CHANNEL_LOOKUP_CACHE_TTL_MS = 60 * 1000;
 const DISCORD_LOOKUP_TIMEOUT_MS = Number.parseInt(process.env.DISCORD_LOOKUP_TIMEOUT_MS || '5000', 10);
@@ -406,7 +414,7 @@ function applyAddReactionsDeny(channel) {
     };
 }
 
-async function ensureGameUpdatesChannelReactionPolicy(channelId) {
+async function ensureGameUpdatesChannelReactionPolicy(channelId, managed = false) {
     const channel = await discordApiGet(`/channels/${encodeURIComponent(channelId)}`);
     const channelType = Number(channel && channel.type);
     if (![0, 5].includes(channelType)) {
@@ -419,7 +427,7 @@ async function ensureGameUpdatesChannelReactionPolicy(channelId) {
     }
 
     const permissionUpdate = applyAddReactionsDeny(channel);
-    if (permissionUpdate.changed) {
+    if (permissionUpdate.changed && !managed) {
         await discordApiPut(`/channels/${encodeURIComponent(channelId)}/permissions/${encodeURIComponent(guildId)}`, {
             type: 0,
             allow: permissionUpdate.allow,
@@ -430,7 +438,7 @@ async function ensureGameUpdatesChannelReactionPolicy(channelId) {
     return {
         guildId,
         channelName: channel && channel.name ? String(channel.name) : '',
-        reactionRestrictionApplied: true
+        reactionRestrictionApplied: !managed
     };
 }
 
@@ -511,10 +519,10 @@ async function sendGameUpdateAnnouncement(body, user) {
         : {};
     const currentControl = await getDiscordBotControl();
     const channelId = parseDiscordSnowflake(
-        announcement.channelId || (currentControl && currentControl.gameUpdates && currentControl.gameUpdates.channelId),
+        (currentControl.serverLayoutManaged ? currentControl.gameUpdates.channelId : announcement.channelId) || currentControl.gameUpdates?.channelId,
         'Game updates channel ID'
     );
-    const shouldPingEveryone = Object.prototype.hasOwnProperty.call(announcement, 'pingEveryoneEnabled')
+    const shouldPingEveryone = currentControl.serverLayoutManaged ? false : Object.prototype.hasOwnProperty.call(announcement, 'pingEveryoneEnabled')
         ? Boolean(announcement.pingEveryoneEnabled)
         : !(currentControl && currentControl.gameUpdates && currentControl.gameUpdates.pingEveryoneEnabled === false);
     const title = normalizeAnnouncementText(
@@ -533,7 +541,7 @@ async function sendGameUpdateAnnouncement(body, user) {
 
     const [playLink, channelPolicy] = await Promise.all([
         fetchProductionGameLink(),
-        ensureGameUpdatesChannelReactionPolicy(channelId)
+        ensureGameUpdatesChannelReactionPolicy(channelId, currentControl.serverLayoutManaged)
     ]);
     const description = `${bodyText}\n\n**Play now:** ${playLink.url}`;
     if (description.length > 4096) {
@@ -639,6 +647,22 @@ module.exports = async (req, res) => {
         }
 
         const body = await readJsonBody(req);
+        const existing = await getDiscordBotControl();
+        if (existing.serverLayoutMaintenance) return sendJson(res, 409, { error: 'A server rebuild is in progress. Finish it before changing bot settings or posting updates.' });
+        if (existing.serverLayoutManaged) {
+            const immutable = [
+                [body.guildId, existing.guildId],
+                ...Object.entries(body.startupContentSync || {}).map(([key, value]) => [value, existing.startupContentSync[key]]),
+                ...Object.entries(body.ticketSystem || {}).map(([key, value]) => [value, existing.ticketSystem[key]]),
+                [body.levelSystem?.announcementChannelId, existing.levelSystem.announcementChannelId],
+                [body.levelSystem?.enabled, true],
+                [body.gameUpdates?.channelId, existing.gameUpdates.channelId],
+                [body.gameUpdates?.pingEveryoneEnabled, false]
+            ];
+            if (immutable.some(([requested, deployed]) => requested !== undefined && JSON.stringify(requested ?? '') !== JSON.stringify(deployed ?? ''))) {
+                return sendJson(res, 409, { error: 'Channels, roles and onboarding are managed in the server configuration. Use Server Layout → Preview → Deploy.' });
+            }
+        }
         const operation = String(body && body.operation ? body.operation : '').trim().toLowerCase();
         if (operation === 'game-update:send') {
             const payload = await sendGameUpdateAnnouncement(body, auth.user);

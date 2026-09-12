@@ -91,8 +91,9 @@ DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS
 
 ## Discord Bot Notes
 
+- The server layout is defined in `discord/server.json`. Owners review and apply it through **Server Layout** on `/admin/discord-bot`; pushing code alone does not rebuild Discord. The first deploy replaces old channels, while later deployments preserve retained channel IDs and history. See [deployment, permissions and recovery](discord/README.md).
 - The worker automatically maintains an `ignore│do-not-type` anti-spam honeypot. Any message there triggers a permanent ban and one-hour message cleanup. See [honeypot setup, permissions and behaviour](bot/HONEYPOT.md).
-- The bot also supports startup channel sync from `/admin/discord-bot`. Configure the fixed channel IDs for `rules`, `info`, `roles`, `staff-info`, and `game-test-info`, then reconnect or restart the bot to resync those channels.
+- Before the first infrastructure deployment, startup channel IDs can be configured in `/admin/discord-bot`. After deployment, channel IDs and ticket helper roles are managed by the server definition; the bot refreshes its information panels in place.
 - Contextual community moderation is the bot's only AI feature. It uses `gpt-5.6-luna` with high reasoning, at most once per minute per active channel. Swearing is allowed; clear bullying, aggressive personal attacks, racial slurs and threats can trigger timeouts, with human ban review for serious cases. See [moderation setup, safeguards, costs and evaluation](bot/MODERATION.md).
 - Support tickets open normally without AI screening. Private ticket permissions, helper pings, duplicate prevention, closing and transcripts remain in place.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.

@@ -13,6 +13,7 @@ const robloxGames = require('./api/roblox/games');
 const robloxGroupGames = require('./api/roblox/group-games');
 const robloxGroupStats = require('./api/roblox/group-stats');
 const adminDiscordBotControl = require('./api/admin/discord-bot-control');
+const adminDiscordInfrastructure = require('./api/admin/discord-infrastructure');
 const adminConsultations = require('./api/admin/consultations');
 const adminProfitTracker = require('./api/admin/profit-tracker');
 const consultationConfig = require('./api/consultations/config');
@@ -90,7 +91,8 @@ const apiRoutes = {
     '/api/consultations/webhook': consultationWebhook,
     '/api/admin/consultations': adminConsultations,
     '/api/admin/profit-tracker': adminProfitTracker,
-    '/api/admin/discord-bot-control': adminDiscordBotControl
+    '/api/admin/discord-bot-control': adminDiscordBotControl,
+    '/api/admin/discord-infrastructure': adminDiscordInfrastructure
 };
 
 const mimeTypes = {

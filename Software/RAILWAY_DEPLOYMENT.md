@@ -82,3 +82,5 @@ Run the Discord bot as a second Railway service from this same GitHub repo.
   - `DISCORD_BOT_TOKEN`
 
 The website dashboard at `/admin/discord-bot` sets the desired bot state in Postgres. The bot service reads that state and connects or disconnects from Discord.
+
+The **Server Layout** tab deploys `discord/server.json`. Both services must run the same pushed version; mismatches are rejected before Discord writes. The website queues previews and deployments in the shared database, and the bot processes them with its existing token. No additional environment variables are required. Database tables are created automatically. Keep the Postgres state across deployments so retained channels keep their IDs and message history. See [the server configuration guide](discord/README.md) for the initial rebuild, role hierarchy requirements and recovery.

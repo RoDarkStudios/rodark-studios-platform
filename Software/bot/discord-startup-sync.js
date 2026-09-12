@@ -141,12 +141,12 @@ async function resolveStartupSyncContext(client, control) {
 
 async function getOrCreateMainMessage(channel) {
     const existingMessages = await channel.messages.fetch({
-        limit: 1,
+        limit: 50,
         after: '0'
     }).catch(() => null);
 
     if (existingMessages && existingMessages.size) {
-        const [message] = Array.from(existingMessages.values());
+        const message = Array.from(existingMessages.values()).find((item) => item.author?.id === channel.client.user.id);
         if (message) {
             return message;
         }
@@ -217,7 +217,7 @@ async function ensureCustomEmojis(guild) {
     return customEmojis;
 }
 
-async function syncRulesChannel(channel) {
+async function syncRulesChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const embed = new EmbedBuilder()
         .setTitle('Please Follow The Rules')
@@ -235,10 +235,11 @@ async function syncRulesChannel(channel) {
             '10. Respect staff decisions and raise concerns calmly instead of arguing publicly.'
         ].join('\n'));
 
+    if (control?.infrastructure) embed.setDescription(control.infrastructure.spec.content.rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n'));
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.rules);
 }
 
-async function syncInfoChannel(channel, customEmojis) {
+async function syncInfoChannel(channel, customEmojis, control) {
     const message = await getOrCreateMainMessage(channel);
     const embed = new EmbedBuilder()
         .setTitle('RoDark Studios')
@@ -277,10 +278,15 @@ async function syncInfoChannel(channel, customEmojis) {
             }
         );
 
+    if (control?.infrastructure) {
+        const active = control.infrastructure;
+        embed.spliceFields(2, 1, { name: `${customEmojis.Roblox} Our Games`, value: active.spec.games.map((game) => `${game.emoji} **${game.name}**`).join('\n'), inline: false });
+        embed.addFields({ name: 'Make yourself at home', value: `Choose your games and notification roles in **Channels & Roles**. Open a private support ticket in <#${active.bindings.channel.help}>.` });
+    }
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.info);
 }
 
-async function syncRolesChannel(channel) {
+async function syncRolesChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
     const embed = new EmbedBuilder()
@@ -295,10 +301,19 @@ async function syncRolesChannel(channel) {
             `${getRoleMention(guild, 'Member')}\n> Verified member of the RoDark Studios community.`
         ].join('\n\n'));
 
+    if (control?.infrastructure) {
+        const active = control.infrastructure;
+        embed.setDescription(embed.data.description.replace('Verified member of the RoDark Studios community.', 'A member of the RoDark Studios community. Roblox verification is not required.'));
+        embed.addFields(
+            { name: 'Game roles', value: active.spec.games.map((game) => `${getRoleMention(guild, game.name)} — ${game.name} channels`).join('\n') },
+            { name: 'Optional notifications', value: `${getRoleMention(guild, 'Announcements')} — announcements and game updates\n${getRoleMention(guild, 'Polls Feedback')} — polls and feedback requests\nChoose either, both or neither in **Channels & Roles**.` },
+            { name: 'Levels', value: `Earn XP by chatting. Milestone roles are awarded at levels ${active.spec.levels.milestones.join(', ')}. Link previews unlock at Level ${control.levelSystem.attachmentUnlockLevel}. Your existing XP is retained.` }
+        );
+    }
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.roles);
 }
 
-async function syncStaffInfoChannel(channel) {
+async function syncStaffInfoChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
     const embed = new EmbedBuilder()
@@ -328,6 +343,20 @@ async function syncStaffInfoChannel(channel) {
             }
         );
 
+    if (control?.infrastructure) {
+        const active = control.infrastructure;
+        const reports = active.spec.games.map((game) => `<#${active.bindings.channel[`${game.key}/bug-reports`]}>`).join(', ');
+        embed.spliceFields(0, 1, { name: 'Staff Jobs', inline: false, value: [
+            `1. **Bug report follow-up** — Watch ${reports}. Ask for clear reproduction steps, screenshots or video and F9 console errors when helpful.`,
+            `2. **Tickets** — Help members in private tickets. Escalate unresolved issues and Content Creator applications to an ${getRoleMention(guild, 'Owner')}. Only Owners award Content Creator.`,
+            '3. **Moderation** — Delete abusive messages; timeout, kick or ban when justified. Ordinary swearing and friendly jokes are allowed. Context, targeted bullying, hate and threats matter.',
+            `4. **AI reviews** — Review evidence in <#${active.bindings.channel['moderation-log']}>. The bot can timeout; Staff make ban decisions. Dismiss false positives with the review buttons.`
+        ].join('\n') });
+        embed.addFields(
+            { name: 'Forums', value: 'Only Owners apply Fixed, Closed and Implemented tags. Use /forum-moderate inside a member’s forum post to lock, reopen or remove it when moderation is needed.' },
+            { name: 'Server structure', value: 'Channels, roles, permissions and onboarding are deployed through the website. Staff do not manage the infrastructure.' }
+        );
+    }
     await editMessageWithEmbed(message, embed);
 }
 
@@ -389,19 +418,19 @@ async function runStartupSync(client, control) {
     const customEmojis = await ensureCustomEmojis(guild);
 
     if (channels.rules) {
-        await syncRulesChannel(channels.rules);
+        await syncRulesChannel(channels.rules, control);
     }
 
     if (channels.info) {
-        await syncInfoChannel(channels.info, customEmojis);
+        await syncInfoChannel(channels.info, customEmojis, control);
     }
 
     if (channels.roles) {
-        await syncRolesChannel(channels.roles);
+        await syncRolesChannel(channels.roles, control);
     }
 
     if (channels.staffInfo) {
-        await syncStaffInfoChannel(channels.staffInfo);
+        await syncStaffInfoChannel(channels.staffInfo, control);
     }
 
     if (channels.gameTestInfo) {

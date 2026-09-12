@@ -136,6 +136,7 @@ function createModerationSystem(client, {
     let lastCleanup = 0;
     let lastControl = null;
     let healthError = null;
+    let paused = false;
 
     async function report(key, error, state) {
         if ((notices.get(key) || 0) > now()) return;
@@ -149,27 +150,36 @@ function createModerationSystem(client, {
         }
     }
 
-    async function ensureGuild(guild) {
+    async function ensureGuild(guild, control) {
+        const managed = control?.infrastructure;
         await guild.roles.fetch();
-        const roles = resolveModeratorRoles(guild, config.moderatorRoleIds);
+        const roles = resolveModeratorRoles(guild, managed ? [managed.bindings.role.staff] : config.moderatorRoleIds);
         const me = await guild.members.fetchMe();
         if (!me.permissions.has(P.ModerateMembers)) throw new Error('The bot requires Moderate Members for contextual moderation');
         await guild.channels.fetch();
-        let logChannel = config.logChannelId ? guild.channels.cache.get(config.logChannelId)
+        const logId = managed?.bindings.channel['moderation-log'] || config.logChannelId;
+        let logChannel = logId ? guild.channels.cache.get(logId)
             : guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && channel.topic === LOG_TOPIC);
-        if (config.logChannelId && !logChannel) throw new Error('Configured moderation log channel is not in the target server');
+        if (logId && !logChannel) throw new Error('Configured moderation log channel is not in the target server. Preview the server layout to restore it.');
         if (logChannel && logChannel.type !== ChannelType.GuildText) throw new Error('Moderation log must be a text channel');
         const readers = [...new Set([...roles.map((role) => role.id), ...[...guild.roles.cache.values()].filter((role) => /^(owner|owners)$/i.test(role.name) && !role.managed).map((role) => role.id)])];
-        const overwrites = [
+        let overwrites = [
             { id: guild.id, type: OverwriteType.Role, allow: [], deny: [P.ViewChannel] },
             ...readers.map((id) => ({ id, type: OverwriteType.Role, allow: [P.ViewChannel, P.ReadMessageHistory, P.SendMessages], deny: [] })),
             { id: client.user.id, type: OverwriteType.Member, allow: [P.ViewChannel, P.ReadMessageHistory, P.SendMessages, P.EmbedLinks, P.MentionEveryone], deny: [] }
         ];
+        if (managed) {
+            const { compileBlueprint } = require('./server-blueprint');
+            const declared = compileBlueprint(control, managed.spec).channels.find((channel) => channel.key === 'moderation-log');
+            overwrites = declared.permission_overwrites.map((entry) => ({ ...entry,
+                id: entry.id.startsWith('$role:') ? managed.bindings.role[entry.id.slice(6)] : entry.id
+            }));
+        }
         if (!logChannel) {
             logChannel = await guild.channels.create({ name: LOG_NAME, type: ChannelType.GuildText, topic: LOG_TOPIC,
                 permissionOverwrites: overwrites, reason: 'Private contextual moderation log and human review' });
         } else {
-            const bits = (values) => values.reduce((sum, bit) => sum | bit, 0n);
+            const bits = (values) => typeof values === 'string' ? BigInt(values) : values.reduce((sum, bit) => sum | bit, 0n);
             if (logChannel.permissionOverwrites.cache.size !== overwrites.length || overwrites.some((entry) => {
                 const current = logChannel.permissionOverwrites.cache.get(entry.id);
                 return !current || current.type !== entry.type || current.allow.bitfield !== bits(entry.allow) || current.deny.bitfield !== bits(entry.deny);
@@ -183,7 +193,7 @@ function createModerationSystem(client, {
 
     async function ensure(control, { force = false } = {}) {
         lastControl = control;
-        if (stopped || !config.enabled || !client.isReady()) return;
+        if (stopped || (paused && !force) || !config.enabled || !client.isReady()) return;
         if (!config.apiKey) {
             healthError = 'OPENAI_API_KEY is missing; contextual moderation is unavailable';
             await report('configuration', healthError);
@@ -200,7 +210,7 @@ function createModerationSystem(client, {
             for (const guild of guilds) {
                 // Do not race two worker replicas creating the log channel.
                 await store.withLock(`setup:${guild.id}`, async () => {
-                    try { await ensureGuild(guild); }
+                    try { await ensureGuild(guild, control); }
                     catch (error) { healthError = error.message; const previous = states.get(guild.id); states.delete(guild.id); await report(`setup:${guild.id}`, error, previous); }
                 });
             }
@@ -211,7 +221,7 @@ function createModerationSystem(client, {
     }
 
     async function handleMessage(message, control) {
-        if (stopped || !config.enabled || !config.apiKey || control?.desiredEnabled === false) return false;
+        if (stopped || paused || !config.enabled || !config.apiKey || control?.desiredEnabled === false) return false;
         if (message?.partial) message = await message.fetch();
         if (!message?.guild || !message.author || message.author.bot || message.webhookId || message.system) return false;
         const state = states.get(message.guild.id);
@@ -369,7 +379,7 @@ function createModerationSystem(client, {
 
     async function tick(control = lastControl) {
         if (running) return running;
-        if (stopped || !config.enabled || !config.apiKey || !client.isReady() || control?.desiredEnabled === false) return;
+        if (stopped || paused || !config.enabled || !config.apiKey || !client.isReady() || control?.desiredEnabled === false) return;
         lastControl = control;
         running = (async () => {
             await ensure(control);
@@ -449,7 +459,13 @@ function createModerationSystem(client, {
         return true;
     }
 
-    return { ensure, handleMessage, handleDelete, handleInteraction, start, stop, tick, getError: () => healthError };
+    async function pause() {
+        paused = true;
+        for (const controller of controllers) controller.abort();
+        await running?.catch(() => {});
+        await ensuring?.catch(() => {});
+    }
+    return { ensure, handleMessage, handleDelete, handleInteraction, start, stop, tick, pause, resume: () => { paused = false; }, getError: () => healthError };
 }
 
 module.exports = { createModerationSystem, readConfig, eligibleChannel, resolveModeratorRoles, makeCase, buildCasePayload, LOG_TOPIC };

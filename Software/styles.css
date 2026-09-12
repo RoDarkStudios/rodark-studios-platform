@@ -3855,3 +3855,30 @@ body {
         font-size: 2rem;
     }
 }
+/* Owner-only Discord server deployment workspace. */
+.infra-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin:1rem 0 1.5rem; }
+.infra-heading h2 { font-size:clamp(1.6rem, 3vw, 2.3rem); margin:.2rem 0 .6rem; }
+.infra-eyebrow { color:#fb923c; font-size:.72rem; font-weight:800; letter-spacing:.16em; }
+.infra-release { color:#cbd5e1; border:1px solid #334155; padding:.45rem .7rem; border-radius:6px; white-space:nowrap; font-size:.75rem; }
+.infra-notice { padding:1.15rem; border:1px solid #334155; border-radius:10px; background:#121a25; line-height:1.65; }
+.infra-warning { border-color:#a66027; background:#291e15; color:#ffdfb9; }
+.infra-actions { display:flex; flex-wrap:wrap; gap:.8rem; margin:1.3rem 0; }
+.infra-columns { display:grid; grid-template-columns:minmax(0, 1.2fr) minmax(0, 1fr); gap:1.2rem; margin:1.5rem 0; }
+.infra-card { padding:1.25rem; border:1px solid #2c3440; background:#10151e; border-radius:12px; min-width:0; }
+.infra-card h3, .infra-result h3 { margin:0 0 1rem; }
+.infra-card h4 { margin:1.5rem 0 .7rem; }
+.infra-card details { margin:.8rem 0; }
+.infra-card summary, .infra-result summary { cursor:pointer; font-weight:600; padding:.4rem 0; }
+.infra-card ul, .infra-result ul { padding-left:1.3rem; }
+.infra-card li, .infra-result li { margin:.55rem 0; overflow-wrap:anywhere; }
+.infra-card small { display:block; color:#94a3b8; font-size:.76rem; margin:.25rem 0 .5rem; line-height:1.5; }
+.infra-role { margin:.7rem 0; }
+.infra-role-dot { display:inline-block; width:.65rem; height:.65rem; border-radius:50%; margin-right:.6rem; }
+.infra-role small { margin-left:1.25rem; }
+.infra-result:empty { display:none; }
+.infra-result { padding:1.2rem; border:1px solid #334155; border-radius:10px; margin:1.2rem 0; }
+.infra-result details { max-height:28rem; overflow:auto; }
+.infra-removal, .infra-error { color:#fda4af; }
+.infra-counts { color:#fdba74; font-weight:600; }
+.infra-progress { padding:.8rem; background:#17231e; border-left:3px solid #4ade80; }
+@media(max-width:700px) { .infra-columns { grid-template-columns:1fr; } .infra-heading { flex-direction:column; } }

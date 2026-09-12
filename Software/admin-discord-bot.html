@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=20260912-discord-layout">
     <link rel="icon" type="image/png" href="/official_company_logo.png">
 </head>
 <body>
@@ -58,6 +58,9 @@
                                     </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-server">
                                         Server
+                                    </button>
+                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-infrastructure">
+                                        Server Layout
                                     </button>
                                     <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-startup-sync">
                                         Startup Sync
@@ -415,6 +418,25 @@
                                     </div>
                                 </section>
 
+                                <section id="discord-tab-infrastructure" class="admin-discord-tab-panel" role="tabpanel" aria-labelledby="infrastructure-title" hidden>
+                                    <div class="infra-heading">
+                                        <div><p class="infra-eyebrow">RODARK STUDIOS</p><h2 id="infrastructure-title">Your server, defined.</h2>
+                                            <p class="admin-tool-note">Review the layout in this release, preview its changes, then deploy to Discord.</p></div>
+                                        <span id="infra-release" class="infra-release">Loading release…</span>
+                                    </div>
+                                    <div id="infra-notice" class="infra-notice" role="status" aria-live="polite">Loading deployment status…</div>
+                                    <div class="infra-actions">
+                                        <button id="infra-preview" class="btn btn-secondary" type="button" disabled>Preview changes</button>
+                                        <button id="infra-deploy" class="btn btn-primary" type="button" disabled>Deploy</button>
+                                    </div>
+                                    <div id="infra-result" class="infra-result" aria-live="polite"></div>
+                                    <div class="infra-columns">
+                                        <div class="infra-card"><h3>Channel layout</h3><div id="infra-layout"></div></div>
+                                        <div class="infra-card"><h3>Roles &amp; onboarding</h3><div id="infra-roles"></div><div id="infra-onboarding"></div></div>
+                                    </div>
+                                    <details class="infra-card"><summary>Recent deployments</summary><div id="infra-history"></div></details>
+                                    <p class="admin-tool-note">Owners control deployment. Future updates preserve retained channels, messages, tickets and forum posts. Channels removed from the configuration are deleted with their history.</p>
+                                </section>
                                 <p id="discord-bot-status-message" class="admin-status info hidden"></p>
                             </div>
                         </div>
@@ -443,6 +465,7 @@
         </div>
     </footer>
 
-    <script src="/script.js?v=20260610-game-config-targets"></script>
+    <script src="/script.js?v=20260912-discord-layout"></script>
+    <script src="/discord-infrastructure.js?v=20260912"></script>
 </body>
 </html>
