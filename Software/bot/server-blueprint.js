@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 8;
+const ENGINE_VERSION = 9;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -64,7 +64,10 @@ function validateManifest(spec) {
         if (new Set(keys).size !== keys.length || keys.some((key) => !/^[a-z0-9-]+$/.test(key))) throw new Error('Blueprint keys must be unique, stable identifiers.');
     }
     if (!spec.games.length || spec.games.length > 20) throw new Error('Onboarding requires between 1 and 20 game options.');
-    if (spec.autoModerationRules.length) throw new Error('Native AutoMod rules are not part of this blueprint version. Use the existing contextual moderation system.');
+    if (!Array.isArray(spec.autoModerationRules) || spec.autoModerationRules.length > 1 ||
+        spec.autoModerationRules.some(rule => !same(rule, { triggerType: 5, enabled: false }))) {
+        throw new Error('Only the disabled Community Mention Spam rule is supported. Use contextual moderation for active filtering.');
+    }
     if (!same(spec.levels.milestones, [5, 10, 15, 25, 50, 75, 100]) || !spec.levels.preservePermissions) throw new Error('Existing level milestones and permission behaviour must be preserved.');
 }
 
@@ -295,7 +298,14 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     if (!snapshot.guild.features.includes('COMMUNITY') || Object.keys(guildDesired).some((key) => snapshot.guild[key] !== guildDesired[key])) operations.push({ kind: 'guild', label: 'Configure Community, rules, moderation alerts and server defaults' });
     const onboarding = onboardingBody(blueprint, previewBindings, snapshot.onboarding);
     if (!same(normalizeOnboarding(onboarding), normalizeOnboarding(snapshot.onboarding))) operations.push({ kind: 'onboarding', label: 'Publish game selection and optional notification questions' });
-    for (const rule of snapshot.autoMod) operations.push({ kind: 'delete_automod', id: rule.id, label: `Remove unlisted native AutoMod rule: ${rule.name}` });
+    for (const rule of snapshot.autoMod) {
+        // Community servers cannot delete their Mention Spam rule. The definition
+        // retains it disabled; an absent disabled rule does not need creating.
+        const desired = blueprint.spec.autoModerationRules.find(item => item.triggerType === rule.trigger_type);
+        if (desired) {
+            if (rule.enabled !== desired.enabled) operations.push({ kind: 'disable_automod', id: rule.id, label: `Disable native AutoMod rule: ${rule.name}` });
+        } else operations.push({ kind: 'delete_automod', id: rule.id, label: `Remove unlisted native AutoMod rule: ${rule.name}` });
+    }
     if (state.active?.version !== blueprint.version || initial || operations.length) operations.push({ kind: 'content', label: 'Connect tickets, levels, honeypot and AI moderation; publish server information' });
     if (snapshot.channels.length + operations.filter((op) => op.kind === 'channel' && !op.id).length > 500) errors.push('Discord’s 500-channel limit leaves insufficient room to stage this rebuild. Reduce the old channel count before deploying.');
     if (snapshot.roles.length + operations.filter((op) => op.kind === 'role' && !op.id).length > 250) errors.push('Discord’s role limit leaves insufficient room to create the required roles.');

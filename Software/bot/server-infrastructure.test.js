@@ -109,7 +109,17 @@ function fakeDiscord() {
                 options: prompt.options.map((option) => ({ ...option, id: option.id || id() })) }));
             return clone(server.onboarding);
         }
-        if (path.includes('/auto-moderation/rules/') && method === 'delete') { server.autoMod = server.autoMod.filter((rule) => rule.id !== path.split('/').at(-1)); return; }
+        if (path.includes('/auto-moderation/rules/')) {
+            const rule = server.autoMod.find(item => item.id === path.split('/').at(-1));
+            if (!rule) throw error404();
+            if (method === 'delete') {
+                if (rule.trigger_type === 5 && server.guild.features.includes('COMMUNITY')) {
+                    throw Object.assign(new Error('Community Mention Spam rules cannot be deleted'), { status: 404, code: 0 });
+                }
+                server.autoMod = server.autoMod.filter(item => item.id !== rule.id); return;
+            }
+            if (method === 'patch') { Object.assign(rule, clone(body)); return clone(rule); }
+        }
         if (path.includes('/members/') && method === 'delete') {
             const memberId = path.split('/').at(-1); delete server.members[memberId]; server.roles = server.roles.filter((item) => item.tags?.bot_id !== memberId); return;
         }
@@ -249,6 +259,40 @@ test('a generic Discord 404 does not count as a successfully deleted AutoMod rul
     };
     await assert.rejects(deploy(fake), /Remove unlisted native AutoMod rule: Old swear filter failed/);
     assert.ok(fake.server.autoMod.some(item => item.id === rule.id));
+});
+
+test('deployment disables the required Community rule, deletes other filters and finishes idempotently', async () => {
+    const fake = fakeDiscord(), blueprint = compileBlueprint(control);
+    const rule = { id: '1030554520465440818', name: 'Block Mention Spam', trigger_type: 5, enabled: true };
+    fake.server.autoMod.push(rule);
+    const first = await deploy(fake);
+    assert.ok(first.plan.operations.some(op => op.kind === 'disable_automod' && op.id === rule.id));
+    assert.ok(!fake.server.writes.some(write => write.method === 'delete' && write.path.endsWith(`/rules/${rule.id}`)));
+    assert.deepEqual(fake.server.autoMod, [{ ...rule, enabled: false }]);
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, first.state).operations, []);
+    rule.enabled = true;
+    const changed = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.ok(buildPlan(blueprint, changed, first.state).operations.some(op => op.kind === 'disable_automod'));
+});
+
+test('an already disabled Community rule is retained without any rule writes', async () => {
+    const fake = fakeDiscord();
+    fake.server.autoMod = [{ id: '1030554520465440818', name: 'Renamed mention rule', trigger_type: 5, enabled: false }];
+    await deploy(fake);
+    assert.ok(!fake.server.writes.some(write => write.path.includes('/auto-moderation/')));
+    assert.equal(fake.server.autoMod[0].enabled, false);
+});
+
+test('a refused disable request still blocks deployment instead of leaving an active filter unnoticed', async () => {
+    const fake = fakeDiscord(), patch = fake.rest.patch;
+    fake.server.autoMod = [{ id: '1030554520465440818', name: 'Block Mention Spam', trigger_type: 5, enabled: true }];
+    fake.rest.patch = async (path, options) => {
+        if (path.includes('/auto-moderation/rules/')) throw Object.assign(new Error('404: Not Found'), { status: 404, code: 0 });
+        return patch(path, options);
+    };
+    await assert.rejects(deploy(fake), /Disable this rule in Discord Server Settings/);
+    assert.equal(fake.server.autoMod[0].enabled, true);
 });
 
 test('initial deployment removes every old channel and unlisted role, removes Bloxlink, and preserves member/creator/staff role identities', async () => {

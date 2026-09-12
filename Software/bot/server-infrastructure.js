@@ -38,7 +38,7 @@ function operationPriority(op, blueprint) {
         const type = blueprint.channels.find((channel) => channel.key === op.key).type;
         return type === 4 ? 20 : [0, 2].includes(type) ? 30 : 50;
     }
-    return { remove_bot: 5, role: 10, everyone: 15, guild: 40, delete_automod: 55,
+    return { remove_bot: 5, role: 10, everyone: 15, guild: 40, delete_automod: 55, disable_automod: 55,
         delete_channel: 60, delete_role: 65, sort_roles: 70, sort_channels: 75, content: 80, onboarding: 90 }[op.kind] ?? 100;
 }
 
@@ -141,6 +141,9 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             await write('delete', `${root}/roles/${op.id}`);
         } else if (op.kind === 'remove_bot') {
             await write('delete', `${root}/members/${op.id}`);
+        } else if (op.kind === 'disable_automod') {
+            try { await write('patch', `${root}/auto-moderation/rules/${op.id}`, { enabled: false }); }
+            catch (error) { throw new Error(`${op.label} failed: ${error.message}. Disable this rule in Discord Server Settings → Safety Setup → AutoMod, then click Deploy again.`, { cause: error }); }
         } else if (op.kind === 'delete_automod') {
             try { await write('delete', `${root}/auto-moderation/rules/${op.id}`); }
             catch (error) { throw new Error(`${op.label} failed: ${error.message}. The rule must be explicitly retained in the definition or removed in Discord.`, { cause: error }); }

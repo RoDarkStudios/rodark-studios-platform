@@ -4,7 +4,9 @@
 
 ## First deployment and later updates
 
-The first deployment deliberately replaces existing channels and categories. Their messages, forum posts and open ticket channels are deleted. It removes Bloxlink, unlisted editable roles and native AutoMod rules; the existing contextual AI moderation remains enabled. Earned XP, the honeypot ban count and assignments to retained roles are preserved.
+The first deployment deliberately replaces existing channels and categories. Their messages, forum posts and open ticket channels are deleted. It removes Bloxlink, unlisted editable roles and unlisted native AutoMod rules; the existing contextual AI moderation remains enabled. Earned XP, the honeypot ban count and assignments to retained roles are preserved.
+
+Discord's Community settings prohibit deleting the built-in Mention Spam rule. `autoModerationRules` explicitly retains trigger type 5 **disabled**, so it does not filter messages. Deployment disables it if needed and verifies its state; it does not create an absent disabled rule. Other unlisted native rules are still removed. If Discord rejects the disable request, deployment identifies the rule for disabling in Server Settings → Safety Setup → AutoMod; errors are never silently treated as success.
 
 Later deployments match stable `key` values to Discord IDs saved in Postgres. Renaming a channel, moving it, editing permissions or updating forum tags preserves that channel and its history. Keep keys unchanged when renaming things. Removing an entry deletes its channel and history; changing its channel type replaces it. Reintroducing a removed key creates a new channel. Forum threads and registered open tickets under the configured Tickets category are dynamic content, so ordinary deployments preserve them.
 
