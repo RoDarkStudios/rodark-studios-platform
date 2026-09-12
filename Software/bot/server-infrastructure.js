@@ -49,7 +49,7 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
     const write = async (method, path, body) => {
         guard();
         try { return await rest[method](path, { ...(body !== undefined ? { body } : {}), reason }); }
-        catch (error) { if (method === 'delete' && error.status === 404) return null; throw error; }
+        catch (error) { if (method === 'delete' && error.status === 404 && Number(error.code) !== 0) return null; throw error; }
     };
     const communityChannels = () => {
         const targets = { rules_channel_id: bindings.channel.rules, public_updates_channel_id: bindings.channel['staff-info'],
@@ -142,7 +142,8 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
         } else if (op.kind === 'remove_bot') {
             await write('delete', `${root}/members/${op.id}`);
         } else if (op.kind === 'delete_automod') {
-            await write('delete', `${root}/auto-moderation/rules/${op.id}`);
+            try { await write('delete', `${root}/auto-moderation/rules/${op.id}`); }
+            catch (error) { throw new Error(`${op.label} failed: ${error.message}. The rule must be explicitly retained in the definition or removed in Discord.`, { cause: error }); }
         } else if (op.kind === 'sort_roles') {
             const rows = [...blueprint.roles].reverse().filter((role) => bindings.role[role.key]).map((role, i) => ({ id: bindings.role[role.key], position: i + 1 }));
             await write('patch', `${root}/roles`, rows);

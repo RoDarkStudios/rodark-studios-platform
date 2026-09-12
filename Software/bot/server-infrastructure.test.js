@@ -240,6 +240,17 @@ test('Discord reordering default onboarding channels does not trigger another de
     assert.ok(buildPlan(blueprint, missingChannel, first.state).operations.some(op => op.kind === 'onboarding'));
 });
 
+test('a generic Discord 404 does not count as a successfully deleted AutoMod rule', async () => {
+    const fake = fakeDiscord(), remove = fake.rest.delete;
+    const rule = fake.server.autoMod[0]; rule.enabled = true;
+    fake.rest.delete = async (path, options) => {
+        if (path.endsWith(`/auto-moderation/rules/${rule.id}`)) throw Object.assign(new Error('404: Not Found'), { status: 404, code: 0 });
+        return remove(path, options);
+    };
+    await assert.rejects(deploy(fake), /Remove unlisted native AutoMod rule: Old swear filter failed/);
+    assert.ok(fake.server.autoMod.some(item => item.id === rule.id));
+});
+
 test('initial deployment removes every old channel and unlisted role, removes Bloxlink, and preserves member/creator/staff role identities', async () => {
     const fake = fakeDiscord(), oldChannels = fake.server.channels.map((channel) => channel.id);
     const { state, plan } = await deploy(fake);
