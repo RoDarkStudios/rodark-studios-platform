@@ -25,9 +25,6 @@
     { "key": "my-coding-company", "name": "My Coding Company", "emoji": "💻" }
   ],
   "categories": [
-    { "key": "ignore", "name": "IGNORE", "channels": [
-      { "key": "honeypot", "name": "ignore│do-not-type", "type": "text", "profile": "honeypot", "topic": "DO NOT TYPE HERE. Any message, image, file, link or reply triggers an immediate permanent ban. This is a spam trap." }
-    ] },
     { "key": "staff", "name": "Staff", "profile": "staff", "channels": [
       { "key": "staff-info", "name": "📘・staff-info", "type": "text", "profile": "staff-readonly" },
       { "key": "staff-chat", "name": "💬・staff-chat", "type": "text", "profile": "staff" },
@@ -39,6 +36,9 @@
       { "key": "info", "name": "ℹ️・info", "type": "text", "profile": "readonly" },
       { "key": "roles", "name": "🏷️・roles", "type": "text", "profile": "readonly" },
       { "key": "help", "name": "🎫・help", "type": "text", "profile": "readonly" }
+    ] },
+    { "key": "ignore", "name": "IGNORE", "channels": [
+      { "key": "honeypot", "name": "ignore│do-not-type", "type": "text", "profile": "honeypot", "topic": "DO NOT TYPE HERE. Any message, image, file, link or reply triggers an immediate permanent ban. This is a spam trap." }
     ] },
     { "key": "tickets", "name": "Tickets", "profile": "staff", "dynamicTickets": true, "channels": [] },
     { "key": "announcements", "name": "Announcements", "channels": [

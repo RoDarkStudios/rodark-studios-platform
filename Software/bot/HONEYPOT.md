@@ -14,6 +14,8 @@ New channels remain read-only until the warning is posted. Existing warning mess
 
 ## Why near the top?
 
+The managed layout places `IGNORE` directly below `Info`. The public rules and information channels come first and are read-only, while the trap remains ahead of ordinary chat channels. This avoids making the trap the first public channel newcomers encounter. Runtime honeypot maintenance respects the deployed category position.
+
 This is a known defence against accounts that flood writable channels. Some spam scripts start near the top; a bottom-of-list trap may catch them only after they have spammed the rest of the server. The separate `IGNORE` category and explicit warning reduce accidental human use. Sophisticated scripts can skip obvious trap names, so this complements other moderation rather than guaranteeing every scam will be caught.
 
 - [Honeypot positioning recommendations](https://honeypot.riskymh.dev/docs/tips)

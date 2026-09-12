@@ -163,8 +163,8 @@ test('the agreed layout has 10 categories, 42 channels, all three game sets, exa
         assert.equal(blueprint.channels.find(channel => channel.key === `category:game-${game.key}`).name, game.name);
     }
     assert.deepEqual(blueprint.channels.filter(channel => channel.type === 4).map(channel => channel.name),
-        ['IGNORE', 'Staff', 'Info', 'Tickets', 'Announcements', 'Dig for Eggs', 'Animal Tag', 'My Coding Company', 'General', 'Voice']);
-    assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 0);
+        ['Staff', 'Info', 'IGNORE', 'Tickets', 'Announcements', 'Dig for Eggs', 'Animal Tag', 'My Coding Company', 'General', 'Voice']);
+    assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 2);
     assert.equal(blueprint.roles.filter((role) => role.key.startsWith('level-')).length, 7);
 });
 
@@ -206,7 +206,7 @@ test('onboarding shows all public non-game channels by default and keeps games a
     blueprint.channels.forEach((channel) => { bindings.channel[channel.key] = channel.key; });
     const body = onboardingBody(blueprint, bindings);
     assert.equal(body.mode, 1);
-    assert.deepEqual(body.default_channel_ids, ['honeypot', 'rules', 'info', 'roles', 'help', 'announcements', 'game-updates',
+    assert.deepEqual(body.default_channel_ids, ['rules', 'info', 'roles', 'help', 'honeypot', 'announcements', 'game-updates',
         'codes', 'polls-feedback', 'general-chat', 'memes', 'level-ups', 'lounge-1', 'lounge-2', 'duo', 'squad', 'party']);
     assert.equal(body.prompts[0].single_select, false);
     assert.equal(body.prompts[0].required, true);
