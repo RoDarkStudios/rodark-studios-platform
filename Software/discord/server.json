@@ -85,7 +85,7 @@
     "notificationsQuestion": "Which pings / notifications would you like?",
     "defaultChannels": ["rules", "info", "roles", "help", "announcements", "game-updates", "general-chat", "memes", "level-ups"]
   },
-  "autoModerationRules": [{ "triggerType": 5, "enabled": false }],
+  "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "content": {
     "rules": [
       "Follow Discord and Roblox terms at all times.",

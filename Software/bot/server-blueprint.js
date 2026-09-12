@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 9;
+const ENGINE_VERSION = 10;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -65,8 +65,11 @@ function validateManifest(spec) {
     }
     if (!spec.games.length || spec.games.length > 20) throw new Error('Onboarding requires between 1 and 20 game options.');
     if (!Array.isArray(spec.autoModerationRules) || spec.autoModerationRules.length > 1 ||
-        spec.autoModerationRules.some(rule => !same(rule, { triggerType: 5, enabled: false }))) {
-        throw new Error('Only the disabled Community Mention Spam rule is supported. Use contextual moderation for active filtering.');
+        spec.autoModerationRules.some(rule => !rule || rule.triggerType !== 5 || typeof rule.enabled !== 'boolean' ||
+            Object.keys(rule).some(key => !['triggerType', 'enabled', 'mentionTotalLimit', 'mentionRaidProtection'].includes(key)) ||
+            (rule.enabled && (!Number.isInteger(rule.mentionTotalLimit) || rule.mentionTotalLimit < 1 || rule.mentionTotalLimit > 50 ||
+                typeof rule.mentionRaidProtection !== 'boolean')))) {
+        throw new Error('Only native mention-spam protection is supported, with a mention limit from 1 to 50. Use contextual moderation for language.');
     }
     if (!same(spec.levels.milestones, [5, 10, 15, 25, 50, 75, 100]) || !spec.levels.preservePermissions) throw new Error('Existing level milestones and permission behaviour must be preserved.');
 }
@@ -298,13 +301,19 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     if (!snapshot.guild.features.includes('COMMUNITY') || Object.keys(guildDesired).some((key) => snapshot.guild[key] !== guildDesired[key])) operations.push({ kind: 'guild', label: 'Configure Community, rules, moderation alerts and server defaults' });
     const onboarding = onboardingBody(blueprint, previewBindings, snapshot.onboarding);
     if (!same(normalizeOnboarding(onboarding), normalizeOnboarding(snapshot.onboarding))) operations.push({ kind: 'onboarding', label: 'Publish game selection and optional notification questions' });
-    for (const rule of snapshot.autoMod) {
-        // Community servers cannot delete their Mention Spam rule. The definition
-        // retains it disabled; an absent disabled rule does not need creating.
-        const desired = blueprint.spec.autoModerationRules.find(item => item.triggerType === rule.trigger_type);
-        if (desired) {
-            if (rule.enabled !== desired.enabled) operations.push({ kind: 'disable_automod', id: rule.id, label: `Disable native AutoMod rule: ${rule.name}` });
-        } else operations.push({ kind: 'delete_automod', id: rule.id, label: `Remove unlisted native AutoMod rule: ${rule.name}` });
+    for (const desired of blueprint.spec.autoModerationRules) {
+        // Community servers cannot delete their Mention Spam rule. Reconcile it
+        // in place, alongside contextual AI moderation, without any word filters.
+        const actual = snapshot.autoMod.find(rule => rule.trigger_type === desired.triggerType);
+        if (!actual && !desired.enabled) continue;
+        const matches = actual && (desired.enabled
+            ? same(normalizeAutoMod(actual), normalizeAutoMod(autoModBody(desired)))
+            : actual.enabled === false);
+        if (!matches) operations.push({ kind: 'automod', triggerType: desired.triggerType, id: actual?.id || null,
+            label: `${desired.enabled ? 'Configure' : 'Disable'} native mention-spam protection` });
+    }
+    for (const rule of snapshot.autoMod.filter(rule => !blueprint.spec.autoModerationRules.some(item => item.triggerType === rule.trigger_type))) {
+        operations.push({ kind: 'delete_automod', id: rule.id, label: `Remove unlisted native AutoMod rule: ${rule.name}` });
     }
     if (state.active?.version !== blueprint.version || initial || operations.length) operations.push({ kind: 'content', label: 'Connect tickets, levels, honeypot and AI moderation; publish server information' });
     if (snapshot.channels.length + operations.filter((op) => op.kind === 'channel' && !op.id).length > 500) errors.push('Discord’s 500-channel limit leaves insufficient room to stage this rebuild. Reduce the old channel count before deploying.');
@@ -318,5 +327,20 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
             update: operations.filter((op) => !op.kind.startsWith('delete_') && op.kind !== 'remove_bot' && !(['role', 'channel'].includes(op.kind) && !op.id)).length } };
 }
 
-module.exports = { ENGINE_VERSION, manifest, compileBlueprint, validateManifest, buildPlan, hash, same, clone, permissions,
+function autoModBody(rule) {
+    if (!rule.enabled) return { enabled: false };
+    return { name: 'Block Mention Spam', event_type: 1, trigger_type: rule.triggerType, enabled: true,
+        trigger_metadata: { mention_total_limit: rule.mentionTotalLimit, mention_raid_protection_enabled: rule.mentionRaidProtection },
+        actions: [{ type: 1 }], exempt_roles: [], exempt_channels: [] };
+}
+
+function normalizeAutoMod(rule) {
+    return { name: rule.name, event_type: rule.event_type, trigger_type: rule.trigger_type, enabled: rule.enabled,
+        trigger_metadata: { mention_total_limit: rule.trigger_metadata?.mention_total_limit,
+            mention_raid_protection_enabled: Boolean(rule.trigger_metadata?.mention_raid_protection_enabled) },
+        actions: (rule.actions || []).map(action => ({ type: action.type, metadata: action.metadata || {} })),
+        exempt_roles: [...(rule.exempt_roles || [])].sort(), exempt_channels: [...(rule.exempt_channels || [])].sort() };
+}
+
+module.exports = { ENGINE_VERSION, manifest, compileBlueprint, validateManifest, buildPlan, hash, same, clone, permissions, autoModBody,
     snapshotHash, channelBody, roleBody, onboardingBody, normalizeOnboarding, normalizeOverwrites, roleMatches };
