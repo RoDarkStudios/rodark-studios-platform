@@ -98,8 +98,15 @@ function fakeDiscord() {
             Object.assign(server.guild, applied); return clone(server.guild);
         }
         if (path === `/guilds/${GUILD}/onboarding` && method === 'put') {
+            if (body.prompts?.some(prompt => !/^\d{17,20}$/.test(prompt.id || ''))) {
+                throw Object.assign(new Error('Invalid Form Body: prompts[].id is required'), { status: 400, code: 50035 });
+            }
+            const previousIds = new Set(server.onboarding.prompts.map(prompt => prompt.id));
             Object.assign(server.onboarding, clone(body));
-            if (body.prompts) server.onboarding.prompts = body.prompts.map((prompt) => ({ ...prompt, id: prompt.id || id(), options: prompt.options.map((option) => ({ ...option, id: option.id || id() })) }));
+            if (body.prompts) server.onboarding.prompts = body.prompts.map((prompt) => ({ ...prompt,
+                // Discord requires an ID in the request but assigns its own ID to new prompts.
+                id: previousIds.has(prompt.id) ? prompt.id : id(),
+                options: prompt.options.map((option) => ({ ...option, id: option.id || id() })) }));
             return clone(server.onboarding);
         }
         if (path.includes('/auto-moderation/rules/') && method === 'delete') { server.autoMod = server.autoMod.filter((rule) => rule.id !== path.split('/').at(-1)); return; }
@@ -188,6 +195,7 @@ test('native onboarding selects games without access locks, meets public-channel
     assert.equal(body.mode, 1);
     assert.ok(body.default_channel_ids.length >= 7);
     assert.equal(body.prompts[0].single_select, false);
+    assert.equal(body.prompts[0].required, true);
     assert.equal(body.prompts[1].required, false);
     const offered = [...body.default_channel_ids, ...body.prompts.flatMap((prompt) => prompt.options.flatMap((option) => option.channel_ids))];
     assert.ok(!offered.includes('honeypot'));
@@ -196,6 +204,28 @@ test('native onboarding selects games without access locks, meets public-channel
         return (bits & (P.ViewChannel | P.SendMessages)) === (P.ViewChannel | P.SendMessages);
     })).size >= 5);
     for (const option of body.prompts[0].options) assert.ok(option.role_ids.includes('member'));
+});
+
+test('new onboarding prompts have request IDs and persist Discord returned IDs for subsequent updates', async () => {
+    const fake = fakeDiscord(), blueprint = compileBlueprint(control);
+    const first = await deploy(fake);
+    const request = fake.server.writes.find(write => write.body?.prompts)?.body;
+    assert.equal(new Set(request.prompts.map(prompt => prompt.id)).size, 2);
+    for (const prompt of request.prompts) assert.match(prompt.id, /^\d{17,20}$/);
+    const returned = fake.server.onboarding;
+    assert.equal(returned.enabled, true);
+    assert.equal(returned.prompts[0].required, true);
+    assert.equal(returned.prompts[1].required, false);
+    for (const [index, key] of ['games', 'notifications'].entries()) {
+        assert.notEqual(request.prompts[index].id, returned.prompts[index].id);
+        assert.equal(first.state.resources.prompt[key], returned.prompts[index].id);
+    }
+    const next = onboardingBody(blueprint, first.state.resources, returned);
+    assert.deepEqual(next.prompts.map(prompt => prompt.id), returned.prompts.map(prompt => prompt.id));
+    assert.deepEqual(next.prompts.map(prompt => prompt.options.map(option => option.id)),
+        returned.prompts.map(prompt => prompt.options.map(option => option.id)));
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, first.state).operations, []);
 });
 
 test('initial deployment removes every old channel and unlisted role, removes Bloxlink, and preserves member/creator/staff role identities', async () => {
