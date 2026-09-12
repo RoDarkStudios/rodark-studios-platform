@@ -112,6 +112,8 @@ test('information messages fit Discord limits and use deployed game/help/forum i
     const active = { version: blueprint.version, spec: blueprint.spec, bindings };
     await runStartupSync(client, controlWithLayout({ levelSystem: { attachmentUnlockLevel: 5 } }, active));
     assert.equal(messages.length, 4);
+    assert.equal(messages.find(message => message.title === 'Server Rules').description,
+        '1. Be Nice: No bullying, extreme language or persistent ragebaiting.\n2. Listen to staff.');
     const text = JSON.stringify(messages);
     for (const game of blueprint.spec.games) assert.ok(text.includes(game.name));
     assert.ok(text.includes(bindings.channel.help));

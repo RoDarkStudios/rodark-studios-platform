@@ -79,6 +79,7 @@
     { "key": "dev-discussions", "name": "🛠️・dev-discussions", "type": "forum", "profile": "owner-forum", "layout": "list", "tags": [], "topic": "Owners start discussions about development, balancing and progression. Everyone is welcome to reply and share constructive feedback." }
   ],
   "onboarding": {
+    "syncRulesScreening": true,
     "gamesQuestion": "Which games do you play?",
     "gamesRequired": true,
     "notificationsQuestion": "Which pings / notifications would you like?",
@@ -87,7 +88,8 @@
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "content": {
     "rules": [
-      "Be nice. No bullying, extreme language or persistent ragebaiting. Listen to staff."
+      "Be Nice: No bullying, extreme language or persistent ragebaiting.",
+      "Listen to staff."
     ]
   }
 }

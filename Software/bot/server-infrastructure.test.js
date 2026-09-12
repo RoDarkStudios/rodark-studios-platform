@@ -25,6 +25,9 @@ function fakeDiscord() {
         roles: [everyone, owner, bot, bloxlink, staff, member, creator, booster, obsolete], channels: [],
         members: { [BOT]: { user: { id: BOT }, roles: [bot.id] }, [BLOXLINK]: { user: { id: BLOXLINK }, roles: [bloxlink.id] } },
         onboarding: { enabled: true, mode: 0, prompts: [], default_channel_ids: [] }, autoMod: [{ id: id(), name: 'Old swear filter' }],
+        rulesScreening: { description: 'Our existing welcome description', version: 'old', form_fields: [
+            { field_type: 'TERMS', label: 'Read and agree to the server rules', required: true, values: ['Be nice'] }
+        ] },
         writes: [], messages: new Map(), failAfter: null
     };
     const addChannel = (data) => {
@@ -45,6 +48,7 @@ function fakeDiscord() {
         if (path === `/guilds/${GUILD}/roles`) return clone(server.roles);
         if (path === `/guilds/${GUILD}/channels`) return clone(server.channels);
         if (path === `/guilds/${GUILD}/onboarding`) return clone(server.onboarding);
+        if (path === `/guilds/${GUILD}/member-verification`) return clone(server.rulesScreening);
         if (path === `/guilds/${GUILD}/auto-moderation/rules`) return clone(server.autoMod);
         if (path.startsWith(`/guilds/${GUILD}/members/`)) return clone(server.members[path.split('/').at(-1)] || (() => { throw error404(); })());
         if (path.startsWith('/channels/')) return clone(server.channels.find((channel) => channel.id === path.split('/')[2]) || (() => { throw error404(); })());
@@ -108,6 +112,12 @@ function fakeDiscord() {
                 id: previousIds.has(prompt.id) ? prompt.id : id(),
                 options: prompt.options.map((option) => ({ ...option, id: option.id || id() })) }));
             return clone(server.onboarding);
+        }
+        if (path === `/guilds/${GUILD}/member-verification` && method === 'patch') {
+            assert.deepEqual(Object.keys(body), ['form_fields'], 'Do not change unrelated screening settings');
+            server.rulesScreening.form_fields = clone(body.form_fields);
+            server.rulesScreening.version = 'updated';
+            return clone(server.rulesScreening);
         }
         if (path === `/guilds/${GUILD}/auto-moderation/rules` && method === 'post') {
             const rule = { id: id(), ...clone(body) }; server.autoMod.push(rule); return clone(rule);
@@ -323,6 +333,67 @@ test('Discord reordering default onboarding channels does not trigger another de
     assert.ok(buildPlan(blueprint, missingChannel, first.state).operations.some(op => op.kind === 'onboarding'));
 });
 
+test('adding Rules Screening sync to a deployed server changes only acceptance text and bot content, preserving history and questions', async () => {
+    const fake = fakeDiscord(), spec = clone(compileBlueprint(control).spec);
+    delete spec.onboarding.syncRulesScreening;
+    const first = await deploy(fake, {}, compileBlueprint(control, spec));
+    const beforeScreening = clone(fake.server.rulesScreening), beforeOnboarding = clone(fake.server.onboarding);
+    const channelId = first.state.resources.channel['general-chat'];
+    fake.server.messages.get(channelId).push('Keep this conversation');
+    fake.server.writes.length = 0;
+    const blueprint = compileBlueprint(control);
+    let published = false;
+    const next = await deploy(fake, first.state, blueprint, [], { finishContent: async active => {
+        assert.deepEqual(fake.server.rulesScreening.form_fields[0].values, active.spec.content.rules);
+        published = true;
+    } });
+    assert.deepEqual(next.plan.operations.map(op => op.kind), ['rules_screening', 'content']);
+    assert.equal(published, true);
+    assert.equal(fake.server.writes.length, 1);
+    assert.equal(fake.server.writes[0].path, `/guilds/${GUILD}/member-verification`);
+    assert.equal(fake.server.rulesScreening.description, beforeScreening.description);
+    assert.deepEqual(fake.server.onboarding, beforeOnboarding);
+    assert.deepEqual(next.state.resources, first.state.resources);
+    assert.deepEqual(fake.server.messages.get(channelId), ['Keep this conversation']);
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, next.state).operations, []);
+
+    const changed = clone(blueprint.spec); changed.content.rules = ['A revised first rule.', 'Listen to staff.'];
+    await deploy(fake, next.state, compileBlueprint(control, changed), [], { finishContent: async active => {
+        assert.deepEqual(fake.server.rulesScreening.form_fields[0].values, active.spec.content.rules);
+    } });
+    assert.deepEqual(fake.server.rulesScreening.form_fields[0].values, changed.content.rules);
+});
+
+test('screening drift detects changed or optional acceptance rules but ignores server-owned version and description', async () => {
+    const fake = fakeDiscord(), first = await deploy(fake), blueprint = compileBlueprint(control);
+    const before = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    fake.server.rulesScreening.version = 'another Discord timestamp';
+    fake.server.rulesScreening.description = 'An owner edited this description';
+    const after = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.equal(snapshotHash(before), snapshotHash(after));
+    assert.deepEqual(buildPlan(blueprint, after, first.state).operations, []);
+    for (const update of [{ values: ['A manual rule edit'] }, { values: blueprint.spec.content.rules, required: false }]) {
+        Object.assign(fake.server.rulesScreening.form_fields[0], update);
+        const drift = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+        assert.notEqual(snapshotHash(before), snapshotHash(drift));
+        assert.ok(buildPlan(blueprint, drift, first.state).operations.some(op => op.kind === 'rules_screening'));
+    }
+});
+
+test('legacy deployed definitions do not read or modify Rules Screening before the new definition is deployed', async () => {
+    const fake = fakeDiscord(), spec = clone(compileBlueprint(control).spec), before = clone(fake.server.rulesScreening);
+    delete spec.onboarding.syncRulesScreening;
+    const get = fake.rest.get;
+    fake.rest.get = async path => {
+        assert.ok(!path.endsWith('/member-verification'), 'Do not depend on screening for a legacy definition');
+        return get(path);
+    };
+    await deploy(fake, {}, compileBlueprint(control, spec));
+    assert.deepEqual(fake.server.rulesScreening, before);
+    assert.ok(fake.server.writes.every(write => !write.path.endsWith('/member-verification')));
+});
+
 test('a generic Discord 404 does not count as a successfully deleted AutoMod rule', async () => {
     const fake = fakeDiscord(), remove = fake.rest.delete;
     const rule = fake.server.autoMod[0]; rule.enabled = true;
@@ -534,6 +605,45 @@ test('worker previews make no Discord writes and a stale approved preview never 
     fake.server.channels[0].name = 'Changed after preview'; job.status = 'deploy_queued';
     await worker.tick(control);
     assert.equal(job.status, 'stale'); assert.equal(fake.server.writes.length, 0); assert.equal(store.state.maintenance, false);
+});
+
+test('an acceptance form edited after preview invalidates deployment before any writes', async () => {
+    const fake = fakeDiscord(), store = memoryStore(), worker = workerFor(fake, store), job = queue(store, 'screening-stale');
+    await worker.tick(control);
+    fake.server.rulesScreening.form_fields[0].values = ['A rule edited in Discord'];
+    job.status = 'deploy_queued';
+    await worker.tick(control);
+    assert.equal(job.status, 'stale');
+    assert.equal(fake.server.writes.length, 0);
+});
+
+test('screening access errors fail preflight without writes; rejected edits never activate or publish new channel rules', async () => {
+    const fake = fakeDiscord(), store = memoryStore();
+    const client = { rest: fake.rest, isReady: () => true, user: { id: BOT }, guilds: { cache: new Map([[GUILD, {}]]) } };
+    let published = false;
+    const worker = createInfrastructureWorker(client, { store, closeTicket: async () => {}, logger: { error() {} },
+        finishContent: async () => { published = true; } });
+    const get = fake.rest.get;
+    fake.rest.get = async path => { if (path.endsWith('/member-verification')) throw new Error('Forbidden'); return get(path); };
+    const failedRead = queue(store, 'screening-read'); failedRead.auto_apply = true;
+    await worker.tick(control);
+    assert.equal(failedRead.status, 'failed'); assert.match(failedRead.error, /Could not read Discord Rules Screening/);
+    assert.equal(fake.server.writes.length, 0); assert.equal(store.state.maintenance, false);
+    fake.rest.get = get;
+    const patch = fake.rest.patch;
+    fake.rest.patch = async (path, options) => {
+        if (path.endsWith('/member-verification')) throw new Error('Bots cannot use this endpoint');
+        return patch(path, options);
+    };
+    const failedEdit = queue(store, 'screening-edit'); failedEdit.auto_apply = true;
+    await worker.tick(control); await worker.tick(control);
+    assert.equal(failedEdit.status, 'failed'); assert.match(failedEdit.error, /Could not update Discord Rules Screening/);
+    assert.equal(published, false); assert.equal(store.state.active, null); assert.equal(store.state.maintenance, true);
+    fake.rest.patch = patch;
+    const retry = queue(store, 'screening-retry'); retry.auto_apply = true;
+    await worker.tick(control); await worker.tick(control);
+    assert.equal(retry.status, 'succeeded', retry.error);
+    assert.equal(published, true); assert.equal(store.state.maintenance, false);
 });
 
 test('one deploy request prepares and applies without another browser request; blockers cause no writes', async () => {

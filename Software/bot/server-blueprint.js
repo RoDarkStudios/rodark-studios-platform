@@ -1,9 +1,10 @@
 const { createHash } = require('node:crypto');
 const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
+const { screeningFields, screeningMatches } = require('./rules-screening');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 12;
+const ENGINE_VERSION = 13;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -64,6 +65,13 @@ function validateManifest(spec) {
         if (new Set(keys).size !== keys.length || keys.some((key) => !/^[a-z0-9-]+$/.test(key))) throw new Error('Blueprint keys must be unique, stable identifiers.');
     }
     if (!spec.games.length || spec.games.length > 20) throw new Error('Onboarding requires between 1 and 20 game options.');
+    if (spec.onboarding?.syncRulesScreening !== undefined && typeof spec.onboarding.syncRulesScreening !== 'boolean') {
+        throw new Error('onboarding.syncRulesScreening must be a boolean.');
+    }
+    if (spec.onboarding?.syncRulesScreening && (!Array.isArray(spec.content?.rules) || !spec.content.rules.length ||
+        spec.content.rules.length > 16 || spec.content.rules.some(rule => typeof rule !== 'string' || !rule.trim() || rule.length > 300))) {
+        throw new Error('Rules Screening requires 1–16 nonempty rules of at most 300 characters each.');
+    }
     if (!Array.isArray(spec.autoModerationRules) || spec.autoModerationRules.length > 1 ||
         spec.autoModerationRules.some(rule => !rule || rule.triggerType !== 5 || typeof rule.enabled !== 'boolean' ||
             Object.keys(rule).some(key => !['triggerType', 'enabled', 'mentionTotalLimit', 'mentionRaidProtection'].includes(key)) ||
@@ -224,6 +232,7 @@ function snapshotHash(snapshot, ticketIds = [], initial = false) {
         .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id)).findIndex((item) => item.id === channel.id);
     return hash({ guild: snapshot.guild, roles: snapshot.roles, self: snapshot.self, autoMod: snapshot.autoMod,
         onboarding: normalizeOnboarding(snapshot.onboarding),
+        rulesScreening: snapshot.rulesScreening ? screeningFields(snapshot.rulesScreening) : null,
         channels: channels.map((channel) => ({ ...comparableChannel(channel, ['name', 'type', 'topic', 'parent_id', 'permission_overwrites', 'nsfw', 'rate_limit_per_user', 'user_limit', 'bitrate', 'available_tags', 'flags', 'default_auto_archive_duration', 'default_thread_rate_limit_per_user', 'default_sort_order', 'default_forum_layout', 'default_reaction_emoji']), id: channel.id, position: groupOrder(channel) }))
             .sort((a, b) => a.id.localeCompare(b.id)) });
 }
@@ -315,6 +324,9 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     if (!snapshot.guild.features.includes('COMMUNITY') || Object.keys(guildDesired).some((key) => snapshot.guild[key] !== guildDesired[key])) operations.push({ kind: 'guild', label: 'Configure Community, rules, moderation alerts and server defaults' });
     const onboarding = onboardingBody(blueprint, previewBindings, snapshot.onboarding);
     if (!same(normalizeOnboarding(onboarding), normalizeOnboarding(snapshot.onboarding))) operations.push({ kind: 'onboarding', label: 'Publish game selection and optional notification questions' });
+    if (blueprint.spec.onboarding.syncRulesScreening && !screeningMatches(blueprint.spec, snapshot.rulesScreening)) {
+        operations.push({ kind: 'rules_screening', label: 'Sync the acceptance rules with the rules channel text' });
+    }
     for (const desired of blueprint.spec.autoModerationRules) {
         // Community servers cannot delete their Mention Spam rule. Reconcile it
         // in place, alongside contextual AI moderation, without any word filters.

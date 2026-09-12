@@ -24,6 +24,10 @@ Advanced Community Onboarding asks members to select one or more games and optio
 
 ## Deployment, drift and recovery
 
+`content.rules` is the single source for the numbered rules channel message and the rules newcomers accept in Discord Rules Screening. With `onboarding.syncRulesScreening: true`, Deploy updates the required TERMS field, verifies the saved text, and then publishes the matching channel message. Later unchanged deployments do not rewrite the form. The screening description, enabled/disabled setting and other application questions remain under manual control. Definitions deployed before this setting was added do not start syncing screening until Deploy is used.
+
+Discord has removed the Membership Screening edit API from its public documentation. Bot-authenticated GET and PATCH access to `/guilds/{guild.id}/member-verification` was verified on this guild on 2026-09-12. The integration is isolated in `bot/rules-screening.js`; a rejected request or an unconfirmed save fails deployment visibly rather than claiming the rules are synced. If Discord withdraws that access, screening will need to be maintained manually.
+
 The website authenticates studio owners using the existing Roblox group rank check (254 or higher). Requests are restricted to the same website origin. It queues work in Postgres; the bot alone calls Discord using its existing token. No new environment variables are required. The new database tables are created automatically and are included in `railway/postgres-schema.sql`.
 
 Deploy queues a durable job. The bot first reads Discord, validates permissions and records the configuration version and live state, then automatically queues application. This transition is atomic and continues after the browser closes. The bot rechecks live state before writes and rejects stale or expired checks. A Postgres advisory lock serializes bot setup and deployment across replicas. During application, layout maintenance, tickets and AI moderation pause; new resource IDs are checkpointed immediately. Bot messages and integrations are connected to their new IDs before deployment is verified and activated.

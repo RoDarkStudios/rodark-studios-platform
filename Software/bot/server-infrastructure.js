@@ -1,13 +1,15 @@
 const defaultStore = require('../api/_lib/discord-infrastructure-store');
 const { setTimeout: delay } = require('node:timers/promises');
 const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, autoModBody, clone, manifest } = require('./server-blueprint');
+const { readRulesScreening, syncRulesScreening } = require('./rules-screening');
 
 async function captureSnapshot(rest, guildId, botId, spec) {
     const root = `/guilds/${guildId}`;
-    const [rawGuild, roles, channels, self, onboarding, autoMod] = await Promise.all([
+    const [rawGuild, roles, channels, self, onboarding, autoMod, rulesScreening] = await Promise.all([
         rest.get(root), rest.get(`${root}/roles`), rest.get(`${root}/channels`), rest.get(`${root}/members/${botId}`),
         rest.get(`${root}/onboarding`).catch((error) => { if (error.status === 404) return { enabled: false, prompts: [], default_channel_ids: [] }; throw error; }),
-        rest.get(`${root}/auto-moderation/rules`)
+        rest.get(`${root}/auto-moderation/rules`),
+        spec.onboarding.syncRulesScreening ? readRulesScreening(rest, guildId) : null
     ]);
     const guild = Object.fromEntries(['id', 'name', 'owner_id', 'features', 'verification_level', 'explicit_content_filter',
         'default_message_notifications', 'rules_channel_id', 'public_updates_channel_id', 'safety_alerts_channel_id'].map((key) => [key, rawGuild[key] ?? null]));
@@ -16,7 +18,7 @@ async function captureSnapshot(rest, guildId, botId, spec) {
     for (const role of roles.filter((item) => item.tags?.bot_id && spec.bootstrap.removeBotRoleNames.some((name) => name.toLowerCase() === item.name.toLowerCase()))) {
         removableBots[role.tags.bot_id] = await rest.get(`${root}/members/${role.tags.bot_id}`).catch((error) => { if (error.status === 404) return null; throw error; });
     }
-    return { guild, roles: roles.sort((a, b) => a.id.localeCompare(b.id)), channels, self: { roles: [...self.roles].sort(), user: { id: self.user.id } }, onboarding, autoMod, removableBots };
+    return { guild, roles: roles.sort((a, b) => a.id.localeCompare(b.id)), channels, self: { roles: [...self.roles].sort(), user: { id: self.user.id } }, onboarding, autoMod, rulesScreening, removableBots };
 }
 
 function controlWithLayout(control, active) {
@@ -39,7 +41,7 @@ function operationPriority(op, blueprint) {
         return type === 4 ? 20 : [0, 2].includes(type) ? 30 : 50;
     }
     return { remove_bot: 5, role: 10, everyone: 15, guild: 40, delete_automod: 55, automod: 55,
-        delete_channel: 60, delete_role: 65, sort_roles: 70, sort_channels: 75, content: 80, onboarding: 90 }[op.kind] ?? 100;
+        delete_channel: 60, delete_role: 65, sort_roles: 70, sort_channels: 75, rules_screening: 78, content: 80, onboarding: 90 }[op.kind] ?? 100;
 }
 
 async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finishContent, closeTicket, progress, guard, wait = delay }) {
@@ -157,6 +159,8 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             // Individual channel updates already set parents. Discord permits
             // at most one parent change in a bulk positioning request.
             await write('patch', `${root}/channels`, blueprint.channels.map((channel) => ({ id: bindings.channel[channel.key], position: channel.position })));
+        } else if (op.kind === 'rules_screening') {
+            await syncRulesScreening({ rest, spec: blueprint.spec, write, guard, wait });
         } else if (op.kind === 'content') {
             await finishContent({ version: blueprint.version, spec: blueprint.spec, bindings });
         } else if (op.kind === 'onboarding') {

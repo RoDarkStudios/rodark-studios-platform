@@ -224,7 +224,7 @@ async function syncRulesChannel(channel, control) {
     const embed = new EmbedBuilder()
         .setTitle('Server Rules')
         .setColor(0xff4d4f)
-        .setDescription(rules.join(' '));
+        .setDescription(rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n'));
 
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.rules);
 }
