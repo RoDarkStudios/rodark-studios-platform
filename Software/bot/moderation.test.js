@@ -292,6 +292,26 @@ test('overlapping cycles share one request and stop aborts in-flight work withou
     assert.equal(f.calls.timeouts.length, 0); assert.equal((await f.store.loadPending('general')).length, 1);
 });
 
+test('deployment pause aborts reviews without consuming retries, and resume keeps queued evidence', async () => {
+    const f = fixture();
+    await f.queueMessage('Hello');
+    let started;
+    const ready = new Promise((resolve) => { started = resolve; });
+    f.setReview((_input, { signal }) => new Promise((_resolve, reject) => {
+        started(); signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
+    }));
+    const tick = f.system.tick(f.control); await ready;
+    await f.system.pause(); await tick;
+    assert.equal(f.calls.timeouts.length, 0);
+    assert.equal(f.calls.logs.length, 0);
+    assert.equal([...f.queue.values()][0].attempts, 0);
+    await f.system.tick(f.control); assert.equal(f.calls.reviews.length, 1);
+    f.setReview(async () => ({ cases: [], usage: {} }));
+    f.system.resume(); await f.next();
+    assert.equal(f.calls.reviews.length, 2);
+    assert.equal((await f.store.loadPending('general')).length, 0);
+});
+
 test('a restarted worker recovers queued messages without reviewing idle channels', async () => {
     const f = fixture(); await f.queueMessage('Hello'); await f.system.stop();
     const replacement = createModerationSystem(f.client, f.options); await replacement.tick(f.control);

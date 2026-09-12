@@ -143,7 +143,7 @@ function createModerationSystem(client, {
         notices.set(key, now() + 60 * 60_000);
         const message = String(error.message || error).slice(0, 700);
         logger.error(`[ai-moderation] ${key}: ${message}`);
-        if (state && !stopped) {
+        if (state && !stopped && !paused) {
             try { assertPrivateLog(state, client.user.id); } catch { return; }
             await state.logChannel.send({ content: `${state.roleIds.map((id) => `<@&${id}>`).join(' ')}\nModeration needs attention: ${escapeMarkdown(message)}`,
                 allowedMentions: { parse: [], users: [], roles: state.roleIds } }).catch((sendError) => logger.error('[ai-moderation] Could not notify moderators:', sendError.message));
@@ -262,9 +262,9 @@ function createModerationSystem(client, {
 
     async function reviewChannel(pending, control) {
         const state = states.get(pending.guild_id);
-        if (!state || stopped || now() < nextApiAt) return;
+        if (!state || stopped || paused || now() < nextApiAt) return;
         await store.withLock(`channel:${pending.channel_id}`, async () => {
-            if (stopped || now() < nextApiAt) return;
+            if (stopped || paused || now() < nextApiAt) return;
             let channel;
             try { channel = await state.guild.channels.fetch(pending.channel_id); }
             catch (error) { if (error.code !== 10003) throw error; }
@@ -287,18 +287,18 @@ function createModerationSystem(client, {
             try {
                 const context = await contextFor(channel, batch);
                 const recent = await store.recentCases(state.guild.id, [...new Set(batch.map((message) => message.user_id))]);
-                if (stopped || now() < nextApiAt || !await store.claimInterval(pending.channel_id)) return;
+                if (stopped || paused || now() < nextApiAt || !await store.claimInterval(pending.channel_id)) return;
                 called = true;
                 const result = await review(buildReviewInput(batch, context, recent), { apiKey: config.apiKey, signal: controller.signal });
                 usage = result.usage || {};
                 const decisions = validateCases({ cases: result.cases }, batch);
-                if (stopped) return;
+                if (stopped || paused) return;
                 await store.commitReview(batch, decisions.map((decision) => makeCase(decision, batch, recent, now())));
                 if (failures === failuresAtStart) { failures = 0; nextApiAt = 0; }
             } catch (error) {
                 failed = true;
                 usage = error.usage || usage;
-                if (!stopped) {
+                if (!stopped && !paused) {
                     if (called) {
                         failures++;
                         nextApiAt = now() + Math.min(15, 2 ** Math.min(failures - 1, 4)) * INTERVAL_MS;
@@ -347,28 +347,29 @@ function createModerationSystem(client, {
             }
             return { outcome: 'already_timed_out', needs_review: entry.needs_review, result: 'Member already has a timeout; it was not changed.' };
         }
-        if (stopped) return null;
+        if (stopped || paused) return null;
         await member.disableCommunicationUntil(new Date(entry.timeout_until), `AI moderation ${entry.id}: ${entry.category}. ${entry.reason}`.slice(0, 450));
         return { outcome: 'timed_out', needs_review: entry.needs_review, result: `${entry.timeout_minutes}-minute timeout applied. No automatic ban.` };
     }
 
     async function processCases(state) {
+        if (stopped || paused) return;
         assertPrivateLog(state, client.user.id);
         const cases = await store.unfinishedCases(state.guild.id);
         for (const candidate of cases) {
-            if (stopped) return;
+            if (stopped || paused) return;
             await store.withLock(`member:${state.guild.id}:${candidate.user_id}`, async () => {
                 let entry = await store.getCase(candidate.id);
-                if (!entry || entry.dismissed_by || stopped) return;
+                if (!entry || entry.dismissed_by || stopped || paused) return;
                 if (entry.outcome === 'pending') {
                     let patch;
                     try { patch = await actOnCase(entry, state); }
                     catch (error) { patch = { outcome: 'action_failed', needs_review: true, result: `Automatic action failed: ${String(error.message).slice(0, 400)}` }; }
-                    if (!patch || stopped) return;
+                    if (!patch || stopped || paused) return;
                     await store.updateCase(entry.id, patch);
                     entry = { ...entry, ...patch };
                 }
-                if (!entry.log_message_id && !stopped) {
+                if (!entry.log_message_id && !stopped && !paused) {
                     assertPrivateLog(state, client.user.id);
                     const message = await state.logChannel.send({ ...buildCasePayload(entry, state.roleIds), nonce: entry.id, enforceNonce: true });
                     await store.updateCase(entry.id, { log_message_id: message.id, log_channel_id: state.logChannel.id });
@@ -385,19 +386,19 @@ function createModerationSystem(client, {
             await ensure(control);
             // Finish persisted actions/notifications before considering new messages.
             for (const state of states.values()) await processCases(state).catch((error) => report(`cases:${state.guild.id}`, error, state));
-            if (stopped) return;
+            if (stopped || paused) return;
             const pending = await store.pendingChannels([...states.keys()]);
             // Two channels can run concurrently; never overlap reviews of the same channel.
             let index = 0;
             const worker = async () => {
-                while (index < pending.length && !stopped) {
+                while (index < pending.length && !stopped && !paused) {
                     const item = pending[index++];
                     await reviewChannel(item, control).catch((error) => report(`channel:${item.channel_id}`, error, states.get(item.guild_id)));
                 }
             };
             await Promise.all([worker(), worker()]);
-            for (const state of states.values()) if (!stopped) await processCases(state).catch((error) => report(`cases:${state.guild.id}`, error, state));
-            if (!stopped && now() - lastCleanup > 60 * 60_000) { await store.cleanup(); lastCleanup = now(); }
+            for (const state of states.values()) if (!stopped && !paused) await processCases(state).catch((error) => report(`cases:${state.guild.id}`, error, state));
+            if (!stopped && !paused && now() - lastCleanup > 60 * 60_000) { await store.cleanup(); lastCleanup = now(); }
         })().catch((error) => report('cycle', error)).finally(() => { running = null; });
         return running;
     }
