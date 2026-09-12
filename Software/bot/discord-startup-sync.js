@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { AttachmentBuilder, ChannelType, EmbedBuilder } = require('discord.js');
+const serverDefinition = require('../discord/server.json');
 
 const PLACEHOLDER_TEXT = 'Loading...';
 const ASSETS_DIR = path.join(__dirname, 'assets', 'discord');
@@ -219,23 +220,12 @@ async function ensureCustomEmojis(guild) {
 
 async function syncRulesChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
+    const rules = (control?.infrastructure?.spec || serverDefinition).content.rules;
     const embed = new EmbedBuilder()
-        .setTitle('Please Follow The Rules')
+        .setTitle('Server Rules')
         .setColor(0xff4d4f)
-        .setDescription([
-            '1. Follow Discord and Roblox terms at all times.',
-            '2. Treat everyone respectfully. Harassment, hate speech, or targeted abuse is not allowed.',
-            '3. Do not spam, flood channels, or deliberately disrupt conversations.',
-            '4. Keep content appropriate for the server and the channel you are using.',
-            '5. Do not share private or personal information without permission.',
-            '6. Do not post scams, malware, phishing, exploits, or other harmful material.',
-            '7. Use channels for their intended purpose and stay reasonably on topic.',
-            '8. Do not repeatedly ping staff or members without a valid reason.',
-            '9. Behave respectfully in voice chat and do not troll, mic spam, or harass others.',
-            '10. Respect staff decisions and raise concerns calmly instead of arguing publicly.'
-        ].join('\n'));
+        .setDescription(rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n'));
 
-    if (control?.infrastructure) embed.setDescription(control.infrastructure.spec.content.rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n'));
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.rules);
 }
 

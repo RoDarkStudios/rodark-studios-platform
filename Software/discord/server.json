@@ -87,16 +87,8 @@
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "content": {
     "rules": [
-      "Follow Discord and Roblox terms at all times.",
-      "Treat everyone respectfully. Harassment, hate speech, or targeted abuse is not allowed. Ordinary swearing and friendly banter are fine.",
-      "Do not spam, flood channels, or deliberately disrupt conversations.",
-      "Keep content appropriate for the server and the channel you are using.",
-      "Do not share private or personal information without permission.",
-      "Do not post scams, malware, phishing, exploits, or other harmful material.",
-      "Use channels for their intended purpose and stay reasonably on topic.",
-      "Do not repeatedly ping staff or members without a valid reason.",
-      "Behave respectfully in voice chat and do not troll, mic spam, or harass others.",
-      "Respect staff decisions and raise concerns calmly through help."
+      "No bullying, extreme language or persistent ragebaiting.",
+      "Listen to staff."
     ]
   }
 }
