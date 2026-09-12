@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "start:bot": "node bot/discord-bot.js",
-    "test:bot": "node --test bot/*.test.js"
+    "test:bot": "node --test bot/*.test.js",
+    "eval:moderation": "node bot/moderation-eval.js"
   },
   "engines": {
     "node": ">=20"
@@ -16,5 +17,8 @@
     "discord.js": "^14.15.3",
     "pg": "^8.11.5",
     "stripe": "^17.5.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }

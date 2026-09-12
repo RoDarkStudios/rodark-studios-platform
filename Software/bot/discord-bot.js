@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { getDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_lib/discord-bot-control-store');
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
@@ -6,6 +6,7 @@ const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = r
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
 const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 const { createHoneypotSystem } = require('./honeypot');
+const { createModerationSystem } = require('./moderation');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
@@ -16,6 +17,7 @@ let client = null;
 let connecting = false;
 let currentControl = null;
 let honeypotSystem = null;
+let moderationSystem = null;
 let lastTicketPanelSyncKey = '';
 let lastTicketPanelSyncAt = 0;
 let lastLevelSystemSyncKey = '';
@@ -126,6 +128,7 @@ async function syncLevelSystemIfNeeded(nextClient, control, options) {
 
 function createClient() {
     const nextClient = new Client({
+        partials: [Partials.Message, Partials.Channel],
         intents: [
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
@@ -134,11 +137,20 @@ function createClient() {
     });
     const nextHoneypot = createHoneypotSystem(nextClient);
     honeypotSystem = nextHoneypot;
+    const nextModeration = createModerationSystem(nextClient);
+    moderationSystem = nextModeration;
 
     nextClient.once('ready', async () => {
         const tag = nextClient.user && nextClient.user.tag ? nextClient.user.tag : 'Discord bot';
         console.log(`${tag} is online.`);
         await setDiscordBotRuntimeStatus('online', null);
+
+        nextModeration.start(() => currentControl);
+        try {
+            await nextModeration.ensure(currentControl || await getDiscordBotControl(), { force: true });
+        } catch (error) {
+            console.error('Discord AI moderation setup failed:', error.message);
+        }
 
         let honeypotError = null;
         try {
@@ -156,7 +168,7 @@ function createClient() {
             await syncLevelSystemIfNeeded(nextClient, control, { force: true });
             await ensureChannelPurgeCommand(nextClient, control, { force: true });
             await deleteObsoleteGuildCommands(nextClient, control, { force: true });
-            await setDiscordBotRuntimeStatus('online', honeypotError);
+            await setDiscordBotRuntimeStatus('online', [honeypotError, nextModeration.getError()].filter(Boolean).join('; ') || null);
         } catch (error) {
             console.error('Discord startup sync failed:', error);
             await setDiscordBotRuntimeStatus('online', `Startup sync failed: ${String(error.message || 'unknown error')}`);
@@ -167,15 +179,16 @@ function createClient() {
         try {
             const control = currentControl || await getDiscordBotControl();
             currentControl = control;
+            if (await nextModeration.handleInteraction(interaction)) return;
             const ticketHandled = await handleTicketInteraction(interaction, control);
             if (ticketHandled) {
-                await setDiscordBotRuntimeStatus('online', null);
+                await setDiscordBotRuntimeStatus('online', nextModeration.getError());
                 return;
             }
 
             const purgeHandled = await handleChannelPurgeInteraction(interaction);
             if (purgeHandled) {
-                await setDiscordBotRuntimeStatus('online', null);
+                await setDiscordBotRuntimeStatus('online', nextModeration.getError());
                 return;
             }
         } catch (error) {
@@ -202,14 +215,29 @@ function createClient() {
             const control = currentControl || await getDiscordBotControl();
             currentControl = control;
             if (await nextHoneypot.handleMessage(message, control)) return;
+            await nextModeration.handleMessage(message, control).catch((error) => {
+                console.error('Discord moderation queue failed:', error.message);
+            });
             const handled = await handleLevelMessage(message, control);
             if (handled) {
-                await setDiscordBotRuntimeStatus('online', null);
+                await setDiscordBotRuntimeStatus('online', nextModeration.getError());
             }
         } catch (error) {
             console.error('Discord message handling failed:', error);
             await setDiscordBotRuntimeStatus('error', error.message).catch(() => {});
         }
+    });
+
+    nextClient.on('messageUpdate', (_previous, message) => {
+        nextModeration.handleMessage(message, currentControl).catch((error) => {
+            console.error('Discord moderation edit handling failed:', error.message);
+        });
+    });
+    nextClient.on('messageDelete', (message) => {
+        nextModeration.handleDelete([message]).catch((error) => console.error('Discord moderation deletion handling failed:', error.message));
+    });
+    nextClient.on('messageDeleteBulk', (messages) => {
+        nextModeration.handleDelete([...messages.values()]).catch((error) => console.error('Discord moderation bulk deletion handling failed:', error.message));
     });
 
     nextClient.on('error', async (error) => {
@@ -242,6 +270,9 @@ async function connectBot() {
         await client.login(DISCORD_BOT_TOKEN);
     } catch (error) {
         console.error('Failed to connect Discord bot:', error);
+        await moderationSystem?.stop();
+        moderationSystem = null;
+        if (client) await client.destroy();
         client = null;
         await setDiscordBotRuntimeStatus('error', error.message);
     } finally {
@@ -258,6 +289,9 @@ async function disconnectBot() {
     const currentClient = client;
     client = null;
     honeypotSystem = null;
+    const currentModeration = moderationSystem;
+    moderationSystem = null;
+    await currentModeration?.stop();
 
     if (currentClient) {
         currentClient.removeAllListeners();
@@ -281,6 +315,10 @@ async function syncBotState() {
     if (control && control.desiredEnabled) {
         await connectBot();
         if (client && client.isReady()) {
+            await moderationSystem.ensure(control).catch((error) => {
+                console.error('Discord AI moderation configuration failed:', error.message);
+            });
+            if (moderationSystem.getError()) await setDiscordBotRuntimeStatus('online', moderationSystem.getError());
             await honeypotSystem.ensure(control);
             await syncTicketPanelIfNeeded(client, control);
             await syncLevelSystemIfNeeded(client, control);
