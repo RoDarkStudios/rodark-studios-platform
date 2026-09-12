@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 6;
+const ENGINE_VERSION = 7;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -188,7 +188,9 @@ function onboardingBody(blueprint, bindings, previous = {}) {
     ] };
 }
 function normalizeOnboarding(value = {}) {
-    return { enabled: Boolean(value.enabled), mode: value.mode || 0, default_channel_ids: value.default_channel_ids || [],
+    // Discord returns the default channel selection in its own order. Membership
+    // matters here; display order is managed separately by channel positions.
+    return { enabled: Boolean(value.enabled), mode: value.mode || 0, default_channel_ids: [...(value.default_channel_ids || [])].sort(),
         prompts: (value.prompts || []).map((prompt) => ({ title: prompt.title, type: prompt.type, single_select: Boolean(prompt.single_select),
             required: Boolean(prompt.required), in_onboarding: Boolean(prompt.in_onboarding), options: prompt.options.map((option) => ({
                 title: option.title, description: option.description || '', emoji_name: option.emoji_name || option.emoji?.name || null,

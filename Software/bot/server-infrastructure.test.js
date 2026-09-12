@@ -228,6 +228,18 @@ test('new onboarding prompts have request IDs and persist Discord returned IDs f
     assert.deepEqual(buildPlan(blueprint, snapshot, first.state).operations, []);
 });
 
+test('Discord reordering default onboarding channels does not trigger another deployment or invalidate its snapshot', async () => {
+    const fake = fakeDiscord(), first = await deploy(fake), blueprint = compileBlueprint(control);
+    const before = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    fake.server.onboarding.default_channel_ids.reverse();
+    const after = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.equal(snapshotHash(after), snapshotHash(before));
+    assert.deepEqual(buildPlan(blueprint, after, first.state).operations, []);
+    fake.server.onboarding.default_channel_ids.pop();
+    const missingChannel = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.ok(buildPlan(blueprint, missingChannel, first.state).operations.some(op => op.kind === 'onboarding'));
+});
+
 test('initial deployment removes every old channel and unlisted role, removes Bloxlink, and preserves member/creator/staff role identities', async () => {
     const fake = fakeDiscord(), oldChannels = fake.server.channels.map((channel) => channel.id);
     const { state, plan } = await deploy(fake);
