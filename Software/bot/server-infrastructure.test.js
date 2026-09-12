@@ -88,7 +88,15 @@ function fakeDiscord() {
             if (body.available_tags) existing.available_tags = body.available_tags.map((tag) => ({ ...tag, id: tag.id || id() }));
             return clone(existing);
         }
-        if (path === `/guilds/${GUILD}` && method === 'patch') { Object.assign(server.guild, clone(body)); return clone(server.guild); }
+        if (path === `/guilds/${GUILD}` && method === 'patch') {
+            const applied = clone(body);
+            // Observed on the live Community guild: Discord returns 200 but ignores
+            // these two assignments unless COMMUNITY is also in the request.
+            if (!body.features?.includes('COMMUNITY')) {
+                delete applied.rules_channel_id; delete applied.public_updates_channel_id;
+            }
+            Object.assign(server.guild, applied); return clone(server.guild);
+        }
         if (path === `/guilds/${GUILD}/onboarding` && method === 'put') {
             Object.assign(server.onboarding, clone(body));
             if (body.prompts) server.onboarding.prompts = body.prompts.map((prompt) => ({ ...prompt, id: prompt.id || id(), options: prompt.options.map((option) => ({ ...option, id: option.id || id() })) }));
@@ -362,6 +370,29 @@ test('runtime uses the last deployed blueprint and bindings, keeping pending fil
 
 module.exports = { fakeDiscord, memoryStore, workerFor };
 
+test('Community reassignment includes features and preserves live features added after planning', async () => {
+    const fake = fakeDiscord(), patch = fake.rest.patch;
+    fake.server.guild.features.push('DISCOVERABLE', 'NEWS');
+    // A feature can change after the snapshot while roles/channels are being applied.
+    fake.rest.patch = async (path, options) => {
+        if (path.includes('/roles/')) fake.server.guild.features = [...new Set([...fake.server.guild.features, 'RAID_ALERTS_DISABLED'])];
+        return patch(path, options);
+    };
+    const result = await deploy(fake, {}, compileBlueprint(control), [], { wait: async () => {} });
+    const guildWrite = fake.server.writes.find(write => write.path === `/guilds/${GUILD}`);
+    assert.deepEqual([...guildWrite.body.features].sort(), ['COMMUNITY', 'DISCOVERABLE', 'NEWS', 'RAID_ALERTS_DISABLED']);
+    assert.equal(fake.server.guild.rules_channel_id, result.state.resources.channel.rules);
+    assert.equal(fake.server.guild.public_updates_channel_id, result.state.resources.channel['staff-info']);
+    assert.ok(fake.server.guild.features.includes('RAID_ALERTS_DISABLED'));
+});
+
+test('enabling Community preserves the server existing features', async () => {
+    const fake = fakeDiscord();
+    fake.server.guild.features = ['INVITES_DISABLED'];
+    await deploy(fake, {}, compileBlueprint(control), [], { wait: async () => {} });
+    assert.deepEqual([...fake.server.guild.features].sort(), ['COMMUNITY', 'INVITES_DISABLED']);
+});
+
 test('Community assignments are read back and repaired before any old channel is deleted', async () => {
     const fake = fakeDiscord(), patch = fake.rest.patch, pauses = [];
     let guildWrites = 0;
@@ -378,7 +409,7 @@ test('Community assignments are read back and repaired before any old channel is
     assert.equal(guildWrites, 2);
     assert.equal(fake.server.guild.rules_channel_id, result.state.resources.channel.rules);
     assert.ok(pauses.length > 0);
-    const handoffIndex = fake.server.writes.findIndex(write => write.path === `/guilds/${GUILD}` && Object.keys(write.body).length === 3);
+    const handoffIndex = fake.server.writes.findIndex(write => write.path === `/guilds/${GUILD}` && Object.keys(write.body).length === 4);
     const firstDelete = fake.server.writes.findIndex(write => write.method === 'delete' && write.path.startsWith('/channels/'));
     assert.ok(handoffIndex >= 0 && firstDelete > handoffIndex);
     assert.equal(fake.server.channels.length, compileBlueprint(control).channels.length);

@@ -57,18 +57,29 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
         if (Object.values(targets).some(id => !id)) throw new Error('Create the replacement Community channels before removing old channels.');
         return targets;
     };
-    // A successful PATCH alone is not enough: Discord can still report the old
-    // required channels while the change propagates. Never start deletion then.
+    async function updateCommunityChannels(settings = {}, live = null) {
+        live ||= await rest.get(root);
+        // Discord can silently ignore rules/updates channel assignments unless
+        // COMMUNITY is included in this PATCH, even when already enabled. Preserve
+        // all current features rather than replacing them with only COMMUNITY.
+        return write('patch', root, { ...settings, ...communityChannels(),
+            features: [...new Set([...(live.features || []), 'COMMUNITY'])] });
+    }
+    // Verify persisted assignments before allowing deletion, including after repairs.
     async function confirmCommunityChannels() {
         const targets = communityChannels();
+        let mismatches = [];
         for (const pause of [0, 500, 1000, 2000, 4000]) {
             if (pause) await wait(pause);
             guard();
             const live = await rest.get(root);
-            if (live.features.includes('COMMUNITY') && Object.entries(targets).every(([key, id]) => live[key] === id)) return;
-            if (pause !== 4000) await write('patch', root, targets);
+            mismatches = Object.entries(targets).filter(([key, id]) => live[key] !== id)
+                .map(([key, id]) => `${key}: expected ${id}, received ${live[key] ?? 'none'}`);
+            if (!live.features?.includes('COMMUNITY')) mismatches.push('COMMUNITY is not enabled');
+            if (!mismatches.length) return;
+            if (pause !== 4000) await updateCommunityChannels({}, live);
         }
-        throw new Error('Discord has not confirmed the replacement Community channels. Old channels were kept. Click Deploy again to resume.');
+        throw new Error(`Discord has not confirmed the replacement Community channels (${mismatches.join('; ')}). Old channels were kept. Click Deploy again to resume.`);
     }
     async function deleteRetiredChannel(op) {
         if (Object.values(bindings.channel).includes(op.id)) throw new Error(`Refusing to delete a retained channel: ${op.label}`);
@@ -120,9 +131,7 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             // REQUIRE_TAG is an edit setting on Discord versions that omit it at creation.
             if (!currentId && channel.type === 15 && payload.flags) await write('patch', `/channels/${result.id}`, { flags: payload.flags });
         } else if (op.kind === 'guild') {
-            await write('patch', root, { ...blueprint.spec.settings, name: blueprint.spec.name,
-                ...communityChannels(),
-                ...(!snapshot.guild.features.includes('COMMUNITY') ? { features: ['COMMUNITY'] } : {}) });
+            await updateCommunityChannels({ ...blueprint.spec.settings, name: blueprint.spec.name });
             await confirmCommunityChannels();
         } else if (op.kind === 'delete_channel') {
             if (!deletionReady) { await confirmCommunityChannels(); deletionReady = true; }
