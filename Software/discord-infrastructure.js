@@ -12,9 +12,12 @@
 
     function render() {
         const job = data.jobs[0];
+        const olderFailure = job && ['failed', 'stale'].includes(job.status) && job.version !== data.version;
         button.disabled = working || data.jobs.some((item) => pending.has(item.status));
         button.textContent = button.disabled ? 'Deploying…' : 'Deploy';
-        status.textContent = job?.error || (job?.status === 'applying' ? job.progress?.at(-1)?.label : '') || labels[job?.status] || '';
+        status.textContent = olderFailure
+            ? 'The last attempt failed on an older version. Updated code is ready; click Deploy to retry.'
+            : job?.error || (job?.status === 'applying' ? job.progress?.at(-1)?.label : '') || labels[job?.status] || '';
         status.classList.toggle('infra-error', Boolean(job?.error));
     }
     async function load() {
