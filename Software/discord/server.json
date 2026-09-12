@@ -82,7 +82,7 @@
     "gamesQuestion": "Which games do you play?",
     "gamesRequired": true,
     "notificationsQuestion": "Which pings / notifications would you like?",
-    "defaultChannels": ["rules", "info", "roles", "help", "announcements", "game-updates", "general-chat", "memes", "level-ups"]
+    "defaultChannels": "public-non-game"
   },
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "content": {

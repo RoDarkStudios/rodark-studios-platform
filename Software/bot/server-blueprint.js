@@ -3,7 +3,7 @@ const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 11;
+const ENGINE_VERSION = 12;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -111,9 +111,23 @@ function compileBlueprint(control = {}, spec = manifest) {
     for (const required of ['honeypot', 'staff-info', 'moderation-log', 'rules', 'info', 'roles', 'help', 'category:tickets', 'category:ignore', 'game-updates', 'level-ups']) {
         if (!channels.some((channel) => channel.key === required)) throw new Error(`Required bot integration channel is missing: ${required}`);
     }
-    const defaults = spec.onboarding.defaultChannels;
-    if (defaults.includes('honeypot') || defaults.some((key) => !channels.some((channel) => channel.key === key))) throw new Error('Invalid onboarding defaults; the honeypot must never be an onboarding destination.');
-    const result = { spec: clone(spec), guildId: spec.guildId, roles, channels, levelUnlock: threshold, everyonePermissions: permissions(COMMON) };
+    const everyonePermissions = permissions(COMMON);
+    const publicChannels = channels.filter((channel) => {
+        if (channel.type === TYPES.category) return false;
+        const everyone = channel.permission_overwrites.find((entry) => entry.id === spec.guildId);
+        const effective = (BigInt(everyonePermissions) & ~BigInt(everyone?.deny || '0')) | BigInt(everyone?.allow || '0');
+        return Boolean(effective & P.ViewChannel);
+    });
+    // Keep explicit lists readable for previously deployed definitions. New layouts
+    // include all public non-game channels automatically, including voice and the trap.
+    const defaultChannelKeys = spec.onboarding.defaultChannels === 'public-non-game'
+        ? publicChannels.filter((channel) => !channel.game).map((channel) => channel.key)
+        : spec.onboarding.defaultChannels;
+    if (!Array.isArray(defaultChannelKeys) || new Set(defaultChannelKeys).size !== defaultChannelKeys.length ||
+        defaultChannelKeys.some((key) => !publicChannels.some((channel) => channel.key === key))) {
+        throw new Error('Onboarding defaults must be public-non-game or a list of distinct public channel keys.');
+    }
+    const result = { spec: clone(spec), guildId: spec.guildId, roles, channels, defaultChannelKeys, levelUnlock: threshold, everyonePermissions };
     result.version = hash({ engine: ENGINE_VERSION, spec, threshold });
     return result;
 }
@@ -183,7 +197,7 @@ function onboardingBody(blueprint, bindings, previous = {}) {
                 return { ...(existing?.id ? { id: existing.id } : {}), ...option };
             }) };
     };
-    return { enabled: true, mode: 1, default_channel_ids: spec.onboarding.defaultChannels.map((key) => bindings.channel[key]), prompts: [
+    return { enabled: true, mode: 1, default_channel_ids: blueprint.defaultChannelKeys.map((key) => bindings.channel[key]), prompts: [
         prompt('games', spec.onboarding.gamesQuestion, spec.games.map((game) => ({ key: game.key, title: game.name, description: `Channels for ${game.name}`, emoji_name: game.emoji,
             role_ids: [bindings.role[`game-${game.key}`]],
             channel_ids: blueprint.channels.filter((channel) => channel.game === game.key).map((channel) => bindings.channel[channel.key])

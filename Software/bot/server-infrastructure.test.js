@@ -200,25 +200,93 @@ test('creator-only posting, owner-started discussions, media uploads and the exi
     assert.ok(BigInt(changed.roles.find((role) => role.key === 'level-25').permissions) & P.EmbedLinks);
 });
 
-test('native onboarding selects games without access locks, meets public-channel requirements and never offers the honeypot', () => {
+test('onboarding shows all public non-game channels by default and keeps games and notification choices separate', () => {
     const blueprint = compileBlueprint(control), bindings = { role: {}, channel: {} };
     blueprint.roles.forEach((role) => { bindings.role[role.key] = role.key; });
     blueprint.channels.forEach((channel) => { bindings.channel[channel.key] = channel.key; });
     const body = onboardingBody(blueprint, bindings);
     assert.equal(body.mode, 1);
-    assert.ok(body.default_channel_ids.length >= 7);
+    assert.deepEqual(body.default_channel_ids, ['honeypot', 'rules', 'info', 'roles', 'help', 'announcements', 'game-updates',
+        'codes', 'polls-feedback', 'general-chat', 'memes', 'level-ups', 'lounge-1', 'lounge-2', 'duo', 'squad', 'party']);
     assert.equal(body.prompts[0].single_select, false);
     assert.equal(body.prompts[0].required, true);
     assert.equal(body.prompts[1].required, false);
     const offered = [...body.default_channel_ids, ...body.prompts.flatMap((prompt) => prompt.options.flatMap((option) => option.channel_ids))];
-    assert.ok(!offered.includes('honeypot'));
+    const publicChannels = blueprint.channels.filter(channel => channel.type !== 4 && (effective(blueprint, channel.key, []) & P.ViewChannel));
+    assert.deepEqual([...new Set(offered)].sort(), publicChannels.map(channel => channel.key).sort());
+    for (const key of ['staff-info', 'staff-chat', 'staff-vc', 'moderation-log', 'category:tickets']) {
+        assert.ok(!offered.includes(key));
+        assert.equal(effective(blueprint, key, []) & P.ViewChannel, 0n);
+    }
+    for (const key of ['lounge-1', 'lounge-2', 'duo', 'squad', 'party']) {
+        assert.equal(effective(blueprint, key, []) & (P.ViewChannel | P.Connect | P.Speak), P.ViewChannel | P.Connect | P.Speak);
+    }
     assert.ok(new Set(offered.filter((key) => {
         const bits = effective(blueprint, key, []);
         return (bits & (P.ViewChannel | P.SendMessages)) === (P.ViewChannel | P.SendMessages);
     })).size >= 5);
     for (const [index, option] of body.prompts[0].options.entries()) {
-        assert.deepEqual(option.role_ids, [`game-${blueprint.spec.games[index].key}`]);
+        const gameKey = blueprint.spec.games[index].key;
+        assert.deepEqual(option.role_ids, [`game-${gameKey}`]);
+        assert.deepEqual(option.channel_ids, blueprint.channels.filter(channel => channel.game === gameKey).map(channel => channel.key));
+        assert.ok(option.channel_ids.every(key => !body.default_channel_ids.includes(key)));
     }
+    for (const [index, option] of body.prompts[1].options.entries()) {
+        assert.deepEqual(option.role_ids, [`ping-${blueprint.spec.notifications[index].key}`]);
+        assert.deepEqual(option.channel_ids, []);
+    }
+});
+
+test('new shared channels enter onboarding defaults automatically while private channels remain excluded', () => {
+    const spec = clone(compileBlueprint(control).spec);
+    spec.categories.find(category => category.key === 'general').channels.push(
+        { key: 'new-public', name: '💬・new-public', type: 'text', profile: 'readonly' },
+        { key: 'new-private', name: '🔒・new-private', type: 'text', profile: 'staff' }
+    );
+    spec.categories.find(category => category.key === 'voice').channels.push({ key: 'new-voice', name: '🔊・new-voice', type: 'voice' });
+    const blueprint = compileBlueprint(control, spec);
+    assert.ok(blueprint.defaultChannelKeys.includes('new-public'));
+    assert.ok(blueprint.defaultChannelKeys.includes('new-voice'));
+    assert.ok(!blueprint.defaultChannelKeys.includes('new-private'));
+});
+
+test('legacy onboarding defaults reject private channels, categories, missing channels and duplicates', () => {
+    for (const defaults of [['staff-vc'], ['moderation-log'], ['category:info'], ['missing'], ['rules', 'rules'], 'unknown-mode']) {
+        const spec = clone(compileBlueprint(control).spec);
+        spec.onboarding.defaultChannels = defaults;
+        assert.throws(() => compileBlueprint(control, spec), /distinct public channel keys/);
+    }
+});
+
+test('expanding onboarding defaults preserves channel history and question identities without changing permissions', async () => {
+    const fake = fakeDiscord(), blueprint = compileBlueprint(control), oldSpec = clone(blueprint.spec);
+    oldSpec.onboarding.defaultChannels = ['rules', 'info', 'roles', 'help', 'announcements', 'game-updates', 'general-chat', 'memes', 'level-ups'];
+    const oldBlueprint = compileBlueprint(control, oldSpec);
+    const first = await deploy(fake, {}, oldBlueprint);
+    assert.deepEqual(oldBlueprint.defaultChannelKeys, oldSpec.onboarding.defaultChannels);
+    const channels = clone(fake.server.channels), roles = clone(fake.server.roles), prompts = clone(fake.server.onboarding.prompts);
+    const channelId = first.state.resources.channel['general-chat'];
+    fake.server.messages.get(channelId).push('Keep this conversation');
+    fake.server.writes = [];
+    let contentReady = false;
+    const put = fake.rest.put;
+    fake.rest.put = async (path, options) => {
+        if (path.endsWith('/onboarding') && options.body.enabled) assert.equal(contentReady, true, 'Publish the trap warning before exposing it through onboarding');
+        return put(path, options);
+    };
+    const next = await deploy(fake, first.state, blueprint, [], { finishContent: async () => { contentReady = true; } });
+    assert.equal(next.plan.initial, false);
+    assert.deepEqual(next.plan.operations.map(op => op.kind), ['onboarding', 'content']);
+    assert.deepEqual(next.state.resources, first.state.resources);
+    assert.deepEqual(fake.server.channels, channels);
+    assert.deepEqual(fake.server.roles, roles);
+    assert.deepEqual(fake.server.messages.get(channelId), ['Keep this conversation']);
+    assert.equal(fake.server.onboarding.enabled, true);
+    assert.deepEqual(fake.server.onboarding.prompts, prompts);
+    assert.deepEqual(fake.server.onboarding.default_channel_ids, blueprint.defaultChannelKeys.map(key => next.state.resources.channel[key]));
+    assert.ok(fake.server.writes.every(write => write.path === `/guilds/${GUILD}/onboarding`));
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, next.state).operations, []);
 });
 
 test('new onboarding prompts have request IDs and persist Discord returned IDs for subsequent updates', async () => {
@@ -384,7 +452,6 @@ test('removing a channel and role from the file removes previously managed resou
     const fake = fakeDiscord(), first = await deploy(fake), spec = clone(first.state.active.spec);
     const oldMeme = first.state.resources.channel.memes, oldCreator = first.state.resources.role.creator;
     spec.categories.find((category) => category.key === 'general').channels = spec.categories.find((category) => category.key === 'general').channels.filter((channel) => channel.key !== 'memes');
-    spec.onboarding.defaultChannels = spec.onboarding.defaultChannels.filter((key) => key !== 'memes');
     // Retiring a notification role exercises deletion without breaking a channel's required creator role.
     const retired = first.state.resources.role['ping-polls']; spec.notifications = spec.notifications.filter((notice) => notice.key !== 'polls');
     const next = await deploy(fake, first.state, compileBlueprint(control, spec));
