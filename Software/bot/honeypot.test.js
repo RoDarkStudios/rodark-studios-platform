@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ChannelType, Collection, PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
+const { ChannelType, Collection, MessageType, PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
 const { createHoneypotSystem } = require('./honeypot');
 
 function fixture() {
@@ -76,7 +76,8 @@ function fixture() {
                         this.components = nextPayload.components;
                         return this;
                     },
-                    async pin() { this.pinned = true; return this; }
+                    async pin() { throw new Error('The honeypot warning must not be pinned'); },
+                    async unpin() { this.pinned = false; return this; }
                 };
                 // Discord returns Embed instances, with .footer rather than Builder .data.
                 Object.defineProperty(warning, 'embeds', {
@@ -158,6 +159,25 @@ test('repeated and concurrent syncs do not create duplicate channels or warnings
     await f.system.ensure(f.control, { force: true });
     assert.equal(f.calls.creates.length, 2);
     assert.equal(f.calls.sends.length, 1);
+});
+
+test('legacy warning pins and their bot notices are removed while the warning and other messages are retained', async () => {
+    const f = fixture();
+    await f.system.ensure(f.control);
+    const warning = f.trap().messages.cache.first();
+    assert.equal(warning.pinned, false);
+    warning.pinned = true;
+    const notice = f.message({ type: MessageType.ChannelPinnedMessage, author: f.client.user, reference: { messageId: warning.id } });
+    const unrelated = f.message({ type: MessageType.ChannelPinnedMessage, author: f.client.user, reference: { messageId: 'another-message' } });
+    const ownerNotice = f.message({ type: MessageType.ChannelPinnedMessage, author: { id: 'owner' }, reference: { messageId: warning.id } });
+    for (const message of [notice, unrelated, ownerNotice]) f.trap().messages.cache.set(message.id, message);
+    const restarted = createHoneypotSystem(f.client, { store: f.store });
+    await restarted.ensure(f.control);
+    assert.equal(warning.pinned, false);
+    assert.deepEqual(f.calls.deletes, [notice.id]);
+    assert.equal(f.calls.sends.length, 1);
+    assert.equal(f.trap().messages.cache.get(warning.id), warning);
+    assert.equal(f.countLabel(), 'Bans: 0');
 });
 
 test('an attachment-only message is banned without reading message content and increments the counter', async () => {

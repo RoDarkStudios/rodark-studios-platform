@@ -1,6 +1,6 @@
 const {
     ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder,
-    OverwriteType, PermissionFlagsBits: P
+    MessageType, OverwriteType, PermissionFlagsBits: P
 } = require('discord.js');
 const defaultStore = require('../api/_lib/discord-honeypot-store');
 
@@ -97,8 +97,26 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
             warning = warning ? await warning.edit(payload) : await channel.send(payload);
             state.warningMessageId = warning.id;
             await store.saveState(guildId, channel.id, warning.id);
-            if (!warning.pinned && channel.permissionsFor(client.user.id)?.has(PIN_MESSAGES)) {
-                await warning.pin('Keep the honeypot warning visible');
+            // The warning stands alone; pinning only adds a redundant system notice.
+            // Migrate warnings pinned by earlier versions without delaying protection
+            // if Discord temporarily rejects this cosmetic cleanup.
+            try {
+                if (warning.pinned && channel.permissionsFor(client.user.id)?.has(PIN_MESSAGES)) {
+                    await warning.unpin('The honeypot warning does not need pinning');
+                    state.pinNoticesCleaned = false;
+                }
+                if (!state.pinNoticesCleaned) {
+                    const messages = await channel.messages.fetch({ limit: 100 });
+                    for (const message of messages.values()) {
+                        if (message.type === MessageType.ChannelPinnedMessage && message.author?.id === client.user.id
+                            && message.reference?.messageId === warning.id) {
+                            await message.delete();
+                        }
+                    }
+                    state.pinNoticesCleaned = true;
+                }
+            } catch (error) {
+                console.warn(`[honeypot] Could not remove the old warning pin notice in ${channel.id}: ${error.message}`);
             }
         });
         warningUpdates.set(guildId, update);
