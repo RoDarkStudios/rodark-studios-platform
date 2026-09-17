@@ -237,7 +237,7 @@ function createClient() {
             });
             const handled = await handleLevelMessage(message, control);
             if (handled) {
-                await setDiscordBotRuntimeStatus('online', nextModeration.getError());
+                await setDiscordBotRuntimeStatus('online', [nextHoneypot.getError(), nextModeration.getError()].filter(Boolean).join('; ') || null);
             }
         } catch (error) {
             console.error('Discord message handling failed:', error);
@@ -287,6 +287,7 @@ async function connectBot() {
         await client.login(DISCORD_BOT_TOKEN);
     } catch (error) {
         console.error('Failed to connect Discord bot:', error);
+        await honeypotSystem?.stop();
         await moderationSystem?.stop();
         moderationSystem = null;
         if (client) await client.destroy();
@@ -305,11 +306,13 @@ async function disconnectBot() {
 
     const currentClient = client;
     client = null;
+    const currentHoneypot = honeypotSystem;
     honeypotSystem = null;
     const currentModeration = moderationSystem;
     moderationSystem = null;
     infrastructureSystem = null;
     startupNeeded = true;
+    await currentHoneypot?.stop();
     await currentModeration?.stop();
 
     if (currentClient) {
@@ -337,6 +340,9 @@ async function syncBotState() {
     if (control && control.desiredEnabled) {
         await connectBot();
         if (client && client.isReady()) {
+            // Cleanup runs independently of layout sync and never delays new bans.
+            // The existing poll drives its durable queue; no per-message scans/timers.
+            void honeypotSystem.tickCleanup(currentControl);
             await infrastructureSystem.tick(control, async (effective) => {
                 currentControl = effective;
                 moderationSystem.resume();
@@ -350,7 +356,7 @@ async function syncBotState() {
                 else await ensureChannelPurgeCommand(client, effective, { force: startupNeeded });
                 await deleteObsoleteGuildCommands(client, effective, { force: startupNeeded });
                 startupNeeded = false;
-                await setDiscordBotRuntimeStatus('online', moderationSystem.getError());
+                await setDiscordBotRuntimeStatus('online', [honeypotSystem.getError(), moderationSystem.getError()].filter(Boolean).join('; ') || null);
             });
         }
         return;

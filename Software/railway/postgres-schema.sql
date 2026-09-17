@@ -208,6 +208,16 @@ create table if not exists discord_bot_honeypot_bans (
 create index if not exists discord_bot_honeypot_bans_guild_idx
 on discord_bot_honeypot_bans (guild_id);
 
+alter table discord_bot_honeypot_bans
+    add column if not exists cleanup_from timestamptz,
+    add column if not exists cleanup_until timestamptz,
+    add column if not exists cleanup_due_at timestamptz,
+    add column if not exists cleanup_passes integer not null default 0,
+    add column if not exists cleanup_attempts integer not null default 0,
+    add column if not exists cleanup_error text;
+create index if not exists discord_bot_honeypot_cleanup_due_idx
+on discord_bot_honeypot_bans (cleanup_due_at) where cleanup_due_at is not null;
+
 create table if not exists discord_bot_moderation_messages (
     message_id text primary key,
     guild_id text not null,

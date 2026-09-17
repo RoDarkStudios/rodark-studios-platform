@@ -7,11 +7,11 @@ function fixture() {
     let sequence = 100;
     let saved = null;
     const banEvents = new Map();
-    const calls = { bans: [], creates: [], sends: [], edits: [], deletes: [], fetchMembers: [] };
+    const calls = { bans: [], creates: [], sends: [], edits: [], deletes: [], fetchMembers: [], records: [] };
     const store = {
         async getState() { return saved ? { ...saved, banCount: banEvents.size } : null; },
         async saveState(guildId, channelId, warningMessageId) { saved = { channelId, warningMessageId }; },
-        async recordBan(message) { banEvents.set(message.id, message.author.id); }
+        async recordBan(message) { calls.records.push(message); banEvents.set(message.id, message.author.id); }
     };
     const client = { user: { id: 'bot' }, isReady: () => true, guilds: { cache: new Collection() } };
     const me = { permissions: new PermissionsBitField(PermissionsBitField.All) };
@@ -187,7 +187,10 @@ test('an attachment-only message is banned without reading message content and i
     assert.equal(await f.system.handleMessage(message, f.control), true);
     assert.equal(f.calls.bans.length, 1);
     assert.equal(f.calls.bans[0].id, 'member');
-    assert.equal(f.calls.bans[0].options.deleteMessageSeconds, 3600);
+    assert.equal(f.calls.bans[0].options.deleteMessageSeconds, 600);
+    const record = f.calls.records[0];
+    assert.equal(record.bannedAt - record.cleanupFrom, 600_000);
+    assert.equal(record.cleanupUntil - record.bannedAt, 10_000);
     assert.match(f.calls.bans[0].options.reason, new RegExp(message.id));
     assert.deepEqual(f.calls.fetchMembers, [{ user: 'member', force: true }]);
     assert.equal(f.countLabel(), 'Bans: 1');

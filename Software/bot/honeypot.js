@@ -3,13 +3,14 @@ const {
     MessageType, OverwriteType, PermissionFlagsBits: P
 } = require('discord.js');
 const defaultStore = require('../api/_lib/discord-honeypot-store');
+const { createHoneypotCleanup, CLEANUP_WINDOW_MS, SETTLE_MS } = require('./honeypot-cleanup');
 
 const CHANNEL_NAME = 'ignore│do-not-type';
 const WARNING_TITLE = 'DO NOT SEND MESSAGES IN THIS CHANNEL';
 const WARNING_MARKER = 'RoDark Studios • Honeypot';
 const TOPIC = 'DO NOT TYPE HERE. Any message, image, file, link or reply triggers an immediate permanent ban. This is a spam trap.';
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;
-const DELETE_MESSAGE_SECONDS = 60 * 60;
+const DELETE_MESSAGE_SECONDS = CLEANUP_WINDOW_MS / 1000;
 const PUBLIC_PERMISSIONS = [P.ViewChannel, P.ReadMessageHistory, P.SendMessages, P.AttachFiles, P.EmbedLinks];
 const DENIED_PERMISSIONS = [P.MentionEveryone, P.CreatePublicThreads, P.CreatePrivateThreads, P.SendMessagesInThreads];
 const BOT_PERMISSIONS = [...PUBLIC_PERMISSIONS, P.ManageMessages, P.ManageRoles];
@@ -73,6 +74,7 @@ async function fetchWarning(channel, messageId) {
 }
 
 function createHoneypotSystem(client, { store = defaultStore } = {}) {
+    const cleanup = createHoneypotCleanup(client, { store });
     const states = new Map();
     const inFlightBans = new Map();
     const recentBans = new Map();
@@ -229,6 +231,7 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
     async function banAuthor(message, state) {
         const guild = message.guild;
         const key = `${guild.id}:${message.author.id}`;
+        let bannedAt;
         try {
             let member;
             try {
@@ -243,7 +246,8 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
                 deleteMessageSeconds: DELETE_MESSAGE_SECONDS,
                 reason: `Honeypot: message ${message.id} in #${CHANNEL_NAME} (${message.channelId})`
             });
-            recentBans.set(key, Date.now());
+            bannedAt = Date.now();
+            recentBans.set(key, bannedAt);
             console.log(`[honeypot] Banned user ${message.author.id} in guild ${guild.id}; trigger ${message.id}.`);
         } catch (error) {
             await deleteTrigger(message);
@@ -251,7 +255,11 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
         }
         await deleteTrigger(message);
         // A database/counter failure must never prevent the actual moderation action.
-        const record = { id: message.id, guild: { id: guild.id }, channelId: message.channelId, author: { id: message.author.id } };
+        const record = {
+            id: message.id, guild: { id: guild.id }, channelId: message.channelId, author: { id: message.author.id },
+            bannedAt: new Date(bannedAt), cleanupFrom: new Date(bannedAt - CLEANUP_WINDOW_MS),
+            cleanupUntil: new Date(bannedAt + SETTLE_MS)
+        };
         pendingBanRecords.set(message.id, record);
         await store.recordBan(record);
         pendingBanRecords.delete(message.id);
@@ -285,7 +293,7 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
         return true;
     }
 
-    return { ensure, handleMessage };
+    return { ensure, handleMessage, tickCleanup: cleanup.tick, getError: cleanup.getError, stop: cleanup.stop };
 }
 
 module.exports = { createHoneypotSystem };

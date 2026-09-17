@@ -25,6 +25,19 @@ async function ensureSchema() {
                 create index if not exists discord_bot_honeypot_bans_guild_idx
                 on discord_bot_honeypot_bans (guild_id)
             `);
+            await postgresQuery(`
+                alter table discord_bot_honeypot_bans
+                    add column if not exists cleanup_from timestamptz,
+                    add column if not exists cleanup_until timestamptz,
+                    add column if not exists cleanup_due_at timestamptz,
+                    add column if not exists cleanup_passes integer not null default 0,
+                    add column if not exists cleanup_attempts integer not null default 0,
+                    add column if not exists cleanup_error text
+            `);
+            await postgresQuery(`
+                create index if not exists discord_bot_honeypot_cleanup_due_idx
+                on discord_bot_honeypot_bans (cleanup_due_at) where cleanup_due_at is not null
+            `);
         })().catch((error) => {
             schemaReady = null;
             throw error;
@@ -62,10 +75,31 @@ async function saveState(guildId, channelId, warningMessageId) {
 async function recordBan(message) {
     await ensureSchema();
     await postgresQuery(`
-        insert into discord_bot_honeypot_bans (message_id, guild_id, channel_id, user_id)
-        values ($1, $2, $3, $4)
+        insert into discord_bot_honeypot_bans
+            (message_id, guild_id, channel_id, user_id, banned_at, cleanup_from, cleanup_until, cleanup_due_at)
+        values ($1, $2, $3, $4, $5, $6, $7, $7)
         on conflict (message_id) do nothing
-    `, [message.id, message.guild.id, message.channelId, message.author.id]);
+    `, [message.id, message.guild.id, message.channelId, message.author.id,
+        message.bannedAt || new Date(), message.cleanupFrom || null, message.cleanupUntil || null]);
 }
 
-module.exports = { getState, saveState, recordBan };
+async function getDueCleanups(guildIds, now = new Date()) {
+    await ensureSchema();
+    const result = await postgresQuery(`
+        select * from discord_bot_honeypot_bans
+        where guild_id = any($1::text[]) and cleanup_due_at <= $2
+        order by cleanup_due_at limit 3
+    `, [guildIds, now]);
+    return result.rows;
+}
+
+async function updateCleanup(messageId, { dueAt, passes, attempts, error }) {
+    await ensureSchema();
+    await postgresQuery(`
+        update discord_bot_honeypot_bans
+        set cleanup_due_at = $2, cleanup_passes = $3, cleanup_attempts = $4, cleanup_error = $5
+        where message_id = $1
+    `, [messageId, dueAt, passes, attempts, error]);
+}
+
+module.exports = { getState, saveState, recordBan, getDueCleanups, updateCleanup };
