@@ -271,7 +271,10 @@ async function syncInfoChannel(channel, customEmojis, control) {
     if (control?.infrastructure) {
         const active = control.infrastructure;
         embed.spliceFields(2, 1, { name: `${customEmojis.Roblox} Our Games`, value: active.spec.games.map((game) => `${game.emoji} **${game.name}**`).join('\n'), inline: false });
-        embed.addFields({ name: 'Make yourself at home', value: `Choose your games and notification roles in **Channels & Roles**. Open a private support ticket in <#${active.bindings.channel.help}>.` });
+        const welcome = active.spec.onboarding.gamesQuestion
+            ? 'Choose your games and notification roles in **Channels & Roles**.'
+            : 'Game channels are available to everyone. Choose optional notification roles in **Channels & Roles**.';
+        embed.addFields({ name: 'Make yourself at home', value: `${welcome} Open a private support ticket in <#${active.bindings.channel.help}>.` });
     }
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.info);
 }
@@ -292,8 +295,10 @@ async function syncRolesChannel(channel, control) {
 
     if (control?.infrastructure) {
         const active = control.infrastructure;
+        if (active.spec.onboarding.gamesQuestion) {
+            embed.addFields({ name: 'Game roles', value: active.spec.games.map((game) => `${getRoleMention(guild, game.name)} — ${game.name} channels`).join('\n') });
+        }
         embed.addFields(
-            { name: 'Game roles', value: active.spec.games.map((game) => `${getRoleMention(guild, game.name)} — ${game.name} channels`).join('\n') },
             { name: 'Optional notifications', value: `${getRoleMention(guild, 'Announcements')} — announcements and game updates\n${getRoleMention(guild, 'Polls Feedback')} — polls and feedback requests\nChoose either, both or neither in **Channels & Roles**.` },
             { name: 'Levels', value: `Earn XP by chatting. Milestone roles are awarded at levels ${active.spec.levels.milestones.join(', ')}. Link previews unlock at Level ${control.levelSystem.attachmentUnlockLevel}. Your existing XP is retained.` }
         );

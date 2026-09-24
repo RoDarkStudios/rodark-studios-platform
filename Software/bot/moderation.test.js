@@ -15,14 +15,15 @@ function fixture() {
         async ensureSchema() {},
         async enqueue(message) {
             const previous = queue.get(message.id);
-            if (!previous) queue.set(message.id, { payload: structuredClone(message), attempts: 0 });
-            else if (!previous.deleted && previous.payload.version !== message.version) Object.assign(previous, { payload: structuredClone(message), attempts: 0 });
+            if (!previous) queue.set(message.id, { payload: structuredClone(message), attempts: 0, queuedAt: time });
+            else if (!previous.deleted && previous.payload.version !== message.version) Object.assign(previous, { payload: structuredClone(message), attempts: 0, queuedAt: time });
         },
         async markDeleted(ids) { ids.forEach((id) => { if (queue.has(id)) queue.get(id).deleted = true; }); },
         async pendingChannels(guildIds) {
             const result = new Map();
             for (const row of queue.values()) if (!row.deleted && row.attempts < 3 && row.reviewed !== row.payload.version && guildIds.includes(row.payload.guild_id)) {
-                const item = result.get(row.payload.channel_id) || { channel_id: row.payload.channel_id, guild_id: row.payload.guild_id, pending_count: 0, oldest: row.payload.timestamp };
+                const item = result.get(row.payload.channel_id) || { channel_id: row.payload.channel_id, guild_id: row.payload.guild_id, pending_count: 0, oldest: new Date(row.queuedAt).toISOString() };
+                if (row.queuedAt < new Date(item.oldest).getTime()) item.oldest = new Date(row.queuedAt).toISOString();
                 item.pending_count++; result.set(item.channel_id, item);
             }
             return [...result.values()];
@@ -140,6 +141,41 @@ test('quiet channels cost no requests; timer is one minute and message count nev
     assert.equal(f.calls.timeouts.length, 0);
     await f.next(); assert.equal(f.calls.reviews.length, 1);
     await f.system.stop();
+});
+
+test('editing an already reviewed old message does not raise a false backlog warning', async () => {
+    const f = fixture();
+    const message = await f.queueMessage('Hello');
+    await f.next();
+    f.advance(10 * 60_000);
+    message.content = 'Hello, edited just now';
+    message.editedTimestamp = f.now();
+    await f.system.handleMessage(message, f.control);
+    await f.system.tick(f.control);
+    assert.equal(f.calls.reviews.length, 2);
+    assert.equal(f.calls.reviews[1].input.new_messages[0].content, message.content);
+    assert.equal(f.calls.logs.length, 0);
+});
+
+test('backlog warnings name the affected channel and report actual queue count and age', async () => {
+    const f = fixture();
+    await f.queueMessage('Waiting for review');
+    f.advance(6 * 60_000);
+    await f.system.tick(f.control);
+    const notice = f.calls.logs.find(log => log.payload.content?.includes('Conversation review backlog'));
+    assert.equal(notice.channel.id, f.log().id);
+    assert.match(notice.payload.content, /<#general>: 1 queued message; oldest queued update is 360 seconds old/);
+    assert.deepEqual(notice.payload.allowedMentions, { parse: [], users: [], roles: ['staff'] });
+    assert.equal(f.calls.reviews.length, 1);
+});
+
+test('a large fresh queue alerts by count without claiming that messages are several minutes old', async () => {
+    const f = fixture();
+    for (let index = 0; index < 101; index++) await f.queueMessage('Hello');
+    await f.next();
+    const notice = f.calls.logs.find(log => log.payload.content?.includes('Conversation review backlog'));
+    assert.match(notice.payload.content, /<#general>: 101 queued messages; oldest queued update is 60 seconds old/);
+    assert.equal(f.calls.reviews.length, 1);
 });
 
 test('creates and repairs a private log with moderator role pings; setup is idempotent', async () => {

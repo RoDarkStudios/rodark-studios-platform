@@ -274,8 +274,9 @@ function createModerationSystem(client, {
                 await store.commitReview(batch, []);
                 return;
             }
-            if (pending.pending_count > 100 || now() - new Date(pending.oldest).getTime() > 5 * 60_000) {
-                await report(`backlog:${channel.id}`, 'Conversation reviews are more than a few minutes behind. Messages remain queued; please monitor this channel manually.', state);
+            const pendingAgeMs = Math.max(0, now() - new Date(pending.oldest).getTime());
+            if (pending.pending_count > 100 || pendingAgeMs > 5 * 60_000) {
+                await report(`backlog:${channel.id}`, `Conversation review backlog in <#${channel.id}>: ${pending.pending_count} queued message${pending.pending_count === 1 ? '' : 's'}; oldest queued update is ${Math.floor(pendingAgeMs / 1000)} seconds old. Messages remain queued; please monitor that channel manually.`, state);
             }
             const controller = new AbortController();
             controllers.add(controller);

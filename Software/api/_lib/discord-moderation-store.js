@@ -28,11 +28,13 @@ async function markDeleted(ids) {
 
 async function pendingChannels(guildIds) {
     await ensureSchema();
+    // updated_at is when this version entered the queue. received_at stays at the
+    // original arrival time, so using it would make fresh edits look overdue.
     const result = await postgresQuery(`
-        select guild_id, channel_id, count(*)::integer as pending_count, min(received_at) as oldest
+        select guild_id, channel_id, count(*)::integer as pending_count, min(updated_at) as oldest
         from discord_bot_moderation_messages
         where guild_id = any($1::text[]) and not deleted and reviewed_version is distinct from version and attempts < 3
-        group by guild_id, channel_id order by min(received_at)
+        group by guild_id, channel_id order by min(updated_at)
     `, [guildIds]);
     return result.rows;
 }

@@ -4,7 +4,7 @@ const manifest = require('../discord/server.json');
 const { screeningFields, screeningMatches } = require('./rules-screening');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 13;
+const ENGINE_VERSION = 14;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -64,7 +64,7 @@ function validateManifest(spec) {
         const keys = collection.map((item) => item.key);
         if (new Set(keys).size !== keys.length || keys.some((key) => !/^[a-z0-9-]+$/.test(key))) throw new Error('Blueprint keys must be unique, stable identifiers.');
     }
-    if (!spec.games.length || spec.games.length > 20) throw new Error('Onboarding requires between 1 and 20 game options.');
+    if (!spec.games.length || spec.games.length > 20) throw new Error('The server requires between 1 and 20 games.');
     if (spec.onboarding?.syncRulesScreening !== undefined && typeof spec.onboarding.syncRulesScreening !== 'boolean') {
         throw new Error('onboarding.syncRulesScreening must be a boolean.');
     }
@@ -93,7 +93,10 @@ function compileBlueprint(control = {}, spec = manifest) {
     for (const level of [...spec.levels.milestones].reverse()) roles.push({ key: `level-${level}`, name: `Level ${level}`,
         color: level >= 50 ? 0x22d3ee : 0xf97316, hoist: false, mentionable: false,
         permissions: permissions(level >= threshold ? ['EmbedLinks'] : []) });
-    for (const game of spec.games) roles.push({ key: `game-${game.key}`, name: game.name, color: 0, hoist: false, mentionable: false, permissions: '0' });
+    // Previously deployed definitions still need their game roles for drift checks.
+    if (spec.onboarding.gamesQuestion) {
+        for (const game of spec.games) roles.push({ key: `game-${game.key}`, name: game.name, color: 0, hoist: false, mentionable: false, permissions: '0' });
+    }
     for (const notice of spec.notifications) roles.push({ key: `ping-${notice.key}`, name: notice.name, color: 0, hoist: false, mentionable: false, permissions: '0' });
     if (new Set(roles.map((role) => role.name.toLowerCase())).size !== roles.length || roles.some((role) => !Number.isInteger(role.color) || role.color < 0 || role.color > 0xffffff)) throw new Error('Role names must be unique and colors must be valid RGB values.');
     const categories = spec.categories.flatMap((category) => category.games ? spec.games.map((game) => ({
@@ -126,14 +129,15 @@ function compileBlueprint(control = {}, spec = manifest) {
         const effective = (BigInt(everyonePermissions) & ~BigInt(everyone?.deny || '0')) | BigInt(everyone?.allow || '0');
         return Boolean(effective & P.ViewChannel);
     });
-    // Keep explicit lists readable for previously deployed definitions. New layouts
-    // include all public non-game channels automatically, including voice and the trap.
-    const defaultChannelKeys = spec.onboarding.defaultChannels === 'public-non-game'
-        ? publicChannels.filter((channel) => !channel.game).map((channel) => channel.key)
-        : spec.onboarding.defaultChannels;
+    // Keep older definitions readable for drift checks until the new layout is deployed.
+    const defaultChannelKeys = spec.onboarding.defaultChannels === 'public'
+        ? publicChannels.map((channel) => channel.key)
+        : spec.onboarding.defaultChannels === 'public-non-game'
+            ? publicChannels.filter((channel) => !channel.game).map((channel) => channel.key)
+            : spec.onboarding.defaultChannels;
     if (!Array.isArray(defaultChannelKeys) || new Set(defaultChannelKeys).size !== defaultChannelKeys.length ||
         defaultChannelKeys.some((key) => !publicChannels.some((channel) => channel.key === key))) {
-        throw new Error('Onboarding defaults must be public-non-game or a list of distinct public channel keys.');
+        throw new Error('Onboarding defaults must be public, public-non-game or a list of distinct public channel keys.');
     }
     const result = { spec: clone(spec), guildId: spec.guildId, roles, channels, defaultChannelKeys, levelUnlock: threshold, everyonePermissions };
     result.version = hash({ engine: ENGINE_VERSION, spec, threshold });
@@ -193,6 +197,13 @@ function roleMatches(actual, desired) {
         (actual.colors?.primary_color ?? actual.color ?? 0) === desired.color &&
         !(actual.colors?.secondary_color || actual.colors?.tertiary_color) && Boolean(actual.hoist) === desired.hoist && !actual.mentionable;
 }
+function onboardingQuestions(spec) {
+    return [
+        ...(spec.onboarding.gamesQuestion ? [{ key: 'games', title: spec.onboarding.gamesQuestion, choices: spec.games, required: Boolean(spec.onboarding.gamesRequired) }] : []),
+        { key: 'notifications', title: spec.onboarding.notificationsQuestion, choices: spec.notifications, required: false }
+    ];
+}
+
 function onboardingBody(blueprint, bindings, previous = {}) {
     const { spec } = blueprint;
     const prompt = (key, title, options, required) => {
@@ -205,15 +216,12 @@ function onboardingBody(blueprint, bindings, previous = {}) {
                 return { ...(existing?.id ? { id: existing.id } : {}), ...option };
             }) };
     };
-    return { enabled: true, mode: 1, default_channel_ids: blueprint.defaultChannelKeys.map((key) => bindings.channel[key]), prompts: [
-        prompt('games', spec.onboarding.gamesQuestion, spec.games.map((game) => ({ key: game.key, title: game.name, description: `Channels for ${game.name}`, emoji_name: game.emoji,
-            role_ids: [bindings.role[`game-${game.key}`]],
-            channel_ids: blueprint.channels.filter((channel) => channel.game === game.key).map((channel) => bindings.channel[channel.key])
-        })), Boolean(spec.onboarding.gamesRequired)),
-        prompt('notifications', spec.onboarding.notificationsQuestion, spec.notifications.map((notice) => ({ key: notice.key, title: notice.name, description: notice.description, emoji_name: notice.emoji,
-            role_ids: [bindings.role[`ping-${notice.key}`]], channel_ids: []
-        })), false)
-    ] };
+    return { enabled: true, mode: 1, default_channel_ids: blueprint.defaultChannelKeys.map((key) => bindings.channel[key]),
+        prompts: onboardingQuestions(spec).map(({ key, title, choices, required }) => prompt(key, title, choices.map((choice) => ({
+            key: choice.key, title: choice.name, description: key === 'games' ? `Channels for ${choice.name}` : choice.description, emoji_name: choice.emoji,
+            role_ids: [bindings.role[`${key === 'games' ? 'game' : 'ping'}-${choice.key}`]],
+            channel_ids: key === 'games' ? blueprint.channels.filter((channel) => channel.game === choice.key).map((channel) => bindings.channel[channel.key]) : []
+        })), required)) };
 }
 function normalizeOnboarding(value = {}) {
     // Discord returns the default channel selection in its own order. Membership
@@ -323,7 +331,7 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
         rules_channel_id: previewBindings.channel.rules, public_updates_channel_id: previewBindings.channel['staff-info'], safety_alerts_channel_id: previewBindings.channel['moderation-log'] };
     if (!snapshot.guild.features.includes('COMMUNITY') || Object.keys(guildDesired).some((key) => snapshot.guild[key] !== guildDesired[key])) operations.push({ kind: 'guild', label: 'Configure Community, rules, moderation alerts and server defaults' });
     const onboarding = onboardingBody(blueprint, previewBindings, snapshot.onboarding);
-    if (!same(normalizeOnboarding(onboarding), normalizeOnboarding(snapshot.onboarding))) operations.push({ kind: 'onboarding', label: 'Publish game selection and optional notification questions' });
+    if (!same(normalizeOnboarding(onboarding), normalizeOnboarding(snapshot.onboarding))) operations.push({ kind: 'onboarding', label: 'Update default channels and onboarding questions' });
     if (blueprint.spec.onboarding.syncRulesScreening && !screeningMatches(blueprint.spec, snapshot.rulesScreening)) {
         operations.push({ kind: 'rules_screening', label: 'Sync the acceptance rules with the rules channel text' });
     }
@@ -369,4 +377,4 @@ function normalizeAutoMod(rule) {
 }
 
 module.exports = { ENGINE_VERSION, manifest, compileBlueprint, validateManifest, buildPlan, hash, same, clone, permissions, autoModBody,
-    snapshotHash, channelBody, roleBody, onboardingBody, normalizeOnboarding, normalizeOverwrites, roleMatches };
+    snapshotHash, channelBody, roleBody, onboardingBody, onboardingQuestions, normalizeOnboarding, normalizeOverwrites, roleMatches };

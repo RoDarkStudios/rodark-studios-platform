@@ -47,6 +47,35 @@ test('moderation persistence executes against PostgreSQL, including transactions
             assert.equal((await store.unfinishedCases('guild')).length, 0);
             assert.equal((await store.recentCases('guild', ['alice'])).length, 0);
         });
+        await t.test('backlog age tracks the queued version, preserves original history time and does not reset on duplicates or retries', async () => {
+            const original = { ...message, id: 'age-edited', guild_id: 'age-guild', channel_id: 'edited-chat' };
+            await store.enqueue(original);
+            await store.commitReview([original], []);
+            await db.query("update discord_bot_moderation_messages set received_at = now() - interval '20 minutes', updated_at = now() - interval '20 minutes' where message_id = $1", [original.id]);
+            const originalRow = (await db.query('select received_at from discord_bot_moderation_messages where message_id = $1', [original.id])).rows[0];
+            const edited = { ...original, version: 'v2', content: 'Edited just now' };
+            await store.enqueue(edited);
+            const editedRow = (await db.query('select received_at, updated_at from discord_bot_moderation_messages where message_id = $1', [original.id])).rows[0];
+            assert.deepEqual(editedRow.received_at, originalRow.received_at);
+            let pending = await store.pendingChannels(['age-guild']);
+            assert.equal(pending[0].pending_count, 1);
+            assert.deepEqual(pending[0].oldest, editedRow.updated_at);
+            assert.ok(Date.now() - new Date(pending[0].oldest).getTime() < 5 * 60_000);
+
+            await store.enqueue(edited);
+            await store.failBatch([edited]);
+            assert.deepEqual((await store.pendingChannels(['age-guild']))[0].oldest, editedRow.updated_at);
+
+            const waiting = { ...original, id: 'age-waiting', channel_id: 'waiting-chat' };
+            await store.enqueue(waiting);
+            await db.query("update discord_bot_moderation_messages set received_at = now() - interval '7 minutes', updated_at = now() - interval '7 minutes' where message_id = $1", [waiting.id]);
+            await store.enqueue(waiting);
+            await store.failBatch([waiting]);
+            pending = await store.pendingChannels(['age-guild']);
+            assert.deepEqual(pending.map(channel => channel.channel_id), ['waiting-chat', 'edited-chat']);
+            assert.ok(Date.now() - new Date(pending[0].oldest).getTime() > 5 * 60_000);
+            await store.markDeleted([original.id, waiting.id]);
+        });
         await t.test('deletions cannot be resurrected by late gateway events', async () => {
             const deleted = { ...message, id: 'deleted' }; await store.enqueue(deleted);
             await store.markDeleted(['deleted']); await store.enqueue({ ...deleted, version: 'v3' });

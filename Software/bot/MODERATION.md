@@ -22,6 +22,8 @@ A single worker timer runs every **60 seconds**. Each active channel/thread can 
 
 Every text message and substantive text edit in eligible community channels enters a durable queue. Reviews group up to 50 messages, with a character budget that can make groups smaller; overflow stays queued for later minutes. Two channels may run concurrently. Long-running reviews, API backoff and traffic bursts can delay moderation beyond one minute. A growing backlog alerts moderators rather than making extra paid requests or silently discarding a busy minute.
 
+Backlog alerts identify the affected channel, queued message count and oldest queued update's age. They trigger above 100 pending messages or five minutes of waiting. Age is measured from when the current message version was queued, so a fresh edit to an older message does not falsely appear overdue. Duplicate events and failed review attempts do not reset that age.
+
 The model receives recent conversation context (up to 30 stored messages, initial channel history where needed, and up to 5 missing reply references) plus recent non-dismissed timeout cases for participating members. Historical context cannot itself become a new punishment. Context is bounded, not a complete lifetime history.
 
 Scope includes public text/announcement channels and public threads, including channels visible through ordinary member roles. DMs, private threads, staff-only channels, configured support tickets, the moderation log, the honeypot, bots, webhooks and system events are excluded. Explicit exclusions also apply to category/parent IDs. **This is text moderation:** captions are reviewed; images, audio, stickers and linked pages are not opened or visually classified.

@@ -20,9 +20,7 @@
     { "key": "polls", "name": "Polls Feedback", "emoji": "📊", "description": "Polls and opportunities to give feedback" }
   ],
   "games": [
-    { "key": "dig-for-eggs", "name": "Dig for Eggs", "emoji": "🥚" },
-    { "key": "animal-tag", "name": "Animal Tag", "emoji": "🐾" },
-    { "key": "my-coding-company", "name": "My Coding Company", "emoji": "💻" }
+    { "key": "dig-for-eggs", "name": "Dig for Eggs", "emoji": "🥚" }
   ],
   "categories": [
     { "key": "staff", "name": "Staff", "profile": "staff", "channels": [
@@ -80,10 +78,8 @@
   ],
   "onboarding": {
     "syncRulesScreening": true,
-    "gamesQuestion": "Which games do you play?",
-    "gamesRequired": true,
     "notificationsQuestion": "Which pings / notifications would you like?",
-    "defaultChannels": "public-non-game"
+    "defaultChannels": "public"
   },
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "content": {

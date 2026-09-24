@@ -118,6 +118,8 @@ test('information messages fit Discord limits and use deployed game/help/forum i
     for (const game of blueprint.spec.games) assert.ok(text.includes(game.name));
     assert.ok(text.includes(bindings.channel.help));
     assert.ok(!text.includes('Coding Simulator 2'));
+    assert.doesNotMatch(text, /Animal Tag|My Coding Company|Choose your games|Game roles/);
+    assert.ok(text.includes('Game channels are available to everyone'));
     assert.ok(!text.includes('1208767046184345610'));
     assert.ok(text.includes('Ordinary swearing'));
     assert.doesNotMatch(messages.find(message => message.title === 'Server Roles').description, /\bMember\b|Verified member/);
@@ -131,7 +133,7 @@ test('forum moderation delegates post operations to Staff without allowing statu
     const guild = { ownerId: 'server-owner', members: { fetch: async ({ user: id }) => id === 'moderator'
         ? { ...user, roles: { cache: new Map(memberRoles.map((role) => [role, {}])) } }
         : { roles: { cache: new Map(ownerPost ? [['owner', {}]] : []) }, user: { bot: false } } },
-        channels: { fetch: async () => ({ isThread: () => true, parentId: 'animal-tag/bug-reports', ownerId: 'author', edit: async (value) => { edited = value; } }) } };
+        channels: { fetch: async () => ({ isThread: () => true, parentId: 'dig-for-eggs/bug-reports', ownerId: 'author', edit: async (value) => { edited = value; } }) } };
     let reply = '';
     const interaction = { isChatInputCommand: () => true, commandName: 'forum-moderate', guildId: GUILD, guild,
         user: { id: 'moderator' }, channelId: 'post', deferReply: async () => {}, editReply: async (text) => { reply = text; },

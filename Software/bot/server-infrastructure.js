@@ -1,6 +1,6 @@
 const defaultStore = require('../api/_lib/discord-infrastructure-store');
 const { setTimeout: delay } = require('node:timers/promises');
-const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, autoModBody, clone, manifest } = require('./server-blueprint');
+const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, onboardingQuestions, autoModBody, clone, manifest } = require('./server-blueprint');
 const { readRulesScreening, syncRulesScreening } = require('./rules-screening');
 
 async function captureSnapshot(rest, guildId, botId, spec) {
@@ -166,10 +166,10 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
         } else if (op.kind === 'onboarding') {
             const current = await rest.get(`${root}/onboarding`);
             const updated = await write('put', `${root}/onboarding`, onboardingBody(blueprint, bindings, current));
-            bindings.prompt ||= {}; bindings.option ||= {};
-            for (const [index, key] of ['games', 'notifications'].entries()) {
+            // Save only the questions still present, even when removing one shifts their order.
+            bindings.prompt = {}; bindings.option = {};
+            for (const [index, { key, choices }] of onboardingQuestions(blueprint.spec).entries()) {
                 const prompt = updated.prompts[index]; bindings.prompt[key] = prompt.id;
-                const choices = index === 0 ? blueprint.spec.games : blueprint.spec.notifications;
                 choices.forEach((choice, choiceIndex) => { bindings.option[`${key}/${choice.key}`] = prompt.options[choiceIndex].id; });
             }
             await saveResources(bindings);

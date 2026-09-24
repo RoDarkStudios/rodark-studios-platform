@@ -68,7 +68,11 @@ function fakeDiscord() {
         if (path.includes('/roles/')) {
             const roleId = path.split('/').at(-1), existing = server.roles.find((item) => item.id === roleId);
             if (!existing) throw error404();
-            if (method === 'delete') { server.roles = server.roles.filter((item) => item.id !== roleId); return; }
+            if (method === 'delete') {
+                server.roles = server.roles.filter((item) => item.id !== roleId);
+                for (const member of Object.values(server.members)) member.roles = member.roles.filter(id => id !== roleId);
+                return;
+            }
             Object.assign(existing, clone(body)); return clone(existing);
         }
         if (path === `/guilds/${GUILD}/channels` && method === 'post') {
@@ -163,17 +167,19 @@ function effective(blueprint, channelKey, keys) {
     return (bits & ~deny) | allow;
 }
 
-test('the agreed layout has 10 categories, 42 channels, all three game sets, exact separator and ticket help', () => {
+test('the simplified layout has 8 categories, 28 channels, only Dig for Eggs, exact separator and ticket help', () => {
     const blueprint = compileBlueprint(control);
-    assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 10);
-    assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 42);
+    assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 8);
+    assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 28);
+    assert.deepEqual(blueprint.spec.games.map(game => game.key), ['dig-for-eggs']);
+    assert.ok(!blueprint.roles.some(role => role.key.startsWith('game-')));
     assert.equal(blueprint.channels.find((channel) => channel.key === 'help').name, '🎫・help');
     for (const game of blueprint.spec.games) {
         assert.equal(blueprint.channels.filter((channel) => channel.game === game.key).length, 7);
         assert.equal(blueprint.channels.find(channel => channel.key === `category:game-${game.key}`).name, game.name);
     }
     assert.deepEqual(blueprint.channels.filter(channel => channel.type === 4).map(channel => channel.name),
-        ['Staff', 'Info', 'IGNORE', 'Tickets', 'Announcements', 'Dig for Eggs', 'Animal Tag', 'My Coding Company', 'General', 'Voice']);
+        ['Staff', 'Info', 'IGNORE', 'Tickets', 'Announcements', 'Dig for Eggs', 'General', 'Voice']);
     assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 2);
     assert.equal(blueprint.roles.filter((role) => role.key.startsWith('level-')).length, 7);
 });
@@ -187,20 +193,20 @@ test('Staff can moderate members and messages but cannot change infrastructure o
         assert.ok(value & P.ViewChannel);
         assert.equal(value & (P.SendMessages | P.ManageMessages), 0n);
     }
-    assert.equal(effective(blueprint, 'animal-tag/bug-reports', ['staff']) & P.ManageThreads, 0n);
+    assert.equal(effective(blueprint, 'dig-for-eggs/bug-reports', ['staff']) & P.ManageThreads, 0n);
     assert.equal(effective(blueprint, 'staff-chat', []) & P.ViewChannel, 0n);
 });
 
 test('creator-only posting, owner-started discussions, media uploads and the existing level preview gate compose correctly', () => {
     const blueprint = compileBlueprint(control);
-    assert.equal(effective(blueprint, 'animal-tag/youtube-videos', []) & P.SendMessages, 0n);
-    assert.ok(effective(blueprint, 'animal-tag/youtube-videos', ['creator']) & P.SendMessages);
-    assert.equal(effective(blueprint, 'animal-tag/chat', ['level-100']) & P.AttachFiles, 0n);
-    assert.ok(effective(blueprint, 'animal-tag/media', []) & P.AttachFiles);
-    assert.equal(effective(blueprint, 'animal-tag/chat', []) & P.EmbedLinks, 0n);
-    assert.ok(effective(blueprint, 'animal-tag/chat', ['level-5']) & P.EmbedLinks);
-    assert.equal(effective(blueprint, 'animal-tag/dev-discussions', ['staff']) & P.SendMessages, 0n);
-    assert.ok(effective(blueprint, 'animal-tag/dev-discussions', []) & P.SendMessagesInThreads);
+    assert.equal(effective(blueprint, 'dig-for-eggs/youtube-videos', []) & P.SendMessages, 0n);
+    assert.ok(effective(blueprint, 'dig-for-eggs/youtube-videos', ['creator']) & P.SendMessages);
+    assert.equal(effective(blueprint, 'dig-for-eggs/chat', ['level-100']) & P.AttachFiles, 0n);
+    assert.ok(effective(blueprint, 'dig-for-eggs/media', []) & P.AttachFiles);
+    assert.equal(effective(blueprint, 'dig-for-eggs/chat', []) & P.EmbedLinks, 0n);
+    assert.ok(effective(blueprint, 'dig-for-eggs/chat', ['level-5']) & P.EmbedLinks);
+    assert.equal(effective(blueprint, 'dig-for-eggs/dev-discussions', ['staff']) & P.SendMessages, 0n);
+    assert.ok(effective(blueprint, 'dig-for-eggs/dev-discussions', []) & P.SendMessagesInThreads);
     const staleDashboardSetting = compileBlueprint({ ...control, levelSystem: { attachmentUnlockLevel: 25 } });
     assert.equal(staleDashboardSetting.levelUnlock, 5);
     const spec = clone(blueprint.spec);
@@ -210,17 +216,25 @@ test('creator-only posting, owner-started discussions, media uploads and the exi
     assert.ok(BigInt(changed.roles.find((role) => role.key === 'level-25').permissions) & P.EmbedLinks);
 });
 
-test('onboarding shows all public non-game channels by default and keeps games and notification choices separate', () => {
+test('onboarding includes Dig for Eggs for everyone by default and asks only about optional notifications', () => {
     const blueprint = compileBlueprint(control), bindings = { role: {}, channel: {} };
     blueprint.roles.forEach((role) => { bindings.role[role.key] = role.key; });
     blueprint.channels.forEach((channel) => { bindings.channel[channel.key] = channel.key; });
     const body = onboardingBody(blueprint, bindings);
     assert.equal(body.mode, 1);
     assert.deepEqual(body.default_channel_ids, ['rules', 'info', 'roles', 'help', 'honeypot', 'announcements', 'game-updates',
-        'codes', 'polls-feedback', 'general-chat', 'memes', 'level-ups', 'lounge-1', 'lounge-2', 'duo', 'squad', 'party']);
+        'codes', 'polls-feedback', 'dig-for-eggs/chat', 'dig-for-eggs/media', 'dig-for-eggs/private-servers',
+        'dig-for-eggs/youtube-videos', 'dig-for-eggs/bug-reports', 'dig-for-eggs/feature-suggestions', 'dig-for-eggs/dev-discussions',
+        'general-chat', 'memes', 'level-ups', 'lounge-1', 'lounge-2', 'duo', 'squad', 'party']);
+    assert.equal(body.prompts.length, 1);
+    assert.equal(body.prompts[0].title, blueprint.spec.onboarding.notificationsQuestion);
     assert.equal(body.prompts[0].single_select, false);
-    assert.equal(body.prompts[0].required, true);
-    assert.equal(body.prompts[1].required, false);
+    assert.equal(body.prompts[0].required, false);
+    assert.ok(effective(blueprint, 'category:game-dig-for-eggs', []) & P.ViewChannel);
+    for (const channel of blueprint.channels.filter(channel => channel.game)) {
+        assert.ok(effective(blueprint, channel.key, []) & P.ViewChannel);
+        assert.ok(body.default_channel_ids.includes(channel.key));
+    }
     const offered = [...body.default_channel_ids, ...body.prompts.flatMap((prompt) => prompt.options.flatMap((option) => option.channel_ids))];
     const publicChannels = blueprint.channels.filter(channel => channel.type !== 4 && (effective(blueprint, channel.key, []) & P.ViewChannel));
     assert.deepEqual([...new Set(offered)].sort(), publicChannels.map(channel => channel.key).sort());
@@ -236,28 +250,84 @@ test('onboarding shows all public non-game channels by default and keeps games a
         return (bits & (P.ViewChannel | P.SendMessages)) === (P.ViewChannel | P.SendMessages);
     })).size >= 5);
     for (const [index, option] of body.prompts[0].options.entries()) {
-        const gameKey = blueprint.spec.games[index].key;
-        assert.deepEqual(option.role_ids, [`game-${gameKey}`]);
-        assert.deepEqual(option.channel_ids, blueprint.channels.filter(channel => channel.game === gameKey).map(channel => channel.key));
-        assert.ok(option.channel_ids.every(key => !body.default_channel_ids.includes(key)));
-    }
-    for (const [index, option] of body.prompts[1].options.entries()) {
         assert.deepEqual(option.role_ids, [`ping-${blueprint.spec.notifications[index].key}`]);
         assert.deepEqual(option.channel_ids, []);
     }
 });
 
-test('new shared channels enter onboarding defaults automatically while private channels remain excluded', () => {
+test('new shared and game channels enter onboarding defaults automatically while private channels remain excluded', () => {
     const spec = clone(compileBlueprint(control).spec);
     spec.categories.find(category => category.key === 'general').channels.push(
         { key: 'new-public', name: '💬・new-public', type: 'text', profile: 'readonly' },
         { key: 'new-private', name: '🔒・new-private', type: 'text', profile: 'staff' }
     );
     spec.categories.find(category => category.key === 'voice').channels.push({ key: 'new-voice', name: '🔊・new-voice', type: 'voice' });
+    spec.gameChannels.push({ key: 'new-game-channel', name: '💬・new-game-channel', type: 'text', profile: 'chat' });
     const blueprint = compileBlueprint(control, spec);
     assert.ok(blueprint.defaultChannelKeys.includes('new-public'));
     assert.ok(blueprint.defaultChannelKeys.includes('new-voice'));
+    assert.ok(blueprint.defaultChannelKeys.includes('dig-for-eggs/new-game-channel'));
     assert.ok(!blueprint.defaultChannelKeys.includes('new-private'));
+});
+
+test('simplifying the deployed three-game server removes retired categories and all game roles while preserving Dig for Eggs and notification choices', async () => {
+    const fake = fakeDiscord(), blueprint = compileBlueprint(control), legacySpec = clone(blueprint.spec);
+    legacySpec.games.push(
+        { key: 'animal-tag', name: 'Animal Tag', emoji: '🐾' },
+        { key: 'my-coding-company', name: 'My Coding Company', emoji: '💻' }
+    );
+    Object.assign(legacySpec.onboarding, {
+        gamesQuestion: 'Which games do you play?', gamesRequired: true, defaultChannels: 'public-non-game'
+    });
+    const legacyBlueprint = compileBlueprint(control, legacySpec);
+    const first = await deploy(fake, {}, legacyBlueprint);
+    // Saved layouts remain readable until the owner explicitly deploys the new one.
+    const previousSnapshot = await captureSnapshot(fake.rest, GUILD, BOT, legacySpec);
+    assert.deepEqual(buildPlan(compileBlueprint(control, first.state.active.spec), previousSnapshot, first.state).operations, []);
+    assert.equal(fake.server.onboarding.prompts[0].required, true);
+    assert.ok(legacyBlueprint.defaultChannelKeys.every(key => !key.startsWith('dig-for-eggs/')));
+    const notificationQuestion = clone(fake.server.onboarding.prompts[1]);
+    const gameRoleIds = legacySpec.games.map(game => first.state.resources.role[`game-${game.key}`]);
+    const retainedMemberRoles = [first.state.resources.role['ping-announcements'], first.state.resources.role['level-5']];
+    const memberId = '100000000000000010';
+    fake.server.members[memberId] = { user: { id: memberId }, roles: [...gameRoleIds, ...retainedMemberRoles] };
+    const retainedChannels = new Set(blueprint.channels.map(channel => channel.key));
+    const removedIds = Object.entries(first.state.resources.channel).filter(([key]) => !retainedChannels.has(key)).map(([, id]) => id);
+    assert.equal(removedIds.length, 16); // Two categories and seven channels per retired game.
+    for (const id of Object.values(first.state.resources.channel)) fake.server.messages.get(id).push(`History for ${id}`);
+    const ticket = fake.addChannel({ name: '🎫・ticket-1', parent_id: first.state.resources.channel['category:tickets'] });
+    fake.server.messages.get(ticket.id).push('Keep this support conversation');
+    fake.server.writes = [];
+
+    const next = await deploy(fake, first.state, blueprint, [ticket.id]);
+    assert.equal(next.plan.initial, false);
+    assert.deepEqual(next.plan.operations.filter(op => op.kind === 'delete_channel').map(op => op.id).sort(), removedIds.sort());
+    assert.deepEqual(next.plan.operations.filter(op => op.kind === 'delete_role').map(op => op.id).sort(), gameRoleIds.sort());
+    assert.ok(!next.plan.operations.some(op => ['channel', 'role'].includes(op.kind) && !op.id));
+    assert.ok(removedIds.every(id => !fake.server.channels.some(channel => channel.id === id) && !fake.server.messages.has(id)));
+    assert.ok(gameRoleIds.every(id => !fake.server.roles.some(role => role.id === id)));
+    assert.deepEqual(fake.server.members[memberId].roles, retainedMemberRoles);
+    for (const key of retainedChannels) {
+        const id = first.state.resources.channel[key];
+        assert.equal(next.state.resources.channel[key], id);
+        assert.deepEqual(fake.server.messages.get(id), [`History for ${id}`]);
+    }
+    assert.deepEqual(fake.server.messages.get(ticket.id), ['Keep this support conversation']);
+    for (const [key, id] of Object.entries(first.state.resources.role).filter(([key]) => !key.startsWith('game-'))) {
+        assert.equal(next.state.resources.role[key], id);
+    }
+    assert.equal(fake.server.onboarding.enabled, true);
+    assert.deepEqual(fake.server.onboarding.prompts, [notificationQuestion]);
+    assert.deepEqual(next.state.resources.prompt, { notifications: notificationQuestion.id });
+    assert.ok(Object.keys(next.state.resources.option).every(key => key.startsWith('notifications/')));
+    assert.deepEqual(fake.server.onboarding.default_channel_ids, blueprint.defaultChannelKeys.map(key => next.state.resources.channel[key]));
+    const onboardingWrite = fake.server.writes.findIndex(write => write.body?.prompts);
+    const contentSnapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.ok(onboardingWrite >= 0);
+    assert.deepEqual(buildPlan(blueprint, contentSnapshot, next.state, [ticket.id]).operations, []);
+    fake.server.writes = [];
+    await deploy(fake, next.state, blueprint, [ticket.id]);
+    assert.deepEqual(fake.server.writes, []);
 });
 
 test('legacy onboarding defaults reject private channels, categories, missing channels and duplicates', () => {
@@ -303,16 +373,13 @@ test('new onboarding prompts have request IDs and persist Discord returned IDs f
     const fake = fakeDiscord(), blueprint = compileBlueprint(control);
     const first = await deploy(fake);
     const request = fake.server.writes.find(write => write.body?.prompts)?.body;
-    assert.equal(new Set(request.prompts.map(prompt => prompt.id)).size, 2);
+    assert.equal(new Set(request.prompts.map(prompt => prompt.id)).size, 1);
     for (const prompt of request.prompts) assert.match(prompt.id, /^\d{17,20}$/);
     const returned = fake.server.onboarding;
     assert.equal(returned.enabled, true);
-    assert.equal(returned.prompts[0].required, true);
-    assert.equal(returned.prompts[1].required, false);
-    for (const [index, key] of ['games', 'notifications'].entries()) {
-        assert.notEqual(request.prompts[index].id, returned.prompts[index].id);
-        assert.equal(first.state.resources.prompt[key], returned.prompts[index].id);
-    }
+    assert.equal(returned.prompts[0].required, false);
+    assert.notEqual(request.prompts[0].id, returned.prompts[0].id);
+    assert.equal(first.state.resources.prompt.notifications, returned.prompts[0].id);
     const next = onboardingBody(blueprint, first.state.resources, returned);
     assert.deepEqual(next.prompts.map(prompt => prompt.id), returned.prompts.map(prompt => prompt.id));
     assert.deepEqual(next.prompts.map(prompt => prompt.options.map(option => option.id)),
@@ -495,7 +562,7 @@ test('retiring Member removes the role and onboarding references while preservin
     assert.equal(fake.server.onboarding.enabled, true);
     assert.deepEqual(next.state.resources.prompt, first.state.resources.prompt);
     for (const [index, option] of fake.server.onboarding.prompts[0].options.entries()) {
-        assert.deepEqual(option.role_ids, [next.state.resources.role[`game-${blueprint.spec.games[index].key}`]]);
+        assert.deepEqual(option.role_ids, [next.state.resources.role[`ping-${blueprint.spec.notifications[index].key}`]]);
     }
     const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
     assert.deepEqual(buildPlan(blueprint, snapshot, next.state).operations, []);
@@ -545,13 +612,13 @@ test('registered open tickets survive later deployments; arbitrary manual channe
 
 test('forum tag and onboarding question renames preserve their identities', async () => {
     const fake = fakeDiscord(), first = await deploy(fake), spec = clone(first.state.active.spec);
-    const tagId = first.state.resources.tag['animal-tag/bug-reports/fixed'];
-    const questionId = first.state.resources.prompt.games;
+    const tagId = first.state.resources.tag['dig-for-eggs/bug-reports/fixed'];
+    const questionId = first.state.resources.prompt.notifications;
     spec.gameChannels.find((channel) => channel.key === 'bug-reports').tags.find((tag) => tag.key === 'fixed').name = 'Resolved';
-    spec.onboarding.gamesQuestion = 'Pick your games';
+    spec.onboarding.notificationsQuestion = 'Pick your notifications';
     const next = await deploy(fake, first.state, compileBlueprint(control, spec));
-    assert.equal(next.state.resources.tag['animal-tag/bug-reports/fixed'], tagId);
-    assert.equal(next.state.resources.prompt.games, questionId);
+    assert.equal(next.state.resources.tag['dig-for-eggs/bug-reports/fixed'], tagId);
+    assert.equal(next.state.resources.prompt.notifications, questionId);
 });
 
 test('preflight blocks owner hierarchy problems and unremovable Bloxlink before any mutation', async () => {
@@ -785,15 +852,15 @@ test('retrying a failed Community cleanup keeps checkpointed channels and then p
     await assert.rejects(deploy(fake, state, blueprint, [], options), /Delete channel and history: rules failed/);
     assert.equal(published.length, 0);
     const checkpoint = clone(state.resources.channel);
-    const categoryId = checkpoint['category:game-animal-tag'];
-    fake.server.channels.find(channel => channel.id === categoryId).name = '🐾・animal-tag';
+    const categoryId = checkpoint['category:game-dig-for-eggs'];
+    fake.server.channels.find(channel => channel.id === categoryId).name = '🥚・dig-for-eggs';
     fake.server.messages.get(checkpoint['general-chat']).push('Keep messages posted during the partial deployment');
     fake.rest.delete = remove;
     const result = await deploy(fake, state, blueprint, [], options);
     assert.deepEqual(result.state.resources.channel, checkpoint);
     assert.ok(!fake.server.channels.some(channel => channel.id === oldRules));
     assert.equal(fake.server.channels.length, blueprint.channels.length);
-    assert.equal(fake.server.channels.find(channel => channel.id === categoryId).name, 'Animal Tag');
+    assert.equal(fake.server.channels.find(channel => channel.id === categoryId).name, 'Dig for Eggs');
     assert.equal(published.length, 1);
     for (const key of ['rules', 'info', 'roles', 'staff-info', 'help']) assert.equal(published[0].bindings.channel[key], checkpoint[key]);
     assert.deepEqual(fake.server.messages.get(checkpoint['general-chat']), ['Keep messages posted during the partial deployment']);
