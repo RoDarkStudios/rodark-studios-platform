@@ -30,7 +30,7 @@ Scope includes public text/announcement channels and public threads, including c
 
 ## Setup on the Railway bot service
 
-The existing `DISCORD_BOT_TOKEN` and `DATABASE_URL` remain required. Set `OPENAI_API_KEY` on the bot service. AI moderation is enabled by default; `DISCORD_AI_MODERATION_ENABLED=false` disables it independently of tickets, levels and the honeypot.
+The existing `DISCORD_BOT_TOKEN` and `DATABASE_URL` remain required. AI moderation is **disabled by default**, even when `OPENAI_API_KEY` is present. Set `DISCORD_AI_MODERATION_ENABLED=true` on the bot service and restart/redeploy the worker to re-enable it; only then is `OPENAI_API_KEY` required. Set the boolean back to `false` to disable it. Disabled moderation does not queue messages, run reviews or retries, apply automatic timeouts, or send backlog/error alerts. Tickets, levels and the honeypot operate independently.
 
 The bot needs **Moderate Members**, **Manage Channels** and **Manage Roles**, with its role above members it should time out. It needs **View Channel** and **Read Message History** in moderated channels, plus the existing Message Content intent enabled in the Discord Developer Portal. Log overwrites grant the bot Send Messages, Embed Links and Mention Everyone so it can ping an unmentionable moderator role; payloads permit only the selected moderator roles, never `@everyone` or arbitrary users.
 

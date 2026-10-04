@@ -4,7 +4,7 @@
 
 ## First deployment and later updates
 
-The first deployment deliberately replaces existing channels and categories. Their messages, forum posts and open ticket channels are deleted. It removes Bloxlink, unlisted editable roles and unlisted native AutoMod rules; the existing contextual AI moderation remains enabled. Earned XP, the honeypot ban count and assignments to retained roles are preserved.
+The first deployment deliberately replaces existing channels and categories. Their messages, forum posts and open ticket channels are deleted. It removes Bloxlink, unlisted editable roles and unlisted native AutoMod rules; contextual AI moderation is controlled separately by `DISCORD_AI_MODERATION_ENABLED` and defaults to disabled. Earned XP, the honeypot ban count and assignments to retained roles are preserved.
 
 Discord's Community settings prohibit deleting the built-in Mention Spam rule. `autoModerationRules` explicitly enables mention-spam protection: messages exceeding 20 unique user/role mentions are blocked, and automatic mention-raid detection is on. Deployment creates a missing rule or updates it in place and verifies its settings. A role mention counts once, regardless of how many people have that role. Native word/profanity and suspected-content spam rules are removed so contextual AI can assess language. Existing separate Discord raid/CAPTCHA and security settings are preserved. Setting this native rule to `enabled: false` retains it disabled instead of attempting a prohibited deletion. API errors still block deployment and identify the relevant Discord settings.
 

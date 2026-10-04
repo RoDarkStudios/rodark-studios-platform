@@ -15,7 +15,7 @@ const ids = (text) => String(text || '').split(',').map((id) => id.trim()).filte
 
 function readConfig(env = process.env) {
     return {
-        enabled: env.DISCORD_AI_MODERATION_ENABLED !== 'false',
+        enabled: env.DISCORD_AI_MODERATION_ENABLED === 'true',
         apiKey: String(env.OPENAI_API_KEY || '').trim(),
         logChannelId: String(env.DISCORD_MODERATION_LOG_CHANNEL_ID || '').trim(),
         moderatorRoleIds: ids(env.DISCORD_MODERATOR_ROLE_IDS),

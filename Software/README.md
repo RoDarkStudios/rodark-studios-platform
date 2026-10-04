@@ -53,7 +53,6 @@ Required for the Discord bot worker:
 ```txt
 DISCORD_BOT_TOKEN
 DATABASE_URL
-OPENAI_API_KEY
 ```
 
 Required for paid consultation checkout on the web service:
@@ -83,7 +82,8 @@ Optional for the Discord bot worker:
 
 ```txt
 DISCORD_BOT_POLL_INTERVAL_MS
-DISCORD_AI_MODERATION_ENABLED
+DISCORD_AI_MODERATION_ENABLED=false
+OPENAI_API_KEY
 DISCORD_MODERATION_LOG_CHANNEL_ID
 DISCORD_MODERATOR_ROLE_IDS
 DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS
@@ -94,7 +94,7 @@ DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS
 - The server layout is defined in `discord/server.json`. Owners apply it with the single **Deploy** button under **Status** on `/admin/discord-bot`; pushing code alone does not rebuild Discord. The first deploy replaces old channels, while later deployments preserve retained channel IDs and history. See [deployment, permissions and recovery](discord/README.md).
 - The worker automatically maintains an `ignore│do-not-type` anti-spam honeypot. Any message there triggers a permanent ban and ten-minute message cleanup, with delayed checks to remove leftovers. See [honeypot setup, permissions and behaviour](bot/HONEYPOT.md).
 - The server ID is fixed in `discord/server.json`. Infrastructure deployment connects the bot's information messages to their defined channels and refreshes them in place. Announcements and game updates are posted manually in Discord; the website has no announcement composer or startup-channel editor.
-- Contextual community moderation is the bot's only AI feature. It uses `gpt-5.6-luna` with high reasoning, at most once per minute per active channel. Swearing is allowed; clear bullying, aggressive personal attacks, racial slurs and threats can trigger timeouts, with human ban review for serious cases. See [moderation setup, safeguards, costs and evaluation](bot/MODERATION.md).
+- Contextual community moderation is the bot's only AI feature and is disabled by default. Set `DISCORD_AI_MODERATION_ENABLED=true` with `OPENAI_API_KEY` and restart the worker to re-enable it. When enabled, it uses `gpt-5.6-luna` with high reasoning, at most once per minute per active channel. Swearing is allowed; clear bullying, aggressive personal attacks, racial slurs and threats can trigger timeouts, with human ban review for serious cases. See [moderation setup, safeguards, costs and evaluation](bot/MODERATION.md).
 - The website has only **Status** (Connect/Disconnect and Deploy) and **Transcripts**. Ticket and level settings live in the repository. Leveling is enabled, Embed Links unlocks at Level 5, and level-up announcements do not ping members.
 - Support tickets open normally without AI screening and ping both Staff and Owners. Private ticket permissions, duplicate prevention, closing and saved transcripts remain in place.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.
