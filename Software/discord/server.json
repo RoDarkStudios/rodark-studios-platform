@@ -8,9 +8,9 @@
     "explicit_content_filter": 2,
     "default_message_notifications": 1
   },
-  "bootstrap": { "ownerRoleName": "Owner", "removeBotRoleNames": ["Bloxlink"] },
+  "bootstrap": { "ownerRoleName": "Owner", "ownerRoleMentionable": false, "removeBotRoleNames": ["Bloxlink"] },
   "roles": [
-    { "key": "staff", "name": "Staff", "color": "#22c55e", "hoist": true, "profile": "staff" },
+    { "key": "staff", "name": "Staff", "color": "#22c55e", "hoist": true, "profile": "staff", "mentionable": true },
     { "key": "creator", "name": "Content Creator", "color": "#e76f73", "hoist": true, "profile": "creator" },
     { "key": "booster", "name": "Server Booster", "color": "#f47fff", "hoist": true, "managedBooster": true }
   ],
@@ -82,6 +82,7 @@
     "defaultChannels": "public"
   },
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
+  "staffCanMentionAllRoles": true,
   "content": {
     "rules": [
       "Be Nice",

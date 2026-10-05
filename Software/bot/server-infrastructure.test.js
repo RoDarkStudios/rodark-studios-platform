@@ -197,6 +197,53 @@ test('Staff can moderate members and messages but cannot change infrastructure o
     assert.equal(effective(blueprint, 'staff-chat', []) & P.ViewChannel, 0n);
 });
 
+test('native mention permissions allow members to ping Staff, restrict the Owner role and let Staff ping everyone', async () => {
+    const blueprint = compileBlueprint(control), fake = fakeDiscord();
+    const { state } = await deploy(fake);
+    const staff = fake.server.roles.find(role => role.id === state.resources.role.staff);
+    const owner = fake.server.roles.find(role => role.id === state.resources.role.owner);
+    assert.equal(staff.mentionable, true);
+    assert.equal(owner.mentionable, false);
+    assert.ok(BigInt(staff.permissions) & P.MentionEveryone);
+    assert.ok(BigInt(owner.permissions) & P.Administrator);
+    assert.equal(BigInt(blueprint.everyonePermissions) & P.MentionEveryone, 0n);
+    for (const keys of [[], ['creator'], ['booster'], ['level-100']]) {
+        assert.equal(effective(blueprint, 'general-chat', keys) & P.MentionEveryone, 0n);
+    }
+    assert.ok(effective(blueprint, 'general-chat', ['staff']) & P.MentionEveryone);
+    assert.deepEqual(fake.server.autoMod.map(rule => rule.trigger_type), [5], 'No keyword filter blocks individual mentions');
+    assert.ok(!fake.server.writes.some(write => write.path === `/guilds/${GUILD}/roles/${owner.id}`), 'Never edit the protected Owner role');
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, state).operations, []);
+    staff.mentionable = false;
+    const drift = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.ok(buildPlan(blueprint, drift, state).operations.some(op => op.kind === 'role' && op.key === 'staff'));
+});
+
+test('a publicly mentionable Owner role stops deployment before writes with instructions for the server owner', async () => {
+    const fake = fakeDiscord(), store = memoryStore(), worker = workerFor(fake, store);
+    fake.server.roles.find(role => role.id === fake.ids.owner).mentionable = true;
+    const job = queue(store, 'owner-mentionable'); job.auto_apply = true;
+    await worker.tick(control);
+    assert.equal(job.status, 'failed');
+    assert.match(job.error, /Turn off "Allow anyone to @mention this role"/);
+    assert.match(job.error, /Owner role is above the bot/);
+    assert.deepEqual(fake.server.writes, []);
+});
+
+test('older definitions retain their previous mention permissions until deployed', async () => {
+    const spec = clone(compileBlueprint(control).spec), fake = fakeDiscord();
+    delete spec.bootstrap.ownerRoleMentionable;
+    delete spec.staffCanMentionAllRoles;
+    delete spec.roles.find(role => role.key === 'staff').mentionable;
+    fake.server.roles.find(role => role.id === fake.ids.owner).mentionable = true;
+    const blueprint = compileBlueprint(control, spec);
+    assert.equal(BigInt(blueprint.roles.find(role => role.key === 'staff').permissions) & P.MentionEveryone, 0n);
+    const { state } = await deploy(fake, {}, blueprint);
+    assert.equal(fake.server.roles.find(role => role.id === state.resources.role.staff).mentionable, false);
+    assert.equal(fake.server.roles.find(role => role.id === state.resources.role.owner).mentionable, true);
+});
+
 test('creator-only posting, owner-started discussions, media uploads and the existing level preview gate compose correctly', () => {
     const blueprint = compileBlueprint(control);
     assert.equal(effective(blueprint, 'dig-for-eggs/youtube-videos', []) & P.SendMessages, 0n);

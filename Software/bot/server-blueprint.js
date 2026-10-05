@@ -4,7 +4,7 @@ const manifest = require('../discord/server.json');
 const { screeningFields, screeningMatches } = require('./rules-screening');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 14;
+const ENGINE_VERSION = 15;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -59,6 +59,15 @@ function overwrites(profile, guildId) {
 function validateManifest(spec) {
     if (spec.schemaVersion !== 1 || !/^\d{17,20}$/.test(spec.guildId)) throw new Error('Invalid server blueprint version or guild ID.');
     if (spec.separator !== '・') throw new Error('Channel names must use the agreed ・ separator.');
+    if (spec.staffCanMentionAllRoles !== undefined && typeof spec.staffCanMentionAllRoles !== 'boolean') {
+        throw new Error('staffCanMentionAllRoles must be a boolean.');
+    }
+    if (spec.bootstrap.ownerRoleMentionable !== undefined && typeof spec.bootstrap.ownerRoleMentionable !== 'boolean') {
+        throw new Error('bootstrap.ownerRoleMentionable must be a boolean.');
+    }
+    for (const role of spec.roles || []) {
+        if (role.mentionable !== undefined && typeof role.mentionable !== 'boolean') throw new Error('Role mentionable must be a boolean.');
+    }
     for (const collection of [spec.roles, spec.games, spec.notifications, spec.gameChannels]) {
         if (!Array.isArray(collection)) throw new Error('Blueprint collections must be arrays.');
         const keys = collection.map((item) => item.key);
@@ -87,8 +96,8 @@ function compileBlueprint(control = {}, spec = manifest) {
     const threshold = Number(spec.levels.attachmentUnlockLevel ?? 5);
     if (!spec.levels.milestones.includes(threshold)) throw new Error('Invalid existing level permission threshold.');
     const roles = spec.roles.map((role) => ({ ...role,
-        color: Number.parseInt(role.color.replace('#', ''), 16), mentionable: false, hoist: Boolean(role.hoist),
-        permissions: permissions(role.profile === 'staff' ? STAFF : [])
+        color: Number.parseInt(role.color.replace('#', ''), 16), mentionable: Boolean(role.mentionable), hoist: Boolean(role.hoist),
+        permissions: permissions(role.profile === 'staff' ? [...STAFF, ...(spec.staffCanMentionAllRoles ? ['MentionEveryone'] : [])] : [])
     }));
     for (const level of [...spec.levels.milestones].reverse()) roles.push({ key: `level-${level}`, name: `Level ${level}`,
         color: level >= 50 ? 0x22d3ee : 0xf97316, hoist: false, mentionable: false,
@@ -190,12 +199,12 @@ function comparableChannel(channel, keys) {
     }));
 }
 function roleBody(role) {
-    return { name: role.name, permissions: role.permissions, colors: { primary_color: role.color, secondary_color: null, tertiary_color: null }, hoist: role.hoist, mentionable: false };
+    return { name: role.name, permissions: role.permissions, colors: { primary_color: role.color, secondary_color: null, tertiary_color: null }, hoist: role.hoist, mentionable: role.mentionable };
 }
 function roleMatches(actual, desired) {
     return actual.name === desired.name && String(actual.permissions) === desired.permissions &&
         (actual.colors?.primary_color ?? actual.color ?? 0) === desired.color &&
-        !(actual.colors?.secondary_color || actual.colors?.tertiary_color) && Boolean(actual.hoist) === desired.hoist && !actual.mentionable;
+        !(actual.colors?.secondary_color || actual.colors?.tertiary_color) && Boolean(actual.hoist) === desired.hoist && Boolean(actual.mentionable) === desired.mentionable;
 }
 function onboardingQuestions(spec) {
     return [
@@ -260,7 +269,13 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     const owners = snapshot.roles.filter((role) => role.name.toLowerCase() === blueprint.spec.bootstrap.ownerRoleName.toLowerCase());
     if (owners.length !== 1 || !highest || owners[0].position <= highest.position || !(BigInt(owners[0].permissions) & 8n)) {
         errors.push('Keep one Owner role with Administrator above the bot. Only a server owner can configure that part of the hierarchy.');
-    } else bindings.role.owner = owners[0].id;
+    } else {
+        bindings.role.owner = owners[0].id;
+        if (blueprint.spec.bootstrap.ownerRoleMentionable !== undefined &&
+            Boolean(owners[0].mentionable) !== blueprint.spec.bootstrap.ownerRoleMentionable) {
+            errors.push(`Turn ${blueprint.spec.bootstrap.ownerRoleMentionable ? 'on' : 'off'} "Allow anyone to @mention this role" in Discord Server Settings → Roles → Owner. The Owner role is above the bot, so its mention setting must be changed by a server owner.`);
+        }
+    }
     if (highest) bindings.role.bot = highest.id;
     notes.push('The Owner role, the bot’s own roles and Discord-managed booster role are retained. Existing role assignments and XP are preserved.');
     const removedBots = snapshot.roles.filter((role) => role.tags?.bot_id && blueprint.spec.bootstrap.removeBotRoleNames.some((name) => name.toLowerCase() === role.name.toLowerCase()));
