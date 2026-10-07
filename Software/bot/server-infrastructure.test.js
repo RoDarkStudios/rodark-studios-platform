@@ -13,7 +13,7 @@ function fakeDiscord() {
     const id = () => String(++sequence);
     const role = (name, position, permissions = '0', extra = {}) => ({ id: id(), name, position, permissions, color: 0, hoist: false, mentionable: false, managed: false, ...extra });
     const everyone = role('@everyone', 0, '0', { id: GUILD });
-    const owner = role('Owner', 30, '8', { color: 0xf97316, hoist: true });
+    const owner = role('Owner', 19, '8', { color: 0xf97316, hoist: true });
     const bot = role('RoDark Studios Bot', 20, '8', { managed: true, tags: { bot_id: BOT } });
     const bloxlink = role('Bloxlink', 15, '8', { managed: true, tags: { bot_id: BLOXLINK } });
     const staff = role('Staff', 12), member = role('Member', 5), creator = role('Content Creator', 10);
@@ -212,7 +212,7 @@ test('native mention permissions allow members to ping Staff, restrict the Owner
     }
     assert.ok(effective(blueprint, 'general-chat', ['staff']) & P.MentionEveryone);
     assert.deepEqual(fake.server.autoMod.map(rule => rule.trigger_type), [5], 'No keyword filter blocks individual mentions');
-    assert.ok(!fake.server.writes.some(write => write.path === `/guilds/${GUILD}/roles/${owner.id}`), 'Never edit the protected Owner role');
+    assert.ok(!fake.server.writes.some(write => write.path === `/guilds/${GUILD}/roles/${owner.id}`), 'Already correct Owner settings need no write');
     const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
     assert.deepEqual(buildPlan(blueprint, snapshot, state).operations, []);
     staff.mentionable = false;
@@ -220,23 +220,50 @@ test('native mention permissions allow members to ping Staff, restrict the Owner
     assert.ok(buildPlan(blueprint, drift, state).operations.some(op => op.kind === 'role' && op.key === 'staff'));
 });
 
-test('a publicly mentionable Owner role stops deployment before writes with instructions for the server owner', async () => {
+test('Deploy fixes Owner mentions and display automatically without changing its identity, permissions or assignments', async () => {
     const fake = fakeDiscord(), store = memoryStore(), worker = workerFor(fake, store);
-    fake.server.roles.find(role => role.id === fake.ids.owner).mentionable = true;
+    const owner = fake.server.roles.find(role => role.id === fake.ids.owner);
+    Object.assign(owner, { mentionable: true, hoist: false, position: 2 });
+    fake.server.members[OWNER] = { user: { id: OWNER }, roles: [owner.id] };
+    const before = clone(owner);
     const job = queue(store, 'owner-mentionable'); job.auto_apply = true;
     await worker.tick(control);
-    assert.equal(job.status, 'failed');
-    assert.match(job.error, /Turn off "Allow anyone to @mention this role"/);
-    assert.match(job.error, /Owner role is above the bot/);
-    assert.deepEqual(fake.server.writes, []);
+    await worker.tick(control);
+    assert.equal(job.status, 'succeeded', job.error);
+    assert.equal(owner.mentionable, false);
+    assert.equal(owner.hoist, true);
+    for (const key of ['id', 'name', 'color', 'permissions']) assert.equal(owner[key], before[key]);
+    assert.deepEqual(fake.server.members[OWNER].roles, [owner.id]);
+    assert.deepEqual(fake.server.writes.filter(write => write.path === `/guilds/${GUILD}/roles/${owner.id}`).map(write => write.body),
+        [{ hoist: true, mentionable: false }]);
+    assert.ok(owner.position < fake.server.roles.find(role => role.id === fake.ids.bot).position);
+    assert.ok(fake.server.roles.filter(role => role.hoist && role.id !== owner.id).every(role => role.position < owner.position));
+    assert.ok(!fake.server.writes.some(write => write.path === `/guilds/${GUILD}/roles/${fake.ids.bot}` ||
+        (Array.isArray(write.body) && write.body.some(item => item.id === fake.ids.bot))), 'Never try to edit or move the bot’s highest role');
+    const blueprint = compileBlueprint(control), snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, store.state).operations, []);
+});
+
+test('uneditable Owner and separately displayed bot roles give actionable preflight errors without writes', async () => {
+    for (const issue of ['hierarchy', 'display']) {
+        const fake = fakeDiscord(), store = memoryStore(), worker = workerFor(fake, store);
+        if (issue === 'hierarchy') fake.server.roles.find(role => role.id === fake.ids.owner).position = 30;
+        else fake.server.roles.find(role => role.id === fake.ids.bot).hoist = true;
+        const job = queue(store, issue); job.auto_apply = true;
+        await worker.tick(control);
+        assert.equal(job.status, 'failed');
+        assert.match(job.error, issue === 'hierarchy' ? /Move the RoDark bot role above Owner/ : /Turn off "Display role members separately/);
+        assert.deepEqual(fake.server.writes, []);
+    }
 });
 
 test('older definitions retain their previous mention permissions until deployed', async () => {
     const spec = clone(compileBlueprint(control).spec), fake = fakeDiscord();
+    delete spec.bootstrap.botAboveOwner;
     delete spec.bootstrap.ownerRoleMentionable;
     delete spec.staffCanMentionAllRoles;
     delete spec.roles.find(role => role.key === 'staff').mentionable;
-    fake.server.roles.find(role => role.id === fake.ids.owner).mentionable = true;
+    Object.assign(fake.server.roles.find(role => role.id === fake.ids.owner), { mentionable: true, position: 30 });
     const blueprint = compileBlueprint(control, spec);
     assert.equal(BigInt(blueprint.roles.find(role => role.key === 'staff').permissions) & P.MentionEveryone, 0n);
     const { state } = await deploy(fake, {}, blueprint);

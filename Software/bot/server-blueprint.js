@@ -4,7 +4,7 @@ const manifest = require('../discord/server.json');
 const { screeningFields, screeningMatches } = require('./rules-screening');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 15;
+const ENGINE_VERSION = 16;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -64,6 +64,9 @@ function validateManifest(spec) {
     }
     if (spec.bootstrap.ownerRoleMentionable !== undefined && typeof spec.bootstrap.ownerRoleMentionable !== 'boolean') {
         throw new Error('bootstrap.ownerRoleMentionable must be a boolean.');
+    }
+    if (spec.bootstrap.botAboveOwner !== undefined && typeof spec.bootstrap.botAboveOwner !== 'boolean') {
+        throw new Error('bootstrap.botAboveOwner must be a boolean.');
     }
     for (const role of spec.roles || []) {
         if (role.mentionable !== undefined && typeof role.mentionable !== 'boolean') throw new Error('Role mentionable must be a boolean.');
@@ -267,12 +270,28 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     const highest = snapshot.roles.filter((role) => snapshot.self.roles.includes(role.id)).sort((a, b) => b.position - a.position)[0];
     if (!highest || !snapshot.roles.some((role) => snapshot.self.roles.includes(role.id) && (BigInt(role.permissions) & 8n))) errors.push('The bot needs Administrator before deploying.');
     const owners = snapshot.roles.filter((role) => role.name.toLowerCase() === blueprint.spec.bootstrap.ownerRoleName.toLowerCase());
-    if (owners.length !== 1 || !highest || owners[0].position <= highest.position || !(BigInt(owners[0].permissions) & 8n)) {
-        errors.push('Keep one Owner role with Administrator above the bot. Only a server owner can configure that part of the hierarchy.');
+    const manageOwner = blueprint.spec.bootstrap.botAboveOwner === true;
+    if (owners.length !== 1 || !(BigInt(owners[0].permissions) & 8n) || owners[0].managed || snapshot.self.roles.includes(owners[0].id)) {
+        errors.push('Keep exactly one Owner role with Administrator, separate from the bot’s own roles.');
     } else {
-        bindings.role.owner = owners[0].id;
-        if (blueprint.spec.bootstrap.ownerRoleMentionable !== undefined &&
-            Boolean(owners[0].mentionable) !== blueprint.spec.bootstrap.ownerRoleMentionable) {
+        const owner = owners[0];
+        bindings.role.owner = owner.id;
+        if (manageOwner) {
+            if (!highest || owner.position >= highest.position) {
+                errors.push('Move the RoDark bot role above Owner in Discord Server Settings → Roles. Discord does not let a bot move its own highest role.');
+            } else {
+                if (Boolean(owner.hoist) !== true || (blueprint.spec.bootstrap.ownerRoleMentionable !== undefined &&
+                    Boolean(owner.mentionable) !== blueprint.spec.bootstrap.ownerRoleMentionable)) {
+                    operations.push({ kind: 'owner_role', id: owner.id, label: 'Keep Owner displayed separately and apply its mention setting' });
+                }
+                if (snapshot.roles.some(role => snapshot.self.roles.includes(role.id) && role.position > owner.position && role.hoist)) {
+                    errors.push('Turn off "Display role members separately from online members" for the bot’s roles above Owner in Discord Server Settings → Roles. Owner should remain the top displayed group.');
+                }
+            }
+        } else if (!highest || owner.position <= highest.position) {
+            errors.push('Keep one Owner role with Administrator above the bot for this deployed definition.');
+        } else if (blueprint.spec.bootstrap.ownerRoleMentionable !== undefined &&
+            Boolean(owner.mentionable) !== blueprint.spec.bootstrap.ownerRoleMentionable) {
             errors.push(`Turn ${blueprint.spec.bootstrap.ownerRoleMentionable ? 'on' : 'off'} "Allow anyone to @mention this role" in Discord Server Settings → Roles → Owner. The Owner role is above the bot, so its mention setting must be changed by a server owner.`);
         }
     }
@@ -332,9 +351,9 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
         if (!initial && ticketIds.includes(channel.id) && channel.parent_id === ticketParent) continue;
         operations.push({ kind: 'delete_channel', id: channel.id, label: `Delete ${channel.type === 4 ? 'category' : 'channel and history'}: ${channel.name}` });
     }
-    const desiredRoleIds = blueprint.roles.map((role) => bindings.role[role.key]).filter(Boolean);
+    const desiredRoleIds = [...(manageOwner ? [bindings.role.owner] : []), ...blueprint.roles.map((role) => bindings.role[role.key])].filter(Boolean);
     const actualRoleIds = [...snapshot.roles].filter((role) => desiredRoleIds.includes(role.id)).sort((a, b) => b.position - a.position).map((role) => role.id);
-    if (operations.some((op) => op.kind === 'role' && !op.id) || !same(actualRoleIds, desiredRoleIds)) operations.push({ kind: 'sort_roles', label: 'Arrange the role hierarchy below Owner and the bot' });
+    if (operations.some((op) => op.kind === 'role' && !op.id) || !same(actualRoleIds, desiredRoleIds)) operations.push({ kind: 'sort_roles', label: manageOwner ? 'Arrange Owner above the other community roles, below the bot' : 'Arrange the role hierarchy below Owner and the bot' });
     let orderDiffers = operations.some((op) => op.kind === 'channel' && !op.id);
     for (const parentKey of [null, ...blueprint.channels.filter((channel) => channel.type === 4).map((channel) => channel.key)]) {
         const desired = blueprint.channels.filter((channel) => channel.parentKey === parentKey).map((channel) => bindings.channel[channel.key]).filter(Boolean);

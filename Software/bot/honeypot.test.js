@@ -238,6 +238,25 @@ test('concurrent bans of different accounts preserve the displayed count', async
     assert.equal(f.countLabel(), 'Bans: 3');
 });
 
+test('Owners remain protected when the bot is above their role, including before a layout is activated', async () => {
+    for (const scenario of ['server-owner', 'bound-role', 'role-name', 'departed-owner']) {
+        const f = fixture();
+        await f.system.ensure(f.control);
+        const roles = new Collection([['owner-role', { id: 'owner-role', name: scenario === 'bound-role' ? 'Renamed Owner' : 'Owner' }]]);
+        if (scenario === 'bound-role') f.control.infrastructure = { bindings: { role: { owner: 'owner-role' } } };
+        f.guild.members.fetch = async () => {
+            if (scenario === 'departed-owner') throw Object.assign(new Error('Unknown Member'), { code: 10007 });
+            return { bannable: true, roles: { cache: roles } };
+        };
+        const message = f.message({ author: { id: scenario === 'server-owner' ? f.guild.ownerId : 'co-owner' },
+            member: { roles: { cache: roles } } });
+        await assert.rejects(f.system.handleMessage(message, f.control), /Owner protection/);
+        assert.equal(f.calls.bans.length, 0);
+        assert.equal(f.banEvents.size, 0);
+        assert.deepEqual(f.calls.deletes, [message.id], 'Preserve existing cleanup of unbannable honeypot messages');
+    }
+});
+
 test('hierarchy/ban failures are surfaced, remove the trigger, do not count, and allow a retry', async () => {
     const f = fixture();
     await f.system.ensure(f.control);

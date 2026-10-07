@@ -40,7 +40,7 @@ function operationPriority(op, blueprint) {
         const type = blueprint.channels.find((channel) => channel.key === op.key).type;
         return type === 4 ? 20 : [0, 2].includes(type) ? 30 : 50;
     }
-    return { remove_bot: 5, role: 10, everyone: 15, guild: 40, delete_automod: 55, automod: 55,
+    return { remove_bot: 5, role: 10, owner_role: 10, everyone: 15, guild: 40, delete_automod: 55, automod: 55,
         delete_channel: 60, delete_role: 65, sort_roles: 70, sort_channels: 75, rules_screening: 78, content: 80, onboarding: 90 }[op.kind] ?? 100;
 }
 
@@ -113,6 +113,9 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             const result = await write(currentId ? 'patch' : 'post', currentId ? `${root}/roles/${currentId}` : `${root}/roles`, roleBody(role));
             bindings.role[op.key] = result.id;
             await saveResources(bindings);
+        } else if (op.kind === 'owner_role') {
+            await write('patch', `${root}/roles/${bindings.role.owner}`, { hoist: true,
+                ...(blueprint.spec.bootstrap.ownerRoleMentionable !== undefined ? { mentionable: blueprint.spec.bootstrap.ownerRoleMentionable } : {}) });
         } else if (op.kind === 'everyone') {
             await write('patch', `${root}/roles/${blueprint.guildId}`, { permissions: blueprint.everyonePermissions });
         } else if (op.kind === 'channel') {
@@ -154,6 +157,7 @@ async function applyPlan({ blueprint, plan, snapshot, rest, saveResources, finis
             catch (error) { throw new Error(`${op.label} failed: ${error.message}. The rule must be explicitly retained in the definition or removed in Discord.`, { cause: error }); }
         } else if (op.kind === 'sort_roles') {
             const rows = [...blueprint.roles].reverse().filter((role) => bindings.role[role.key]).map((role, i) => ({ id: bindings.role[role.key], position: i + 1 }));
+            if (blueprint.spec.bootstrap.botAboveOwner) rows.push({ id: bindings.role.owner, position: rows.length + 1 });
             await write('patch', `${root}/roles`, rows);
         } else if (op.kind === 'sort_channels') {
             // Individual channel updates already set parents. Discord permits

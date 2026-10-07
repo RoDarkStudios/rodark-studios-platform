@@ -8,7 +8,7 @@
     "explicit_content_filter": 2,
     "default_message_notifications": 1
   },
-  "bootstrap": { "ownerRoleName": "Owner", "ownerRoleMentionable": false, "removeBotRoleNames": ["Bloxlink"] },
+  "bootstrap": { "ownerRoleName": "Owner", "botAboveOwner": true, "ownerRoleMentionable": false, "removeBotRoleNames": ["Bloxlink"] },
   "roles": [
     { "key": "staff", "name": "Staff", "color": "#22c55e", "hoist": true, "profile": "staff", "mentionable": true },
     { "key": "creator", "name": "Content Creator", "color": "#e76f73", "hoist": true, "profile": "creator" },

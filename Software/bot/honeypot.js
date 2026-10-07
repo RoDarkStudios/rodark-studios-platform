@@ -228,7 +228,7 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
         }
     }
 
-    async function banAuthor(message, state) {
+    async function banAuthor(message, state, control) {
         const guild = message.guild;
         const key = `${guild.id}:${message.author.id}`;
         let bannedAt;
@@ -238,6 +238,14 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
                 member = await guild.members.fetch({ user: message.author.id, force: true });
             } catch (error) {
                 if (error.code !== 10007) throw error; // Ban by ID if they posted and then left.
+            }
+            // Owner protection must survive placing the bot above Owner.
+            const ownerRoleId = control?.infrastructure?.bindings?.role?.owner;
+            const ownerRoleName = control?.infrastructure?.spec?.bootstrap?.ownerRoleName || 'Owner';
+            const ownerRoles = member?.roles?.cache || message.member?.roles?.cache;
+            if (message.author.id === guild.ownerId || (ownerRoleId && ownerRoles?.has(ownerRoleId)) ||
+                ownerRoles?.some(role => role.name?.toLowerCase() === ownerRoleName.toLowerCase())) {
+                throw new Error('Owner protection prevents the ban');
             }
             if (member && !member.bannable) {
                 throw new Error('Discord role hierarchy or missing Ban Members permission prevents the ban');
@@ -287,7 +295,7 @@ function createHoneypotSystem(client, { store = defaultStore } = {}) {
             try { await inFlightBans.get(key); } finally { await deleteTrigger(message); }
             return true;
         }
-        const operation = banAuthor(message, state);
+        const operation = banAuthor(message, state, control);
         inFlightBans.set(key, operation);
         try { await operation; } finally { inFlightBans.delete(key); }
         return true;
