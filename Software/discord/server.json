@@ -20,7 +20,8 @@
     { "key": "polls", "name": "Polls Feedback", "emoji": "📊", "description": "Polls and opportunities to give feedback" }
   ],
   "games": [
-    { "key": "dig-for-eggs", "name": "Dig for Eggs", "emoji": "🥚" }
+    { "key": "dig-for-eggs", "name": "Dig for Eggs", "emoji": "🥚" },
+    { "key": "kidnap-and-jail", "name": "Kidnap and Jail", "emoji": "🚔" }
   ],
   "categories": [
     { "key": "staff", "name": "Staff", "profile": "staff", "channels": [

@@ -167,11 +167,11 @@ function effective(blueprint, channelKey, keys) {
     return (bits & ~deny) | allow;
 }
 
-test('the simplified layout has 8 categories, 28 channels, only Dig for Eggs, exact separator and ticket help', () => {
+test('the layout has 9 categories, 35 channels, Kidnap and Jail below Dig for Eggs, exact separator and ticket help', () => {
     const blueprint = compileBlueprint(control);
-    assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 8);
-    assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 28);
-    assert.deepEqual(blueprint.spec.games.map(game => game.key), ['dig-for-eggs']);
+    assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 9);
+    assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 35);
+    assert.deepEqual(blueprint.spec.games.map(game => game.key), ['dig-for-eggs', 'kidnap-and-jail']);
     assert.ok(!blueprint.roles.some(role => role.key.startsWith('game-')));
     assert.equal(blueprint.channels.find((channel) => channel.key === 'help').name, '🎫・help');
     for (const game of blueprint.spec.games) {
@@ -179,7 +179,7 @@ test('the simplified layout has 8 categories, 28 channels, only Dig for Eggs, ex
         assert.equal(blueprint.channels.find(channel => channel.key === `category:game-${game.key}`).name, game.name);
     }
     assert.deepEqual(blueprint.channels.filter(channel => channel.type === 4).map(channel => channel.name),
-        ['Staff', 'Info', 'IGNORE', 'Tickets', 'Announcements', 'Dig for Eggs', 'General', 'Voice']);
+        ['Staff', 'Info', 'IGNORE', 'Tickets', 'Announcements', 'Dig for Eggs', 'Kidnap and Jail', 'General', 'Voice']);
     assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 2);
     assert.equal(blueprint.roles.filter((role) => role.key.startsWith('level-')).length, 7);
 });
@@ -246,14 +246,16 @@ test('older definitions retain their previous mention permissions until deployed
 
 test('creator-only posting, owner-started discussions, media uploads and the existing level preview gate compose correctly', () => {
     const blueprint = compileBlueprint(control);
-    assert.equal(effective(blueprint, 'dig-for-eggs/youtube-videos', []) & P.SendMessages, 0n);
-    assert.ok(effective(blueprint, 'dig-for-eggs/youtube-videos', ['creator']) & P.SendMessages);
-    assert.equal(effective(blueprint, 'dig-for-eggs/chat', ['level-100']) & P.AttachFiles, 0n);
-    assert.ok(effective(blueprint, 'dig-for-eggs/media', []) & P.AttachFiles);
-    assert.equal(effective(blueprint, 'dig-for-eggs/chat', []) & P.EmbedLinks, 0n);
-    assert.ok(effective(blueprint, 'dig-for-eggs/chat', ['level-5']) & P.EmbedLinks);
-    assert.equal(effective(blueprint, 'dig-for-eggs/dev-discussions', ['staff']) & P.SendMessages, 0n);
-    assert.ok(effective(blueprint, 'dig-for-eggs/dev-discussions', []) & P.SendMessagesInThreads);
+    for (const { key } of blueprint.spec.games) {
+        assert.equal(effective(blueprint, `${key}/youtube-videos`, []) & P.SendMessages, 0n);
+        assert.ok(effective(blueprint, `${key}/youtube-videos`, ['creator']) & P.SendMessages);
+        assert.equal(effective(blueprint, `${key}/chat`, ['level-100']) & P.AttachFiles, 0n);
+        assert.ok(effective(blueprint, `${key}/media`, []) & P.AttachFiles);
+        assert.equal(effective(blueprint, `${key}/chat`, []) & P.EmbedLinks, 0n);
+        assert.ok(effective(blueprint, `${key}/chat`, ['level-5']) & P.EmbedLinks);
+        assert.equal(effective(blueprint, `${key}/dev-discussions`, ['staff']) & P.SendMessages, 0n);
+        assert.ok(effective(blueprint, `${key}/dev-discussions`, []) & P.SendMessagesInThreads);
+    }
     const staleDashboardSetting = compileBlueprint({ ...control, levelSystem: { attachmentUnlockLevel: 25 } });
     assert.equal(staleDashboardSetting.levelUnlock, 5);
     const spec = clone(blueprint.spec);
@@ -263,7 +265,7 @@ test('creator-only posting, owner-started discussions, media uploads and the exi
     assert.ok(BigInt(changed.roles.find((role) => role.key === 'level-25').permissions) & P.EmbedLinks);
 });
 
-test('onboarding includes Dig for Eggs for everyone by default and asks only about optional notifications', () => {
+test('onboarding includes both games for everyone by default and asks only about optional notifications', () => {
     const blueprint = compileBlueprint(control), bindings = { role: {}, channel: {} };
     blueprint.roles.forEach((role) => { bindings.role[role.key] = role.key; });
     blueprint.channels.forEach((channel) => { bindings.channel[channel.key] = channel.key; });
@@ -272,12 +274,14 @@ test('onboarding includes Dig for Eggs for everyone by default and asks only abo
     assert.deepEqual(body.default_channel_ids, ['rules', 'info', 'roles', 'help', 'honeypot', 'announcements', 'game-updates',
         'codes', 'polls-feedback', 'dig-for-eggs/chat', 'dig-for-eggs/media', 'dig-for-eggs/private-servers',
         'dig-for-eggs/youtube-videos', 'dig-for-eggs/bug-reports', 'dig-for-eggs/feature-suggestions', 'dig-for-eggs/dev-discussions',
+        'kidnap-and-jail/chat', 'kidnap-and-jail/media', 'kidnap-and-jail/private-servers', 'kidnap-and-jail/youtube-videos',
+        'kidnap-and-jail/bug-reports', 'kidnap-and-jail/feature-suggestions', 'kidnap-and-jail/dev-discussions',
         'general-chat', 'memes', 'level-ups', 'lounge-1', 'lounge-2', 'duo', 'squad', 'party']);
     assert.equal(body.prompts.length, 1);
     assert.equal(body.prompts[0].title, blueprint.spec.onboarding.notificationsQuestion);
     assert.equal(body.prompts[0].single_select, false);
     assert.equal(body.prompts[0].required, false);
-    assert.ok(effective(blueprint, 'category:game-dig-for-eggs', []) & P.ViewChannel);
+    for (const { key } of blueprint.spec.games) assert.ok(effective(blueprint, `category:game-${key}`, []) & P.ViewChannel);
     for (const channel of blueprint.channels.filter(channel => channel.game)) {
         assert.ok(effective(blueprint, channel.key, []) & P.ViewChannel);
         assert.ok(body.default_channel_ids.includes(channel.key));
@@ -302,6 +306,35 @@ test('onboarding includes Dig for Eggs for everyone by default and asks only abo
     }
 });
 
+test('adding Kidnap and Jail preserves existing channels, history and notification choices without requiring game roles', async () => {
+    const fake = fakeDiscord(), blueprint = compileBlueprint(control), previousSpec = clone(blueprint.spec);
+    previousSpec.games = previousSpec.games.filter(game => game.key === 'dig-for-eggs');
+    const first = await deploy(fake, {}, compileBlueprint(control, previousSpec));
+    const prompts = clone(fake.server.onboarding.prompts), roles = clone(fake.server.roles);
+    for (const id of Object.values(first.state.resources.channel)) fake.server.messages.get(id).push(`History for ${id}`);
+    const next = await deploy(fake, first.state, blueprint);
+    assert.equal(next.plan.initial, false);
+    assert.ok(!next.plan.operations.some(op => op.kind.startsWith('delete_') || op.kind === 'role'));
+    const created = next.plan.operations.filter(op => op.kind === 'channel' && !op.id).map(op => op.key);
+    assert.deepEqual(created, ['category:game-kidnap-and-jail', ...blueprint.spec.gameChannels.map(channel => `kidnap-and-jail/${channel.key}`)]);
+    for (const [key, id] of Object.entries(first.state.resources.channel)) {
+        assert.equal(next.state.resources.channel[key], id);
+        assert.deepEqual(fake.server.messages.get(id), [`History for ${id}`]);
+    }
+    assert.deepEqual(fake.server.roles, roles);
+    assert.deepEqual(fake.server.onboarding.prompts, prompts);
+    assert.deepEqual(next.state.resources.prompt, first.state.resources.prompt);
+    assert.deepEqual(next.state.resources.option, first.state.resources.option);
+    for (const channel of blueprint.spec.gameChannels) {
+        const original = blueprint.channels.find(item => item.key === `dig-for-eggs/${channel.key}`);
+        const copy = blueprint.channels.find(item => item.key === `kidnap-and-jail/${channel.key}`);
+        assert.deepEqual(copy, { ...original, key: copy.key, game: 'kidnap-and-jail', parentKey: 'category:game-kidnap-and-jail' });
+        assert.ok(fake.server.onboarding.default_channel_ids.includes(next.state.resources.channel[copy.key]));
+    }
+    const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
+    assert.deepEqual(buildPlan(blueprint, snapshot, next.state).operations, []);
+});
+
 test('new shared and game channels enter onboarding defaults automatically while private channels remain excluded', () => {
     const spec = clone(compileBlueprint(control).spec);
     spec.categories.find(category => category.key === 'general').channels.push(
@@ -313,11 +346,11 @@ test('new shared and game channels enter onboarding defaults automatically while
     const blueprint = compileBlueprint(control, spec);
     assert.ok(blueprint.defaultChannelKeys.includes('new-public'));
     assert.ok(blueprint.defaultChannelKeys.includes('new-voice'));
-    assert.ok(blueprint.defaultChannelKeys.includes('dig-for-eggs/new-game-channel'));
+    for (const { key } of spec.games) assert.ok(blueprint.defaultChannelKeys.includes(`${key}/new-game-channel`));
     assert.ok(!blueprint.defaultChannelKeys.includes('new-private'));
 });
 
-test('simplifying the deployed three-game server removes retired categories and all game roles while preserving Dig for Eggs and notification choices', async () => {
+test('retiring old game categories removes their history and all game roles while preserving current games and notification choices', async () => {
     const fake = fakeDiscord(), blueprint = compileBlueprint(control), legacySpec = clone(blueprint.spec);
     legacySpec.games.push(
         { key: 'animal-tag', name: 'Animal Tag', emoji: '🐾' },
