@@ -87,8 +87,10 @@ test('only authenticated studio owners can queue work, cross-site requests are r
     assert.equal(res.headers['Cache-Control'], 'no-store');
 });
 
-test('information messages fit Discord limits and use deployed game/help/forum identities with no obsolete verification guidance', async () => {
-    const blueprint = compileBlueprint(), messages = [], guild = { id: GUILD, roles: { cache: new Collection() }, emojis: { cache: new Collection() } };
+for (const enabled of [false, true]) test(`information messages fit Discord limits and show ticket guidance only when enabled (${enabled})`, async () => {
+    const spec = compileBlueprint().spec;
+    spec.tickets.enabled = enabled;
+    const blueprint = compileBlueprint({}, spec), messages = [], guild = { id: GUILD, roles: { cache: new Collection() }, emojis: { cache: new Collection() } };
     let id = 300000000000000000n;
     const bindings = { role: {}, channel: {} };
     for (const role of [{ key: 'owner', name: 'Owner' }, { key: 'bot', name: 'RoDark Studios Bot' }, ...blueprint.roles]) {
@@ -116,7 +118,13 @@ test('information messages fit Discord limits and use deployed game/help/forum i
         '1. Be Nice\n2. Speak English only\n3. Listen to staff');
     const text = JSON.stringify(messages);
     for (const game of blueprint.spec.games) assert.ok(text.includes(game.name));
-    assert.ok(text.includes(bindings.channel.help));
+    if (enabled) {
+        assert.ok(text.includes(bindings.channel.help));
+        assert.match(text, /Create a ticket to apply/);
+        assert.match(text, /Ticket Languages/);
+    } else {
+        assert.doesNotMatch(text, /ticket|<#undefined>|<#null>|through help/i);
+    }
     assert.ok(!text.includes('Coding Simulator 2'));
     assert.doesNotMatch(text, /Animal Tag|My Coding Company|Choose your games|Game roles/);
     assert.ok(text.includes('Game channels are available to everyone'));

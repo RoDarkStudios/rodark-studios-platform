@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { AttachmentBuilder, ChannelType, EmbedBuilder } = require('discord.js');
 const serverDefinition = require('../discord/server.json');
+const { ticketSystemEnabled } = require('./ticket-settings');
 
 const PLACEHOLDER_TEXT = 'Loading...';
 const ASSETS_DIR = path.join(__dirname, 'assets', 'discord');
@@ -274,7 +275,8 @@ async function syncInfoChannel(channel, customEmojis, control) {
         const welcome = active.spec.onboarding.gamesQuestion
             ? 'Choose your games and notification roles in **Channels & Roles**.'
             : 'Game channels are available to everyone. Choose optional notification roles in **Channels & Roles**.';
-        embed.addFields({ name: 'Make yourself at home', value: `${welcome} Open a private support ticket in <#${active.bindings.channel.help}>.` });
+        const support = ticketSystemEnabled(control) ? ` Open a private support ticket in <#${active.bindings.channel.help}>.` : '';
+        embed.addFields({ name: 'Make yourself at home', value: `${welcome}${support}` });
     }
     await editMessageWithEmbed(message, embed, CHANNEL_IMAGE_FILENAMES.info);
 }
@@ -282,14 +284,15 @@ async function syncInfoChannel(channel, customEmojis, control) {
 async function syncRolesChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
+    const hasTickets = ticketSystemEnabled(control);
     const embed = new EmbedBuilder()
         .setTitle('Server Roles')
         .setColor(0x22c55e)
         .setDescription([
             `${getRoleMention(guild, 'Owner')}\n> Owns and runs RoDark Studios.`,
             `${getRoleMention(guild, 'RoDark Studios Bot')}\n> Our custom bot for support, automation, and moderation.`,
-            `${getRoleMention(guild, 'Staff')}\n> Helps members, handles tickets, and enforces the rules.`,
-            `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator. Create a ticket to apply.`,
+            `${getRoleMention(guild, 'Staff')}\n> ${hasTickets ? 'Helps members, handles tickets, and enforces the rules.' : 'Helps members and enforces the rules.'}`,
+            `${getRoleMention(guild, 'Content Creator')}\n> Recognized content creator.${hasTickets ? ' Create a ticket to apply.' : ''}`,
             `${getRoleMention(guild, 'Server Booster')}\n> Supports the server with Nitro boosts.`
         ].join('\n\n'));
 
@@ -309,6 +312,7 @@ async function syncRolesChannel(channel, control) {
 async function syncStaffInfoChannel(channel, control) {
     const message = await getOrCreateMainMessage(channel);
     const guild = channel.guild;
+    const hasTickets = ticketSystemEnabled(control);
     const embed = new EmbedBuilder()
         .setTitle('Staff Info')
         .setColor(0x2ecc71)
@@ -318,7 +322,9 @@ async function syncStaffInfoChannel(channel, control) {
                 name: 'Staff Jobs',
                 value: [
                     `1. **Bug report follow-up** - Watch <#${BUG_REPORT_CHANNEL_ID}> and <#${TESTING_BUG_REPORT_CHANNEL_ID}>. If a report is vague, promptly ask for what happened, how to reproduce it, screenshots or video, and an F9 developer console screenshot if errors may be involved.`,
-                    `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs help beyond what you can provide, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`,
+                    hasTickets
+                        ? `2. **Tickets and escalation** - Respond to tickets, answer what you can, and ask for clearer details when needed. If a ticket needs help beyond what you can provide, mention an ${getRoleMention(guild, 'Owner')} with a clear summary, then leave it for them.`
+                        : `2. **Escalation** - Refer unresolved issues to an ${getRoleMention(guild, 'Owner')} with a clear summary.`,
                     '3. **Community help** - Stay up to date on how the game works, answer general questions, help people out, and keep an active, helpful community presence.',
                     '4. **Rule enforcement** - Enforce the rules and timeout rule-breakers when needed.'
                 ].join('\n'),
@@ -341,7 +347,9 @@ async function syncStaffInfoChannel(channel, control) {
         const reports = active.spec.games.map((game) => `<#${active.bindings.channel[`${game.key}/bug-reports`]}>`).join(', ');
         embed.spliceFields(0, 1, { name: 'Staff Jobs', inline: false, value: [
             `1. **Bug report follow-up** — Watch ${reports}. Ask for clear reproduction steps, screenshots or video and F9 console errors when helpful.`,
-            `2. **Tickets** — Help members in private tickets. Escalate unresolved issues and Content Creator applications to an ${getRoleMention(guild, 'Owner')}. Only Owners award Content Creator.`,
+            hasTickets
+                ? `2. **Tickets** — Help members in private tickets. Escalate unresolved issues and Content Creator applications to an ${getRoleMention(guild, 'Owner')}. Only Owners award Content Creator.`
+                : `2. **Community help** — Answer questions and refer unresolved issues to an ${getRoleMention(guild, 'Owner')}. Only Owners award Content Creator.`,
             '3. **Moderation** — Delete abusive messages; timeout, kick or ban when justified. Ordinary swearing and friendly jokes are allowed. Context, targeted bullying, hate and threats matter.',
             `4. **AI reviews** — Review evidence in <#${active.bindings.channel['moderation-log']}>. The bot can timeout; Staff make ban decisions. Dismiss false positives with the review buttons.`
         ].join('\n') });
@@ -350,6 +358,7 @@ async function syncStaffInfoChannel(channel, control) {
             { name: 'Server structure', value: 'Channels, roles, permissions and onboarding are deployed through the website. Staff do not manage the infrastructure.' }
         );
     }
+    if (!hasTickets) embed.setFields(embed.data.fields.filter(field => field.name !== 'Ticket Languages'));
     await editMessageWithEmbed(message, embed);
 }
 

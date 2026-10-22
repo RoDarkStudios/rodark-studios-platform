@@ -10,6 +10,7 @@ const {
     TextInputStyle
 } = require('discord.js');
 const { setDiscordTicketPanelMessageId } = require('../api/_lib/discord-bot-control-store');
+const { ticketSystemEnabled } = require('./ticket-settings');
 const {
     closeDiscordTicketRecord,
     createDiscordTicketRecord,
@@ -39,6 +40,7 @@ function getTicketSystemControl(control) {
         : {};
 
     return {
+        enabled: ticketSystemEnabled(control),
         categoryChannelId: ticketSystem.categoryChannelId ? String(ticketSystem.categoryChannelId) : '',
         panelChannelId: ticketSystem.panelChannelId ? String(ticketSystem.panelChannelId) : '',
         panelMessageId: ticketSystem.panelMessageId ? String(ticketSystem.panelMessageId) : '',
@@ -295,6 +297,7 @@ async function fetchGuildChannel(client, channelId, label) {
 }
 
 async function ensureTicketPanel(client, control) {
+    if (!ticketSystemEnabled(control)) return;
     const ticketSystem = getTicketSystemControl(control);
     if (!ticketSystem.categoryChannelId || !ticketSystem.panelChannelId) {
         return;
@@ -529,6 +532,11 @@ async function handleTicketInteraction(interaction, control) {
         && interaction.customId !== TICKET_ISSUE_MODAL_CUSTOM_ID
     ) {
         return false;
+    }
+
+    if (!ticketSystemEnabled(control)) {
+        await interaction.reply({ content: 'Tickets are currently unavailable.', ephemeral: true });
+        return true;
     }
 
     if (interaction.isModalSubmit()) {

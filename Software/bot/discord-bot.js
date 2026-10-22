@@ -98,7 +98,7 @@ async function syncTicketPanelIfNeeded(nextClient, control, options) {
     }
 
     const ticketSystem = getTicketSystemControl(control);
-    if (!ticketSystem.categoryChannelId || !ticketSystem.panelChannelId) {
+    if (!ticketSystem.enabled || !ticketSystem.categoryChannelId || !ticketSystem.panelChannelId) {
         lastTicketPanelSyncKey = '';
         lastTicketPanelSyncAt = 0;
         return;
@@ -153,11 +153,12 @@ function createClient() {
         closeTicket: (channelId) => closeDiscordTicketRecord(channelId, nextClient.user.id),
         finishContent: async (active, actor) => {
             const channels = active.bindings.channel;
+            const tickets = controlWithLayout({}, active).ticketSystem;
             const updated = await updateDiscordBotControl({ guildId: active.spec.guildId,
                 contentRulesChannelId: channels.rules, contentInfoChannelId: channels.info, contentRolesChannelId: channels.roles,
                 contentStaffInfoChannelId: channels['staff-info'], contentGameTestInfoChannelId: null,
-                ticketsCategoryChannelId: channels['category:tickets'], ticketsPanelChannelId: channels.help,
-                ticketsHelperRoleIds: [active.bindings.role.staff, active.bindings.role.owner], levelAnnouncementChannelId: channels['level-ups']
+                ticketsCategoryChannelId: tickets.categoryChannelId, ticketsPanelChannelId: tickets.panelChannelId,
+                ticketsHelperRoleIds: tickets.helperRoleIds, levelAnnouncementChannelId: channels['level-ups']
             }, actor);
             const effective = controlWithLayout(updated, active);
             currentControl = effective;

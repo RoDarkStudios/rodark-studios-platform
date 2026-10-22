@@ -2,9 +2,10 @@ const { createHash } = require('node:crypto');
 const { PermissionFlagsBits: P, SnowflakeUtil } = require('discord.js');
 const manifest = require('../discord/server.json');
 const { screeningFields, screeningMatches } = require('./rules-screening');
+const { ticketsEnabled } = require('./ticket-settings');
 
 // Increment when the interpretation of server.json changes. Web and worker must agree.
-const ENGINE_VERSION = 16;
+const ENGINE_VERSION = 17;
 const TYPES = { text: 0, voice: 2, category: 4, announcement: 5, forum: 15 };
 const bit = (name) => name === 'BypassSlowmode' ? 1n << 52n : name === 'PinMessages' ? 1n << 51n : P[name];
 function permissions(names) {
@@ -57,6 +58,9 @@ function overwrites(profile, guildId) {
 }
 
 function validateManifest(spec) {
+    if (spec.tickets !== undefined && (!spec.tickets || typeof spec.tickets.enabled !== 'boolean')) {
+        throw new Error('tickets.enabled must be a boolean.');
+    }
     if (spec.schemaVersion !== 1 || !/^\d{17,20}$/.test(spec.guildId)) throw new Error('Invalid server blueprint version or guild ID.');
     if (spec.separator !== '・') throw new Error('Channel names must use the agreed ・ separator.');
     if (spec.staffCanMentionAllRoles !== undefined && typeof spec.staffCanMentionAllRoles !== 'boolean') {
@@ -96,6 +100,7 @@ function validateManifest(spec) {
 
 function compileBlueprint(control = {}, spec = manifest) {
     validateManifest(spec);
+    const hasTickets = ticketsEnabled(spec);
     const threshold = Number(spec.levels.attachmentUnlockLevel ?? 5);
     if (!spec.levels.milestones.includes(threshold)) throw new Error('Invalid existing level permission threshold.');
     const roles = spec.roles.map((role) => ({ ...role,
@@ -111,7 +116,7 @@ function compileBlueprint(control = {}, spec = manifest) {
     }
     for (const notice of spec.notifications) roles.push({ key: `ping-${notice.key}`, name: notice.name, color: 0, hoist: false, mentionable: false, permissions: '0' });
     if (new Set(roles.map((role) => role.name.toLowerCase())).size !== roles.length || roles.some((role) => !Number.isInteger(role.color) || role.color < 0 || role.color > 0xffffff)) throw new Error('Role names must be unique and colors must be valid RGB values.');
-    const categories = spec.categories.flatMap((category) => category.games ? spec.games.map((game) => ({
+    const categories = spec.categories.filter(category => hasTickets || (category.key !== 'tickets' && !category.dynamicTickets)).flatMap((category) => category.games ? spec.games.map((game) => ({
         key: `game-${game.key}`, name: game.name,
         channels: spec.gameChannels.map((channel) => ({ ...clone(channel), key: `${game.key}/${channel.key}`, game: game.key }))
     })) : [clone(category)]);
@@ -119,19 +124,21 @@ function compileBlueprint(control = {}, spec = manifest) {
     for (const [position, category] of categories.entries()) {
         channels.push({ key: `category:${category.key}`, name: category.name, type: 4, parentKey: null, position,
             profile: category.profile || 'public', permission_overwrites: overwrites(category.profile || 'public', spec.guildId) });
-        for (const [childPosition, channel] of category.channels.entries()) {
+        for (const [childPosition, channel] of category.channels.filter(channel => hasTickets || channel.key !== 'help').entries()) {
             if (TYPES[channel.type] === undefined || !channel.name || channel.name.length > 100 || /\s/.test(channel.name)) throw new Error(`Invalid channel ${channel.key}.`);
             if (channel.key !== 'honeypot' && !channel.name.includes(spec.separator)) throw new Error(`Missing ・ separator in ${channel.key}.`);
             const tags = channel.tags || [];
             if (tags.length > 20 || new Set(tags.map((tag) => tag.key)).size !== tags.length || tags.some((tag) => !tag.name || tag.name.length > 20)) throw new Error(`Invalid forum tags in ${channel.key}.`);
             if ((channel.slowmode || 0) < 0 || (channel.slowmode || 0) > 21600) throw new Error(`Invalid slowmode in ${channel.key}.`);
-            channels.push({ ...channel, type: TYPES[channel.type], parentKey: `category:${category.key}`, position: childPosition,
+            channels.push({ ...channel, ...(!hasTickets && channel.topicWithoutTickets !== undefined ? { topic: channel.topicWithoutTickets } : {}),
+                type: TYPES[channel.type], parentKey: `category:${category.key}`, position: childPosition,
                 profile: channel.profile || category.profile || 'public',
                 permission_overwrites: overwrites(channel.profile || category.profile || 'public', spec.guildId) });
         }
     }
     if (channels.length > 500 || new Set(channels.map((channel) => channel.key)).size !== channels.length) throw new Error('Channel keys must be unique and fit Discord limits.');
-    for (const required of ['honeypot', 'staff-info', 'moderation-log', 'rules', 'info', 'roles', 'help', 'category:tickets', 'category:ignore', 'game-updates', 'level-ups']) {
+    for (const required of ['honeypot', 'staff-info', 'moderation-log', 'rules', 'info', 'roles', 'category:ignore', 'game-updates', 'level-ups',
+        ...(hasTickets ? ['help', 'category:tickets'] : [])]) {
         if (!channels.some((channel) => channel.key === required)) throw new Error(`Required bot integration channel is missing: ${required}`);
     }
     const everyonePermissions = permissions(COMMON);
@@ -348,7 +355,7 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     const ticketParent = bindings.channel['category:tickets'];
     for (const channel of [...snapshot.channels].sort((a, b) => (a.type === 4) - (b.type === 4))) {
         if (retainedChannels.has(channel.id)) continue;
-        if (!initial && ticketIds.includes(channel.id) && channel.parent_id === ticketParent) continue;
+        if (ticketsEnabled(blueprint.spec) && !initial && ticketIds.includes(channel.id) && channel.parent_id === ticketParent) continue;
         operations.push({ kind: 'delete_channel', id: channel.id, label: `Delete ${channel.type === 4 ? 'category' : 'channel and history'}: ${channel.name}` });
     }
     const desiredRoleIds = [...(manageOwner ? [bindings.role.owner] : []), ...blueprint.roles.map((role) => bindings.role[role.key])].filter(Boolean);
@@ -383,7 +390,7 @@ function buildPlan(blueprint, snapshot, state = {}, ticketIds = []) {
     for (const rule of snapshot.autoMod.filter(rule => !blueprint.spec.autoModerationRules.some(item => item.triggerType === rule.trigger_type))) {
         operations.push({ kind: 'delete_automod', id: rule.id, label: `Remove unlisted native AutoMod rule: ${rule.name}` });
     }
-    if (state.active?.version !== blueprint.version || initial || operations.length) operations.push({ kind: 'content', label: 'Connect tickets, levels, honeypot and AI moderation; publish server information' });
+    if (state.active?.version !== blueprint.version || initial || operations.length) operations.push({ kind: 'content', label: 'Connect enabled bot features and publish server information' });
     if (snapshot.channels.length + operations.filter((op) => op.kind === 'channel' && !op.id).length > 500) errors.push('Discord’s 500-channel limit leaves insufficient room to stage this rebuild. Reduce the old channel count before deploying.');
     if (snapshot.roles.length + operations.filter((op) => op.kind === 'role' && !op.id).length > 250) errors.push('Discord’s role limit leaves insufficient room to create the required roles.');
     // Retire bindings for resources removed from the file, preventing accidental adoption on re-add.

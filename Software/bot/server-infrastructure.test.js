@@ -155,6 +155,12 @@ async function deploy(fake, state = {}, blueprint = compileBlueprint(control), t
     return { plan, state: { initialized: true, resources: bindings, active: { version: blueprint.version, spec: blueprint.spec, bindings } } };
 }
 
+function enabledTicketsBlueprint() {
+    const spec = clone(compileBlueprint(control).spec);
+    spec.tickets.enabled = true;
+    return compileBlueprint(control, spec);
+}
+
 function effective(blueprint, channelKey, keys) {
     const roleIds = Object.fromEntries(blueprint.roles.map((role) => [role.key, role.key]));
     let bits = BigInt(blueprint.everyonePermissions);
@@ -167,19 +173,21 @@ function effective(blueprint, channelKey, keys) {
     return (bits & ~deny) | allow;
 }
 
-test('the layout has 9 categories, 35 channels, Kidnap and Jail below Dig for Eggs, exact separator and ticket help', () => {
+test('the layout has 8 categories, 34 channels and no ticket resources, with Kidnap and Jail below Dig for Eggs', () => {
     const blueprint = compileBlueprint(control);
-    assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 9);
-    assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 35);
+    assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 8);
+    assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 34);
     assert.deepEqual(blueprint.spec.games.map(game => game.key), ['dig-for-eggs', 'kidnap-and-jail']);
     assert.ok(!blueprint.roles.some(role => role.key.startsWith('game-')));
-    assert.equal(blueprint.channels.find((channel) => channel.key === 'help').name, '🎫・help');
+    assert.ok(!blueprint.channels.some(channel => ['help', 'category:tickets'].includes(channel.key)));
+    assert.ok(!blueprint.defaultChannelKeys.includes('help'));
+    assert.doesNotMatch(blueprint.channels.map(channel => channel.topic || '').join('\n'), /ticket|through help/i);
     for (const game of blueprint.spec.games) {
         assert.equal(blueprint.channels.filter((channel) => channel.game === game.key).length, 7);
         assert.equal(blueprint.channels.find(channel => channel.key === `category:game-${game.key}`).name, game.name);
     }
     assert.deepEqual(blueprint.channels.filter(channel => channel.type === 4).map(channel => channel.name),
-        ['Staff', 'Info', 'IGNORE', 'Tickets', 'Announcements', 'Dig for Eggs', 'Kidnap and Jail', 'General', 'Voice']);
+        ['Staff', 'Info', 'IGNORE', 'Announcements', 'Dig for Eggs', 'Kidnap and Jail', 'General', 'Voice']);
     assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 2);
     assert.equal(blueprint.roles.filter((role) => role.key.startsWith('level-')).length, 7);
 });
@@ -298,7 +306,7 @@ test('onboarding includes both games for everyone by default and asks only about
     blueprint.channels.forEach((channel) => { bindings.channel[channel.key] = channel.key; });
     const body = onboardingBody(blueprint, bindings);
     assert.equal(body.mode, 1);
-    assert.deepEqual(body.default_channel_ids, ['rules', 'info', 'roles', 'help', 'honeypot', 'announcements', 'game-updates',
+    assert.deepEqual(body.default_channel_ids, ['rules', 'info', 'roles', 'honeypot', 'announcements', 'game-updates',
         'codes', 'polls-feedback', 'dig-for-eggs/chat', 'dig-for-eggs/media', 'dig-for-eggs/private-servers',
         'dig-for-eggs/youtube-videos', 'dig-for-eggs/bug-reports', 'dig-for-eggs/feature-suggestions', 'dig-for-eggs/dev-discussions',
         'kidnap-and-jail/chat', 'kidnap-and-jail/media', 'kidnap-and-jail/private-servers', 'kidnap-and-jail/youtube-videos',
@@ -316,7 +324,7 @@ test('onboarding includes both games for everyone by default and asks only about
     const offered = [...body.default_channel_ids, ...body.prompts.flatMap((prompt) => prompt.options.flatMap((option) => option.channel_ids))];
     const publicChannels = blueprint.channels.filter(channel => channel.type !== 4 && (effective(blueprint, channel.key, []) & P.ViewChannel));
     assert.deepEqual([...new Set(offered)].sort(), publicChannels.map(channel => channel.key).sort());
-    for (const key of ['staff-info', 'staff-chat', 'staff-vc', 'moderation-log', 'category:tickets']) {
+    for (const key of ['staff-info', 'staff-chat', 'staff-vc', 'moderation-log']) {
         assert.ok(!offered.includes(key));
         assert.equal(effective(blueprint, key, []) & P.ViewChannel, 0n);
     }
@@ -378,7 +386,7 @@ test('new shared and game channels enter onboarding defaults automatically while
 });
 
 test('retiring old game categories removes their history and all game roles while preserving current games and notification choices', async () => {
-    const fake = fakeDiscord(), blueprint = compileBlueprint(control), legacySpec = clone(blueprint.spec);
+    const fake = fakeDiscord(), blueprint = enabledTicketsBlueprint(), legacySpec = clone(blueprint.spec);
     legacySpec.games.push(
         { key: 'animal-tag', name: 'Animal Tag', emoji: '🐾' },
         { key: 'my-coding-company', name: 'My Coding Company', emoji: '💻' }
@@ -446,7 +454,7 @@ test('legacy onboarding defaults reject private channels, categories, missing ch
 });
 
 test('expanding onboarding defaults preserves channel history and question identities without changing permissions', async () => {
-    const fake = fakeDiscord(), blueprint = compileBlueprint(control), oldSpec = clone(blueprint.spec);
+    const fake = fakeDiscord(), blueprint = enabledTicketsBlueprint(), oldSpec = clone(blueprint.spec);
     oldSpec.onboarding.defaultChannels = ['rules', 'info', 'roles', 'help', 'announcements', 'game-updates', 'general-chat', 'memes', 'level-ups'];
     const oldBlueprint = compileBlueprint(control, oldSpec);
     const first = await deploy(fake, {}, oldBlueprint);
@@ -707,7 +715,7 @@ test('removing a channel and role from the file removes previously managed resou
 });
 
 test('registered open tickets survive later deployments; arbitrary manual channels are removed', async () => {
-    const fake = fakeDiscord(), first = await deploy(fake), blueprint = compileBlueprint(control);
+    const fake = fakeDiscord(), blueprint = enabledTicketsBlueprint(), first = await deploy(fake, {}, blueprint);
     const ticket = fake.addChannel({ name: '🎫・ticket-1', parent_id: first.state.resources.channel['category:tickets'] });
     const extra = fake.addChannel({ name: 'unlisted', parent_id: first.state.resources.channel['category:tickets'] });
     fake.server.messages.get(ticket.id).push('Private support conversation');
@@ -739,7 +747,7 @@ test('preflight blocks owner hierarchy problems and unremovable Bloxlink before 
 });
 
 test('snapshot refresh detects permission drift but ignores messages and legitimate ticket creation after initial rebuild', async () => {
-    const fake = fakeDiscord(), first = await deploy(fake), blueprint = compileBlueprint(control);
+    const fake = fakeDiscord(), blueprint = enabledTicketsBlueprint(), first = await deploy(fake, {}, blueprint);
     const before = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
     const beforeHash = snapshotHash(before);
     const ticket = fake.addChannel({ name: '🎫・ticket-2', parent_id: first.state.resources.channel['category:tickets'] });
@@ -858,7 +866,7 @@ test('interrupted rebuilds checkpoint new IDs; a fresh preview finishes without 
 });
 
 test('runtime uses the last deployed blueprint and bindings, keeping pending file edits out of live helpers', async () => {
-    const fake = fakeDiscord(), { state } = await deploy(fake);
+    const fake = fakeDiscord(), { state } = await deploy(fake, {}, enabledTicketsBlueprint());
     const runtime = controlWithLayout(control, state.active);
     assert.equal(runtime.ticketSystem.panelChannelId, state.resources.channel.help);
     assert.deepEqual(runtime.ticketSystem.helperRoleIds, [state.resources.role.staff, state.resources.role.owner]);
@@ -868,6 +876,49 @@ test('runtime uses the last deployed blueprint and bindings, keeping pending fil
     assert.equal(runtime.levelSystem.mentionLevelUps, false);
     assert.equal(runtime.infrastructure.spec.separator, '・');
     assert.equal(runtime.gameUpdates, undefined);
+});
+
+test('disabling tickets removes the panel, category and open channels; one flag recreates the feature without touching other history', async () => {
+    const fake = fakeDiscord(), enabled = enabledTicketsBlueprint(), disabled = compileBlueprint(control);
+    const first = await deploy(fake, {}, enabled);
+    const old = first.state.resources.channel;
+    const ticket = fake.addChannel({ name: 'ticket-42', parent_id: old['category:tickets'] });
+    fake.server.messages.get(ticket.id).push('Private ticket history');
+    fake.server.messages.get(old['general-chat']).push('Keep community history');
+    const closed = [];
+    const next = await deploy(fake, first.state, disabled, [ticket.id], { closeTicket: async id => closed.push(id) });
+    assert.deepEqual(next.plan.operations.filter(op => op.kind === 'delete_channel').map(op => op.id).sort(),
+        [old.help, old['category:tickets'], ticket.id].sort());
+    assert.ok(closed.includes(ticket.id));
+    assert.ok(!fake.server.channels.some(channel => [old.help, old['category:tickets'], ticket.id].includes(channel.id)));
+    assert.ok(!fake.server.onboarding.default_channel_ids.includes(old.help));
+    assert.ok(!Object.hasOwn(next.state.resources.channel, 'help'));
+    assert.ok(!Object.hasOwn(next.state.resources.channel, 'category:tickets'));
+    const runtime = controlWithLayout({ ticketSystem: { enabled: true, categoryChannelId: old['category:tickets'], panelChannelId: old.help,
+        panelMessageId: 'stale-message', helperRoleIds: ['stale-role'] } }, next.state.active);
+    assert.deepEqual(runtime.ticketSystem, { enabled: false, categoryChannelId: null, panelChannelId: null, panelMessageId: null, helperRoleIds: [] });
+    assert.deepEqual(buildPlan(disabled, await captureSnapshot(fake.rest, GUILD, BOT, disabled.spec), next.state).operations, []);
+    const restored = await deploy(fake, next.state, enabled);
+    assert.deepEqual(restored.plan.operations.filter(op => op.kind === 'channel' && !op.id).map(op => op.key).sort(), ['category:tickets', 'help']);
+    assert.notEqual(restored.state.resources.channel.help, old.help);
+    assert.notEqual(restored.state.resources.channel['category:tickets'], old['category:tickets']);
+    assert.ok(fake.server.onboarding.default_channel_ids.includes(restored.state.resources.channel.help));
+    assert.equal(controlWithLayout(runtime, restored.state.active).ticketSystem.enabled, true);
+    for (const [key, id] of Object.entries(next.state.resources.channel)) assert.equal(restored.state.resources.channel[key], id);
+    assert.deepEqual(fake.server.messages.get(old['general-chat']), ['Keep community history']);
+    assert.deepEqual(buildPlan(enabled, await captureSnapshot(fake.rest, GUILD, BOT, enabled.spec), restored.state).operations, []);
+});
+
+test('older deployed definitions retain tickets and malformed ticket switches are rejected', () => {
+    const spec = clone(compileBlueprint(control).spec);
+    delete spec.tickets;
+    const legacy = compileBlueprint(control, spec);
+    assert.ok(legacy.channels.some(channel => channel.key === 'help'));
+    assert.ok(legacy.channels.some(channel => channel.key === 'category:tickets'));
+    assert.equal(controlWithLayout({}, { spec, bindings: { channel: {}, role: {} } }).ticketSystem.enabled, true);
+    for (const value of [null, {}, { enabled: 'false' }]) {
+        assert.throws(() => compileBlueprint(control, { ...spec, tickets: value }), /tickets.enabled/);
+    }
 });
 
 module.exports = { fakeDiscord, memoryStore, workerFor };
@@ -969,7 +1020,7 @@ test('retrying a failed Community cleanup keeps checkpointed channels and then p
     assert.equal(fake.server.channels.length, blueprint.channels.length);
     assert.equal(fake.server.channels.find(channel => channel.id === categoryId).name, 'Dig for Eggs');
     assert.equal(published.length, 1);
-    for (const key of ['rules', 'info', 'roles', 'staff-info', 'help']) assert.equal(published[0].bindings.channel[key], checkpoint[key]);
+    for (const key of ['rules', 'info', 'roles', 'staff-info']) assert.equal(published[0].bindings.channel[key], checkpoint[key]);
     assert.deepEqual(fake.server.messages.get(checkpoint['general-chat']), ['Keep messages posted during the partial deployment']);
     const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
     assert.deepEqual(buildPlan(blueprint, snapshot, result.state).operations, []);

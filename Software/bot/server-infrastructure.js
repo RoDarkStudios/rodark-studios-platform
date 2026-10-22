@@ -2,6 +2,7 @@ const defaultStore = require('../api/_lib/discord-infrastructure-store');
 const { setTimeout: delay } = require('node:timers/promises');
 const { compileBlueprint, buildPlan, snapshotHash, channelBody, roleBody, onboardingBody, onboardingQuestions, autoModBody, clone, manifest } = require('./server-blueprint');
 const { readRulesScreening, syncRulesScreening } = require('./rules-screening');
+const { ticketsEnabled } = require('./ticket-settings');
 
 async function captureSnapshot(rest, guildId, botId, spec) {
     const root = `/guilds/${guildId}`;
@@ -24,10 +25,13 @@ async function captureSnapshot(rest, guildId, botId, spec) {
 function controlWithLayout(control, active) {
     if (!active) return control;
     const c = active.bindings.channel, r = active.bindings.role;
+    const hasTickets = ticketsEnabled(active.spec);
     return { ...control, guildId: active.spec.guildId,
         infrastructure: active,
         startupContentSync: { rulesChannelId: c.rules, infoChannelId: c.info, rolesChannelId: c.roles, staffInfoChannelId: c['staff-info'], gameTestInfoChannelId: '' },
-        ticketSystem: { ...control.ticketSystem, categoryChannelId: c['category:tickets'], panelChannelId: c.help, helperRoleIds: [r.staff, r.owner].filter(Boolean) },
+        ticketSystem: hasTickets
+            ? { ...control.ticketSystem, enabled: true, categoryChannelId: c['category:tickets'], panelChannelId: c.help, helperRoleIds: [r.staff, r.owner].filter(Boolean) }
+            : { enabled: false, categoryChannelId: null, panelChannelId: null, panelMessageId: null, helperRoleIds: [] },
         levelSystem: { ...control.levelSystem, enabled: active.spec.levels.enabled ?? manifest.levels.enabled,
             attachmentUnlockLevel: active.spec.levels.attachmentUnlockLevel ?? manifest.levels.attachmentUnlockLevel,
             mentionLevelUps: active.spec.levels.mentionLevelUps ?? manifest.levels.mentionLevelUps,

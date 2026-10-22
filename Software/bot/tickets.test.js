@@ -4,6 +4,7 @@ const { ChannelType, Collection } = require('discord.js');
 const ticketStore = require('../api/_lib/discord-ticket-store');
 const { controlWithLayout } = require('./server-infrastructure');
 const { manifest } = require('./server-blueprint');
+const enabledSpec = { ...manifest, tickets: { enabled: true } };
 
 test('ordinary tickets open privately and preserve their description without any AI request', async (t) => {
     const records = [], sent = [], created = [], replies = [];
@@ -21,7 +22,7 @@ test('ordinary tickets open privately and preserve their description without any
     const interaction = { guild, channelId: 'panel', user: { id: 'user', username: 'User' }, customId: 'rodark_ticket_issue_modal',
         isButton: () => false, isModalSubmit: () => true, fields: { getTextInputValue: () => 'Please help with my missing game pass.' },
         async deferReply(options) { assert.equal(options.ephemeral, true); }, async editReply(payload) { replies.push(payload); } };
-    const control = controlWithLayout({}, { spec: manifest, bindings: {
+    const control = controlWithLayout({}, { spec: enabledSpec, bindings: {
         channel: { 'category:tickets': 'category', help: 'panel' }, role: { staff: 'staff', owner: 'owner' }
     } });
     assert.equal(await handleTicketInteraction(interaction, control), true);
@@ -45,7 +46,7 @@ test('help panel refreshes in its deployed channel and points to the declared ga
     const channel = { help: 'help-channel', 'category:tickets': 'ticket-category' };
     manifest.games.forEach((game, index) => { channel[`${game.key}/bug-reports`] = String(300000000000000000n + BigInt(index)); });
     const control = controlWithLayout({ ticketSystem: { panelMessageId: 'existing-message' } }, {
-        spec: manifest, bindings: { channel, role: { staff: 'staff', owner: 'owner' } }
+        spec: enabledSpec, bindings: { channel, role: { staff: 'staff', owner: 'owner' } }
     });
     const client = { channels: { fetch: async id => {
         assert.ok(['help-channel', 'ticket-category'].includes(id));
@@ -56,4 +57,25 @@ test('help panel refreshes in its deployed channel and points to the declared ga
     const description = edited[0].embeds[0].toJSON().description;
     manifest.games.forEach(game => assert.ok(description.includes(channel[`${game.key}/bug-reports`])));
     assert.ok(!description.includes('1208767046184345610'));
+});
+
+test('disabled tickets never refresh the panel or process stale open, close or submitted modal actions', async () => {
+    const { ensureTicketPanel, handleTicketInteraction, getTicketSystemControl } = require('./tickets');
+    const stale = { ticketSystem: { categoryChannelId: 'old-category', panelChannelId: 'old-help', panelMessageId: 'old-panel' } };
+    for (const control of [stale, { ...stale, infrastructure: { spec: manifest } }]) {
+        assert.equal(getTicketSystemControl(control).enabled, false);
+        await ensureTicketPanel({ channels: { fetch() { assert.fail('Disabled tickets must not touch Discord channels'); } } }, control);
+        for (const customId of ['rodark_ticket_open', 'rodark_ticket_close', 'rodark_ticket_issue_modal']) {
+            const replies = [];
+            assert.equal(await handleTicketInteraction({ customId, isButton: () => customId !== 'rodark_ticket_issue_modal',
+                isModalSubmit: () => customId === 'rodark_ticket_issue_modal',
+                async reply(payload) { replies.push(payload); },
+                async showModal() { assert.fail('No modal while disabled'); },
+                async deferReply() { assert.fail('No ticket open/close work while disabled'); },
+                fields: { getTextInputValue() { assert.fail('Do not read submitted issues while disabled'); } }
+            }, control), true);
+            assert.deepEqual(replies, [{ content: 'Tickets are currently unavailable.', ephemeral: true }]);
+        }
+    }
+    assert.equal(await handleTicketInteraction({ customId: 'unrelated', isButton: () => true }, stale), false);
 });
