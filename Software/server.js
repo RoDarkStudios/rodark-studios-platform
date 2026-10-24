@@ -15,7 +15,6 @@ const robloxGroupStats = require('./api/roblox/group-stats');
 const adminDiscordBotControl = require('./api/admin/discord-bot-control');
 const adminDiscordInfrastructure = require('./api/admin/discord-infrastructure');
 const adminConsultations = require('./api/admin/consultations');
-const adminProfitTracker = require('./api/admin/profit-tracker');
 const consultationConfig = require('./api/consultations/config');
 const consultationCheckout = require('./api/consultations/checkout');
 const consultationConfirm = require('./api/consultations/confirm');
@@ -59,7 +58,6 @@ const pageRoutes = {
     '/consultation/thanks': 'consultation-thanks.html',
     '/admin': 'admin.html',
     '/admin/consultations': 'admin-consultations.html',
-    '/admin/profit-tracker': 'admin-profit-tracker.html',
     '/admin/discord-bot': 'admin-discord-bot.html'
 };
 
@@ -73,7 +71,6 @@ const htmlRedirects = {
     '/consultation-thanks.html': '/consultation/thanks',
     '/admin.html': '/admin',
     '/admin-consultations.html': '/admin/consultations',
-    '/admin-profit-tracker.html': '/admin/profit-tracker',
     '/admin-discord-bot.html': '/admin/discord-bot'
 };
 
@@ -96,7 +93,6 @@ const apiRoutes = {
     // Keep reconciling payments from checkout sessions created before disabling.
     '/api/consultations/webhook': consultationWebhook,
     '/api/admin/consultations': withConsultationsEnabled(adminConsultations),
-    '/api/admin/profit-tracker': adminProfitTracker,
     '/api/admin/discord-bot-control': adminDiscordBotControl,
     '/api/admin/discord-infrastructure': adminDiscordInfrastructure
 };
@@ -650,6 +646,12 @@ async function handleRequest(req, res) {
     const staticPath = resolveStaticPath(pathname === '/' ? '/index.html' : pathname);
     if (staticPath && fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
         await sendFile(res, staticPath);
+        return;
+    }
+
+    // Missing admin pages and assets should not fall back to the public homepage.
+    if (routePath.startsWith('/admin/') || /^\/admin-[^/]+\.(?:html|js)$/i.test(routePath)) {
+        sendJson(res, 404, { error: 'Not Found' });
         return;
     }
 

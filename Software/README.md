@@ -35,7 +35,6 @@ npm run start:bot
 AUTH_SECRET
 ROBLOX_OAUTH_CLIENT_ID
 ROBLOX_OAUTH_CLIENT_SECRET
-ROBLOX_OPEN_CLOUD_API_KEY
 DATABASE_URL
 ```
 
@@ -97,8 +96,8 @@ DISCORD_MODERATION_EXCLUDED_CHANNEL_IDS
 - The worker automatically maintains an `ignore│do-not-type` anti-spam honeypot. Any message there triggers a permanent ban and ten-minute message cleanup, with delayed checks to remove leftovers. See [honeypot setup, permissions and behaviour](bot/HONEYPOT.md).
 - The server ID is fixed in `discord/server.json`. Infrastructure deployment connects the bot's information messages to their defined channels and refreshes them in place. Announcements and game updates are posted manually in Discord; the website has no announcement composer or startup-channel editor.
 - Contextual community moderation is the bot's only AI feature and is disabled by default. Set `DISCORD_AI_MODERATION_ENABLED=true` with `OPENAI_API_KEY` and restart the worker to re-enable it. When enabled, it uses `gpt-5.6-luna` with high reasoning, at most once per minute per active channel. Swearing is allowed; clear bullying, aggressive personal attacks, racial slurs and threats can trigger timeouts, with human ban review for serious cases. See [moderation setup, safeguards, costs and evaluation](bot/MODERATION.md).
-- The website has only **Status** (Connect/Disconnect and Deploy) and **Transcripts**. Ticket and level settings live in the repository. Leveling is enabled, Embed Links unlocks at Level 5, and level-up announcements do not ping members.
-- Support tickets open normally without AI screening and ping both Staff and Owners. Private ticket permissions, duplicate prevention, closing and saved transcripts remain in place.
+- The Discord bot dashboard shows its online status, Connect/Disconnect, and Deploy directly, without tabs or a transcript viewer. Ticket and level settings live in the repository. Leveling is enabled, Embed Links unlocks at Level 5, and level-up announcements do not ping members.
+- Support tickets are disabled in `discord/server.json`. The implementation and saved transcripts remain available for future use.
 - On startup, the bot ensures required custom emojis exist using local files under `bot/assets/discord/emojis` and uses banner images from `bot/assets/discord/channel-images`.
 
 ## Database
@@ -114,6 +113,5 @@ The current schema lives in `railway/postgres-schema.sql`.
 - `/consultation/thanks`
 - `/admin`
 - `/admin/consultations`
-- `/admin/profit-tracker`
 - `/admin/discord-bot`
 - `/api/health`

@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=20260912-admin-cleanup">
+    <link rel="stylesheet" href="/styles.css?v=20261024-admin-simplify">
     <link rel="icon" type="image/png" href="/official_company_logo.png">
 </head>
 <body>
@@ -52,16 +52,7 @@
 
                         <div id="admin-owned-content" class="hidden">
                             <div id="discord-bot-dashboard" class="admin-discord-control">
-                                <div class="admin-discord-tabs" role="tablist" aria-label="Discord bot dashboard sections">
-                                    <button class="admin-discord-tab is-active" type="button" role="tab" aria-selected="true" data-discord-tab-target="discord-tab-status">
-                                        Status
-                                    </button>
-                                    <button class="admin-discord-tab" type="button" role="tab" aria-selected="false" data-discord-tab-target="discord-tab-transcripts">
-                                        Transcripts
-                                    </button>
-                                </div>
-
-                                <section id="discord-tab-status" class="admin-discord-tab-panel is-active" role="tabpanel">
+                                <section id="discord-bot-controls" aria-labelledby="discord-bot-status-title">
                                     <div class="admin-discord-status-row">
                                         <span id="discord-bot-status-dot" class="admin-discord-status-dot" aria-hidden="true"></span>
                                         <div>
@@ -79,34 +70,6 @@
                                         <button id="infra-deploy" class="btn btn-primary" type="button" disabled>Deploy</button>
                                     </div>
                                     <p id="infra-status" class="admin-tool-note" role="status" aria-live="polite"></p>
-                                </section>
-
-                                <section id="discord-tab-transcripts" class="admin-discord-feature-card admin-discord-tab-panel" role="tabpanel" aria-labelledby="discord-ticket-transcripts-title" hidden>
-                                    <div class="admin-discord-feature-head">
-                                        <div>
-                                            <h2 id="discord-ticket-transcripts-title" class="admin-tool-title">Ticket Transcripts</h2>
-                                            <p class="admin-tool-note">
-                                                Review permanently saved transcripts from closed tickets.
-                                            </p>
-                                        </div>
-                                        <button id="discord-ticket-transcripts-refresh-btn" class="btn btn-secondary admin-compact-btn" type="button">
-                                            Refresh
-                                        </button>
-                                    </div>
-
-                                    <div class="admin-ticket-transcripts-layout">
-                                        <div class="admin-ticket-transcripts-sidebar">
-                                            <div id="discord-ticket-transcripts-list" class="admin-ticket-transcripts-list" aria-live="polite">
-                                                Loading transcripts...
-                                            </div>
-                                            <button id="discord-ticket-transcripts-load-more-btn" class="btn btn-secondary admin-compact-btn hidden" type="button">
-                                                Load more
-                                            </button>
-                                        </div>
-                                        <div id="discord-ticket-transcript-viewer" class="admin-ticket-transcript-viewer">
-                                            Select a transcript to view it.
-                                        </div>
-                                    </div>
                                 </section>
 
                                 <p id="discord-bot-status-message" class="admin-status info hidden"></p>
@@ -137,7 +100,7 @@
         </div>
     </footer>
 
-    <script src="/script.js?v=20260912-admin-cleanup"></script>
-    <script src="/discord-infrastructure.js?v=20260912-admin-cleanup"></script>
+    <script src="/script.js?v=20261024-admin-simplify"></script>
+    <script src="/discord-infrastructure.js?v=20261024-admin-simplify-2"></script>
 </body>
 </html>

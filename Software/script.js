@@ -317,165 +317,6 @@ async function setDiscordBotDesiredState(desiredEnabled) {
     return postJson('/api/admin/discord-bot-control', { desiredEnabled });
 }
 
-const DISCORD_TICKET_TRANSCRIPT_PAGE_SIZE = 50;
-
-async function fetchDiscordTicketTranscripts(offset) {
-    const requestUrl = `/api/admin/discord-bot-control?ticketTranscripts=1&limit=${DISCORD_TICKET_TRANSCRIPT_PAGE_SIZE}&offset=${encodeURIComponent(String(offset || 0))}`;
-    const response = await fetch(requestUrl, {
-        method: 'GET',
-        credentials: 'include'
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(payload.error || `Ticket transcripts failed (${response.status})`);
-    }
-
-    return Array.isArray(payload.transcripts) ? payload.transcripts : [];
-}
-
-async function fetchDiscordTicketTranscript(ticketId) {
-    const response = await fetch(`/api/admin/discord-bot-control?ticketTranscriptId=${encodeURIComponent(String(ticketId))}`, {
-        method: 'GET',
-        credentials: 'include'
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(payload.error || `Ticket transcript failed (${response.status})`);
-    }
-
-    return payload.transcript || null;
-}
-
-function formatTicketTranscriptDate(value) {
-    if (!value) {
-        return 'Unknown time';
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return 'Unknown time';
-    }
-
-    return date.toLocaleString();
-}
-
-function renderDiscordTicketTranscriptList(transcripts, selectedTicketId) {
-    const listElement = document.getElementById('discord-ticket-transcripts-list');
-    if (!listElement) {
-        return;
-    }
-
-    listElement.innerHTML = '';
-
-    if (!Array.isArray(transcripts) || !transcripts.length) {
-        const empty = document.createElement('p');
-        empty.className = 'admin-ticket-transcript-empty';
-        empty.textContent = 'No closed ticket transcripts yet.';
-        listElement.appendChild(empty);
-        return;
-    }
-
-    transcripts.forEach((transcript) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'admin-ticket-transcript-item';
-        if (String(transcript.ticketId) === String(selectedTicketId || '')) {
-            button.classList.add('is-active');
-        }
-        button.dataset.ticketId = String(transcript.ticketId);
-
-        const title = document.createElement('span');
-        title.className = 'admin-ticket-transcript-title';
-        title.textContent = transcript.channelName
-            ? `#${transcript.channelName}`
-            : `Ticket ${transcript.ticketId}`;
-
-        const meta = document.createElement('span');
-        meta.className = 'admin-ticket-transcript-meta';
-        meta.textContent = `${formatTicketTranscriptDate(transcript.closedAt)} · ${Number(transcript.messageCount) || 0} messages`;
-
-        button.appendChild(title);
-        button.appendChild(meta);
-        listElement.appendChild(button);
-    });
-}
-
-function renderDiscordTicketTranscriptDetail(transcript) {
-    const viewer = document.getElementById('discord-ticket-transcript-viewer');
-    if (!viewer) {
-        return;
-    }
-
-    viewer.innerHTML = '';
-
-    if (!transcript) {
-        viewer.textContent = 'Select a transcript to view it.';
-        return;
-    }
-
-    const heading = document.createElement('h3');
-    heading.className = 'admin-tool-title';
-    heading.textContent = transcript.channelName ? `#${transcript.channelName}` : `Ticket ${transcript.ticketId}`;
-    viewer.appendChild(heading);
-
-    const meta = document.createElement('p');
-    meta.className = 'admin-ticket-transcript-meta';
-    meta.textContent = `Closed ${formatTicketTranscriptDate(transcript.closedAt)} · ${Number(transcript.messageCount) || 0} messages`;
-    viewer.appendChild(meta);
-
-    const messages = Array.isArray(transcript.messages) ? transcript.messages : [];
-    if (!messages.length) {
-        const empty = document.createElement('p');
-        empty.className = 'admin-ticket-transcript-empty';
-        empty.textContent = 'This transcript has no saved messages.';
-        viewer.appendChild(empty);
-        return;
-    }
-
-    messages.forEach((message) => {
-        const item = document.createElement('article');
-        item.className = 'admin-ticket-transcript-message';
-
-        const author = document.createElement('div');
-        author.className = 'admin-ticket-transcript-author';
-        author.textContent = `${message.authorTag || 'Unknown'} · ${formatTicketTranscriptDate(message.createdAt)}`;
-        item.appendChild(author);
-
-        const content = document.createElement('div');
-        content.className = 'admin-ticket-transcript-content';
-        content.textContent = message.content || '';
-        item.appendChild(content);
-
-        (Array.isArray(message.embeds) ? message.embeds : []).forEach((embed) => {
-            const embedText = [embed.title, embed.description]
-                .filter(Boolean)
-                .join('\n');
-            if (!embedText) {
-                return;
-            }
-
-            const embedBlock = document.createElement('div');
-            embedBlock.className = 'admin-ticket-transcript-content';
-            embedBlock.textContent = embedText;
-            item.appendChild(embedBlock);
-        });
-
-        (Array.isArray(message.attachments) ? message.attachments : []).forEach((attachment) => {
-            const link = document.createElement('a');
-            link.className = 'admin-ticket-transcript-attachment';
-            link.href = attachment.url || '#';
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = attachment.name ? `Attachment: ${attachment.name}` : 'Attachment';
-            item.appendChild(link);
-        });
-
-        viewer.appendChild(item);
-    });
-}
-
 async function initDiscordBotDashboard() {
     const dashboard = document.getElementById('discord-bot-dashboard');
     const ownedContent = document.getElementById('admin-owned-content');
@@ -485,10 +326,6 @@ async function initDiscordBotDashboard() {
 
     const deniedElement = document.getElementById('admin-access-denied');
     const toggleButton = document.getElementById('discord-bot-toggle-btn');
-    const ticketTranscriptsRefreshButton = document.getElementById('discord-ticket-transcripts-refresh-btn');
-    const ticketTranscriptsLoadMoreButton = document.getElementById('discord-ticket-transcripts-load-more-btn');
-    const ticketTranscriptsList = document.getElementById('discord-ticket-transcripts-list');
-    const ticketTranscriptViewer = document.getElementById('discord-ticket-transcript-viewer');
     const adminStatus = await fetchAdminStatus();
     const isAdmin = Boolean(adminStatus && adminStatus.isAdmin);
 
@@ -504,28 +341,6 @@ async function initDiscordBotDashboard() {
         deniedElement.classList.add('hidden');
     }
     ownedContent.classList.remove('hidden');
-    let currentTicketTranscriptId = '';
-    let currentTicketTranscripts = [];
-    let ticketTranscriptOffset = 0;
-    let hasMoreTicketTranscripts = false;
-
-    function activateDiscordDashboardTab(targetId) {
-        const tabButtons = Array.from(dashboard.querySelectorAll('[data-discord-tab-target]'));
-        const tabPanels = Array.from(dashboard.querySelectorAll('.admin-discord-tab-panel'));
-
-        tabButtons.forEach((button) => {
-            const isActive = String(button.dataset.discordTabTarget || '') === String(targetId);
-            button.classList.toggle('is-active', isActive);
-            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-
-        tabPanels.forEach((panel) => {
-            const isActive = panel.id === targetId;
-            panel.classList.toggle('is-active', isActive);
-            panel.hidden = !isActive;
-        });
-    }
-
     async function refreshControl() {
         try {
             const control = await fetchDiscordBotControl();
@@ -541,46 +356,6 @@ async function initDiscordBotDashboard() {
                 toggleButton.disabled = true;
             }
             setDiscordBotStatusMessage(error.message || 'Failed to load Discord bot status.', 'error');
-        }
-    }
-
-    async function refreshTicketTranscripts(options) {
-        if (!ticketTranscriptsList) {
-            return;
-        }
-
-        const append = Boolean(options && options.append);
-        if (ticketTranscriptsRefreshButton) {
-            ticketTranscriptsRefreshButton.disabled = true;
-        }
-        if (ticketTranscriptsLoadMoreButton) {
-            ticketTranscriptsLoadMoreButton.disabled = true;
-        }
-
-        try {
-            const nextOffset = append ? ticketTranscriptOffset : 0;
-            const transcripts = await fetchDiscordTicketTranscripts(nextOffset);
-            currentTicketTranscripts = append
-                ? currentTicketTranscripts.concat(transcripts)
-                : transcripts;
-            ticketTranscriptOffset = currentTicketTranscripts.length;
-            hasMoreTicketTranscripts = transcripts.length === DISCORD_TICKET_TRANSCRIPT_PAGE_SIZE;
-            renderDiscordTicketTranscriptList(currentTicketTranscripts, currentTicketTranscriptId);
-            if (!currentTicketTranscriptId && ticketTranscriptViewer) {
-                renderDiscordTicketTranscriptDetail(null);
-            }
-            if (ticketTranscriptsLoadMoreButton) {
-                ticketTranscriptsLoadMoreButton.classList.toggle('hidden', !hasMoreTicketTranscripts);
-            }
-        } catch (error) {
-            ticketTranscriptsList.textContent = error.message || 'Failed to load ticket transcripts.';
-        } finally {
-            if (ticketTranscriptsRefreshButton) {
-                ticketTranscriptsRefreshButton.disabled = false;
-            }
-            if (ticketTranscriptsLoadMoreButton) {
-                ticketTranscriptsLoadMoreButton.disabled = false;
-            }
         }
     }
 
@@ -605,57 +380,7 @@ async function initDiscordBotDashboard() {
         });
     }
 
-    dashboard.querySelectorAll('[data-discord-tab-target]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const targetId = String(button.dataset.discordTabTarget || '');
-            if (targetId) {
-                activateDiscordDashboardTab(targetId);
-            }
-        });
-    });
-
-    if (ticketTranscriptsRefreshButton) {
-        ticketTranscriptsRefreshButton.addEventListener('click', () => {
-            currentTicketTranscriptId = '';
-            refreshTicketTranscripts();
-        });
-    }
-
-    if (ticketTranscriptsLoadMoreButton) {
-        ticketTranscriptsLoadMoreButton.addEventListener('click', () => {
-            refreshTicketTranscripts({ append: true });
-        });
-    }
-
-    if (ticketTranscriptsList) {
-        ticketTranscriptsList.addEventListener('click', async (event) => {
-            const item = event.target && event.target.closest
-                ? event.target.closest('.admin-ticket-transcript-item')
-                : null;
-            if (!item) {
-                return;
-            }
-
-            currentTicketTranscriptId = String(item.dataset.ticketId || '');
-            renderDiscordTicketTranscriptList(currentTicketTranscripts, currentTicketTranscriptId);
-
-            if (ticketTranscriptViewer) {
-                ticketTranscriptViewer.textContent = 'Loading transcript...';
-            }
-
-            try {
-                const transcript = await fetchDiscordTicketTranscript(currentTicketTranscriptId);
-                renderDiscordTicketTranscriptDetail(transcript);
-            } catch (error) {
-                if (ticketTranscriptViewer) {
-                    ticketTranscriptViewer.textContent = error.message || 'Failed to load ticket transcript.';
-                }
-            }
-        });
-    }
-
     await refreshControl();
-    await refreshTicketTranscripts();
     window.setInterval(refreshControl, 5000);
 }
 

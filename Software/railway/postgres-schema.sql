@@ -87,44 +87,6 @@ on consultation_bookings (created_at desc);
 create index if not exists consultation_bookings_payment_status_idx
 on consultation_bookings (payment_status);
 
-create table if not exists admin_profit_tracker_games (
-    id uuid primary key,
-    display_name text not null,
-    universe_id bigint not null unique,
-    creator_rewards_robux bigint not null default 0 check (creator_rewards_robux >= 0),
-    devex_usd_per_1000_robux numeric(12, 4) not null default 3.8000 check (devex_usd_per_1000_robux > 0),
-    version bigint not null default 1 check (version > 0),
-    created_by_user_id text,
-    created_by_username text,
-    updated_by_user_id text,
-    updated_by_username text,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-);
-
-alter table admin_profit_tracker_games
-add column if not exists creator_rewards_robux bigint not null default 0;
-
-alter table admin_profit_tracker_games
-add column if not exists devex_usd_per_1000_robux numeric(12, 4) not null default 3.8000;
-
-create table if not exists admin_profit_tracker_expenses (
-    id uuid primary key,
-    game_id uuid not null references admin_profit_tracker_games(id) on delete cascade,
-    amount_cents bigint not null check (amount_cents > 0),
-    description text not null,
-    category text not null check (category in ('animations', 'models', 'vfx', 'map', 'advertising', 'other')),
-    created_by_user_id text,
-    created_by_username text,
-    updated_by_user_id text,
-    updated_by_username text,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-);
-
-create index if not exists admin_profit_tracker_expenses_game_id_idx
-on admin_profit_tracker_expenses (game_id, created_at desc);
-
 create sequence if not exists discord_bot_ticket_id_seq
     as bigint
     start with 1

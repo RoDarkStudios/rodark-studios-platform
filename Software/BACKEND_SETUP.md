@@ -10,10 +10,6 @@ The app is deployed as a normal Node.js service on Railway from the `Software` d
 - `GET /api/auth/me` -> returns current signed-in user
 - `GET /api/auth/admin` -> resolves Roblox group rank and admin eligibility (`rank >= 254`)
 - `POST /api/auth/logout` -> clears session
-- `GET /api/admin/profit-tracker` -> lists tracked games, expenses, cached revenue, and profit totals
-- `POST /api/admin/profit-tracker` -> creates games and expenses or refreshes a game's Roblox revenue
-- `PATCH /api/admin/profit-tracker` -> edits games and expenses with version-based concurrency control
-- `DELETE /api/admin/profit-tracker` -> deletes games and expenses with version-based concurrency control
 - `GET /api/profile` -> same user profile data from session
 - `GET /api/health`
 
@@ -21,8 +17,7 @@ The app is deployed as a normal Node.js service on Railway from the `Software` d
 - `AUTH_SECRET` (long random secret used to sign session/state tokens)
 - `ROBLOX_OAUTH_CLIENT_ID`
 - `ROBLOX_OAUTH_CLIENT_SECRET`
-- `ROBLOX_OPEN_CLOUD_API_KEY` (used to read tracked-game revenue; grant `universe.analytics:read` for every tracked universe)
-- `DATABASE_URL` (Railway Postgres connection used for shared admin, profit-tracker, and Discord-bot data)
+- `DATABASE_URL` (Railway Postgres connection used for shared admin and Discord-bot data)
 - `DISCORD_BOT_TOKEN` (required only by the Discord bot worker)
 
 Optional:
@@ -31,8 +26,6 @@ Optional:
 - `ROBLOX_OAUTH_SCOPES` (default: `openid profile`)
 - `ROBLOX_OAUTH_BASE_URL` (default: `https://apis.roblox.com/oauth`)
 - `ROBLOX_GROUP_ID` (default: `5545660`, used for Admin tab visibility)
-
-The Roblox Open Cloud key is server-side only. Its creator/group access and universe restrictions must include each universe that an admin adds to the profit tracker. The tracker loads every DailyRevenue source from Open Cloud except Creator Rewards and legacy Premium Payouts. Creator Rewards are entered as a cumulative received-plus-pending Robux total on each game because Roblox does not provide a supported Creator Rewards endpoint for an API key. Each game stores its own configurable USD-per-1,000-Earned-Robux DevEx rate; existing games default to $3.80.
 
 ## Roblox OAuth App Configuration
 In your Roblox OAuth app settings, ensure the redirect URI matches:

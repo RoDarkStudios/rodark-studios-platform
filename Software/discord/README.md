@@ -62,4 +62,4 @@ Run `node --test bot/*.test.js` from `Software`. Tests use fake Discord calls an
 
 Discord references: [Guild and onboarding API](https://docs.discord.com/developers/resources/guild), [channels and forum tags](https://docs.discord.com/developers/resources/channel), [permissions and role hierarchy](https://docs.discord.com/developers/topics/permissions), [forum post permissions](https://docs.discord.com/developers/topics/threads), [Community Onboarding](https://support.discord.com/hc/en-us/articles/11074987197975-Community-Onboarding-FAQ).
 
-The website has only Status (Connect/Disconnect and Deploy) and Transcripts. Server ID, channels, ticket helpers and level behaviour are repository configuration. Announcements are posted manually in Discord.
+The website shows bot status, Connect/Disconnect, and Deploy directly, without tabs or a transcript viewer. Server ID, channels, ticket helpers and level behaviour are repository configuration. Announcements are posted manually in Discord.

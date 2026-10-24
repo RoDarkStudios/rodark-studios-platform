@@ -1,6 +1,7 @@
 (() => {
-    const panel = document.getElementById('discord-tab-status');
+    const panel = document.getElementById('discord-bot-controls');
     if (!panel) return;
+    const ownedContent = document.getElementById('admin-owned-content');
     const button = document.getElementById('infra-deploy');
     const status = document.getElementById('infra-status');
     const api = '/api/admin/discord-infrastructure';
@@ -21,7 +22,7 @@
         status.classList.toggle('infra-error', Boolean(job?.error));
     }
     async function load() {
-        if (loading || document.getElementById('admin-owned-content').classList.contains('hidden')) return;
+        if (loading || ownedContent.classList.contains('hidden')) return;
         loading = true;
         try {
             const response = await fetch(api, { credentials: 'same-origin', cache: 'no-store' });
@@ -46,7 +47,21 @@
             working = false; render(); status.textContent = error.message; status.classList.add('infra-error');
         }
     });
-    document.querySelector('[data-discord-tab-target="discord-tab-status"]').addEventListener('click', () => { void load(); });
+    // Initialize as soon as access is confirmed, without requiring a tab click.
+    const readyObserver = new MutationObserver(() => {
+        if (!ownedContent.classList.contains('hidden')) {
+            readyObserver.disconnect();
+            void load();
+        }
+    });
+    if (ownedContent.classList.contains('hidden')) {
+        readyObserver.observe(ownedContent, { attributes: true, attributeFilter: ['class'] });
+    } else {
+        void load();
+    }
     const timer = setInterval(() => { if (!panel.hidden && !document.hidden) void load(); }, 4000);
-    window.addEventListener('pagehide', () => clearInterval(timer), { once: true });
+    window.addEventListener('pagehide', () => {
+        clearInterval(timer);
+        readyObserver.disconnect();
+    }, { once: true });
 })();
