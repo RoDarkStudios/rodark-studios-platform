@@ -55,7 +55,9 @@ DISCORD_BOT_TOKEN
 DATABASE_URL
 ```
 
-Required for paid consultation checkout on the web service:
+Consultations are disabled by default. To restore the existing pages, navigation links, booking button, checkout APIs and admin tool, set `CONSULTATIONS_ENABLED=true` on the Railway web service and redeploy/restart it. No code or booking records are deleted. Disabled consultation page URLs redirect to the homepage (or `/admin` for the admin page), and consultation APIs return 503. Stripe webhooks remain active to reconcile payments from existing checkout sessions.
+
+Required for paid consultation checkout when enabled on the web service:
 
 ```txt
 STRIPE_SECRET_KEY

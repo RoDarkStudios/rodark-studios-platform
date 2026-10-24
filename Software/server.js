@@ -21,6 +21,11 @@ const consultationCheckout = require('./api/consultations/checkout');
 const consultationConfirm = require('./api/consultations/confirm');
 const consultationWebhook = require('./api/consultations/webhook');
 const { getAdminGroupId } = require('./api/_lib/roblox-groups');
+const {
+    areConsultationsEnabled,
+    renderConsultationFeatures,
+    withConsultationsEnabled
+} = require('./api/_lib/consultation-feature');
 
 const rootDir = __dirname;
 const port = process.env.PORT || 3000;
@@ -85,11 +90,12 @@ const apiRoutes = {
     '/api/roblox/group-games': robloxGroupGames,
     '/api/roblox/group-stats': robloxGroupStats,
     '/api/roblox/studio-stats': sendStudioStats,
-    '/api/consultations/config': consultationConfig,
-    '/api/consultations/checkout': consultationCheckout,
-    '/api/consultations/confirm': consultationConfirm,
+    '/api/consultations/config': withConsultationsEnabled(consultationConfig),
+    '/api/consultations/checkout': withConsultationsEnabled(consultationCheckout),
+    '/api/consultations/confirm': withConsultationsEnabled(consultationConfirm),
+    // Keep reconciling payments from checkout sessions created before disabling.
     '/api/consultations/webhook': consultationWebhook,
-    '/api/admin/consultations': adminConsultations,
+    '/api/admin/consultations': withConsultationsEnabled(adminConsultations),
     '/api/admin/profit-tracker': adminProfitTracker,
     '/api/admin/discord-bot-control': adminDiscordBotControl,
     '/api/admin/discord-infrastructure': adminDiscordInfrastructure
@@ -456,7 +462,7 @@ async function sendIndexHtml(req, res) {
         fs.promises.readFile(filePath, 'utf8'),
         getSocialPreviewDescription()
     ]);
-    const body = injectSocialPreviewDescription(html, description);
+    const body = renderConsultationFeatures(injectSocialPreviewDescription(html, description));
     const buffer = Buffer.from(body, 'utf8');
 
     res.statusCode = 200;
@@ -490,29 +496,52 @@ function resolveStaticPath(urlPath) {
     return filePath;
 }
 
-function sendFile(res, filename) {
+async function sendFile(res, filename) {
     const filePath = path.isAbsolute(filename) ? filename : path.join(rootDir, filename);
     const extension = path.extname(filePath).toLowerCase();
     const contentType = mimeTypes[extension] || 'application/octet-stream';
+    const consultationRedirects = {
+        'consultation.html': '/',
+        'consultation-thanks.html': '/',
+        'admin-consultations.html': '/admin'
+    };
+    const disabledRedirect = consultationRedirects[path.basename(filePath).toLowerCase()];
+    if (disabledRedirect && !areConsultationsEnabled()) {
+        res.setHeader('Cache-Control', 'no-store');
+        sendRedirect(res, 302, disabledRedirect);
+        return;
+    }
 
-    fs.stat(filePath, (statError, stats) => {
-        if (statError || !stats.isFile()) {
-            sendJson(res, 404, { error: 'Not Found' });
-            return;
-        }
+    let stats;
+    try {
+        stats = await fs.promises.stat(filePath);
+    } catch (error) {
+        sendJson(res, 404, { error: 'Not Found' });
+        return;
+    }
+    if (!stats.isFile()) {
+        sendJson(res, 404, { error: 'Not Found' });
+        return;
+    }
 
-        res.statusCode = 200;
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Length', stats.size);
-        if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico'].includes(extension)) {
-            res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-        } else if (['.css', '.js'].includes(extension)) {
-            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
-        } else if (extension === '.html') {
-            res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-        }
-        fs.createReadStream(filePath).pipe(res);
-    });
+    const html = extension === '.html'
+        ? Buffer.from(renderConsultationFeatures(await fs.promises.readFile(filePath, 'utf8')), 'utf8')
+        : null;
+    res.statusCode = 200;
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', html ? html.length : stats.size);
+    if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico'].includes(extension)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    } else if (['.css', '.js'].includes(extension)) {
+        res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+    } else if (extension === '.html') {
+        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    }
+    if (html) {
+        res.end(html);
+        return;
+    }
+    fs.createReadStream(filePath).pipe(res);
 }
 
 async function readBody(req) {
@@ -604,7 +633,7 @@ async function handleRequest(req, res) {
     }
 
     if (pageRoutes[routePath]) {
-        sendFile(res, pageRoutes[routePath]);
+        await sendFile(res, pageRoutes[routePath]);
         return;
     }
 
@@ -620,7 +649,7 @@ async function handleRequest(req, res) {
 
     const staticPath = resolveStaticPath(pathname === '/' ? '/index.html' : pathname);
     if (staticPath && fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
-        sendFile(res, staticPath);
+        await sendFile(res, staticPath);
         return;
     }
 
@@ -646,6 +675,10 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(port, () => {
-    console.log(`RoDark Studios platform listening on port ${port}`);
-});
+if (require.main === module) {
+    server.listen(port, () => {
+        console.log(`RoDark Studios platform listening on port ${port}`);
+    });
+}
+
+module.exports = server;

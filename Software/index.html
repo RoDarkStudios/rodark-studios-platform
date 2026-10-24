@@ -22,7 +22,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="styles.css?v=team-20260909">
+    <link rel="stylesheet" href="styles.css?v=social-icons-20261024">
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="official_company_logo.png">
@@ -49,9 +49,11 @@
                 <li class="nav-item">
                     <a href="#team" class="nav-link">Team</a>
                 </li>
+                <!-- consultations:start -->
                 <li class="nav-item">
                     <a href="/consultation" class="nav-link">Consultation</a>
                 </li>
+                <!-- consultations:end -->
                 <li id="nav-admin-item" class="nav-item hidden">
                     <a href="/admin" class="nav-link">Admin</a>
                 </li>
@@ -75,9 +77,8 @@
                 <h1 class="hero-title">
                     <span class="gradient-text">RoDark Studios</span>
                 </h1>
-                <p class="hero-subtitle">Known for Coding Simulator</p>
                 <p class="hero-description">
-                    We make unique simulator games that are grindy, fun, and shaped by
+                    We make unique Roblox games that are fun to play and shaped by
                     community feedback.
                 </p>
                 <div class="hero-stats-panel" aria-label="RoDark Studios live stats">
@@ -118,10 +119,12 @@
                     </div>
                 </div>
                 <div class="hero-buttons">
+                    <!-- consultations:start -->
                     <a href="/consultation" class="btn btn-primary">
                         <i class="fas fa-calendar-check"></i>
                         <span data-consultation-price data-consultation-price-prefix="Book " data-consultation-price-suffix=" Consultation">Book $300 Consultation</span>
                     </a>
+                    <!-- consultations:end -->
                     <a href="#games" class="btn btn-secondary">
                         <i class="fas fa-gamepad"></i>
                         View Our Games
@@ -163,20 +166,20 @@
                 Follow the studio everywhere, then join our Discord to catch updates, sneak peeks, and talk directly with the community.
             </p>
             <div class="social-links">
-                <a href="https://www.roblox.com/communities/5545660" target="_blank" class="social-link roblox">
-                    <i class="fas fa-cube"></i>
+                <a href="https://www.roblox.com/communities/5545660" target="_blank" rel="noopener noreferrer" class="social-link roblox">
+                    <img src="/assets/social/roblox.svg" class="social-brand-icon" alt="" width="32" height="32" aria-hidden="true">
                     <span>Roblox Group</span>
                 </a>
-                <a href="https://x.com/RoDarkStudios" target="_blank" class="social-link twitter">
-                    <span class="x-icon">𝕏</span>
+                <a href="https://x.com/RoDarkStudios" target="_blank" rel="noopener noreferrer" class="social-link twitter">
+                    <img src="/assets/social/x.svg" class="social-brand-icon" alt="" width="32" height="32" aria-hidden="true">
                     <span>X</span>
                 </a>
-                <a href="https://www.youtube.com/@RoDarkStudios" target="_blank" class="social-link youtube">
-                    <i class="fab fa-youtube"></i>
+                <a href="https://www.youtube.com/@RoDarkStudios" target="_blank" rel="noopener noreferrer" class="social-link youtube">
+                    <img src="/assets/social/youtube.svg" class="social-brand-icon" alt="" width="32" height="32" aria-hidden="true">
                     <span>YouTube</span>
                 </a>
-                <a href="https://www.instagram.com/rodarkstudios/" target="_blank" class="social-link instagram">
-                    <i class="fab fa-instagram"></i>
+                <a href="https://www.instagram.com/rodarkstudios/" target="_blank" rel="noopener noreferrer" class="social-link instagram">
+                    <img src="/assets/social/instagram.svg" class="social-brand-icon" alt="" width="32" height="32" aria-hidden="true">
                     <span>Instagram</span>
                 </a>
             </div>
@@ -199,7 +202,7 @@
                     </div>
                     <div class="discord-feature-actions">
                         <a href="https://discord.com/invite/TTHUSdT52N" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-                            <i class="fab fa-discord"></i>
+                            <img src="/assets/social/discord.svg" class="social-brand-icon social-brand-icon-inline" alt="" width="24" height="24" aria-hidden="true">
                             Join Discord
                         </a>
                     </div>
@@ -225,13 +228,11 @@
     <section id="team" class="team">
         <div class="container">
             <h2 class="section-title">Meet Our Team</h2>
-            <p class="team-intro">Myron and Kasper make our games, from the first idea to the finished experience.</p>
             <div class="team-grid" id="team-grid">
                 <div class="team-member team-member-maker team-member-link" id="myron-member" data-profile-url="/myron" role="link" tabindex="0" aria-label="Open Myron profile links">
                     <div class="member-heading">
                         <div class="member-avatar" id="myron-avatar"><img src="/api/roblox/avatar-headshot?userId=2735760162&size=150x150" alt="Myron Roblox avatar" class="avatar-image" loading="lazy" decoding="async"></div>
                         <div class="member-identity">
-                            <p class="member-ownership">Founder</p>
                             <h3 class="member-name member-name-with-badge">
                                 <span>Myron</span>
                                 <img
@@ -245,10 +246,9 @@
                                 >
                             </h3>
                             <p class="member-role">Owner &amp; Lead Game Developer</p>
-                            <p class="member-age">Age: <span id="myron-age">18</span></p>
                         </div>
                     </div>
-                    <p class="member-bio">Game design, programming, and everything that brings it together. Hands-on across the whole game.</p>
+                    <p class="member-bio">Game design, programming, UI design, modeling, animation, and everything that brings it together.</p>
                     <div class="member-socials">
                         <a href="https://www.roblox.com/users/2735760162/profile" target="_blank" rel="noopener noreferrer" class="member-social roblox member-social-avatar-icon" aria-label="Open Myron Roblox profile">
                             <img src="/api/roblox/avatar-headshot?userId=2735760162&size=150x150" alt="" class="member-social-avatar" loading="lazy" decoding="async" aria-hidden="true">
@@ -274,7 +274,6 @@
                     <div class="member-heading">
                         <div class="member-avatar" id="kasper-avatar"><img src="/api/roblox/avatar-headshot?userId=175190407&size=150x150" alt="Kasper Roblox avatar" class="avatar-image" loading="lazy" decoding="async"></div>
                         <div class="member-identity">
-                            <p class="member-ownership">Founder</p>
                             <h3 class="member-name member-name-with-badge">
                                 <span>Kasper</span>
                                 <img
@@ -288,45 +287,14 @@
                                 >
                             </h3>
                             <p class="member-role">Owner &amp; Lead Game Developer</p>
-                            <p class="member-age">Age: <span id="kasper-age">21</span></p>
                         </div>
                     </div>
-                    <p class="member-bio">Game design, programming, and everything that brings it together. Hands-on across the whole game.</p>
+                    <p class="member-bio">Game design, programming, UI design, modeling, animation, and everything that brings it together.</p>
                     <div class="member-socials">
                         <a href="https://www.roblox.com/users/175190407/profile" target="_blank" rel="noopener noreferrer" class="member-social roblox member-social-avatar-icon" aria-label="Open Kasper Roblox profile">
                             <img src="/api/roblox/avatar-headshot?userId=175190407&size=150x150" alt="" class="member-social-avatar" loading="lazy" decoding="async" aria-hidden="true">
                         </a>
                         <a href="https://x.com/Kasper_RDS" target="_blank" rel="noopener noreferrer" class="member-social twitter" aria-label="Open Kasper on X">
-                            <span class="x-icon">X</span>
-                        </a>
-                    </div>
-                </div>
-                <div class="team-member team-member-founder team-member-link" id="tristan-member" data-profile-url="/tristan" role="link" tabindex="0" aria-label="Open Tristan profile links">
-                    <div class="member-heading">
-                        <div class="member-avatar" id="tristan-avatar"><img src="/api/roblox/avatar-headshot?userId=290031319&size=150x150" alt="Tristan Roblox avatar" class="avatar-image" loading="lazy" decoding="async"></div>
-                        <div class="member-identity">
-                            <h3 class="member-name member-name-with-badge">
-                                <span>Tristan</span>
-                                <img
-                                    src="verified-badge.png"
-                                    alt="Verified on Roblox"
-                                    class="member-verified-badge"
-                                    width="320"
-                                    height="320"
-                                    loading="lazy"
-                                    decoding="async"
-                                >
-                            </h3>
-                            <p class="member-role">Founder &amp; Owner</p>
-                            <p class="member-age">Age: <span id="tristan-age">21</span></p>
-                        </div>
-                    </div>
-                    <p class="member-bio">Part of RoDark from the beginning. Currently taking a step back from day-to-day development.</p>
-                    <div class="member-socials">
-                        <a href="https://www.roblox.com/users/290031319/profile" target="_blank" rel="noopener noreferrer" class="member-social roblox member-social-avatar-icon" aria-label="Open Tristan Roblox profile">
-                            <img src="/api/roblox/avatar-headshot?userId=290031319&size=150x150" alt="" class="member-social-avatar" loading="lazy" decoding="async" aria-hidden="true">
-                        </a>
-                        <a href="https://x.com/Tristan_RDS" target="_blank" rel="noopener noreferrer" class="member-social twitter" aria-label="Open Tristan on X">
                             <span class="x-icon">X</span>
                         </a>
                     </div>
@@ -359,6 +327,6 @@
     </footer>
 
     <!-- JavaScript -->
-    <script src="public.js?v=consultation-price-1"></script>
+    <script src="public.js?v=team-20261024"></script>
 </body>
 </html>

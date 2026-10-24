@@ -659,20 +659,6 @@ async function initDiscordBotDashboard() {
     window.setInterval(refreshControl, 5000);
 }
 
-// Age calculation function
-function calculateAge(birthDate) {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-    }
-
-    return age;
-}
-
 async function fetchAllGameStats() {
     const showcase = document.getElementById('games-showcase');
     if (!showcase) {
@@ -995,24 +981,6 @@ document.addEventListener('DOMContentLoaded', function() {
             'error'
         );
     });
-
-    // Calculate and display ages
-    const myronAge = calculateAge('2008-05-31');
-    const tristanAge = calculateAge('2004-12-25');
-    const kasperAge = calculateAge('2004-12-25');
-
-    const myronAgeElement = document.getElementById('myron-age');
-    const tristanAgeElement = document.getElementById('tristan-age');
-    const kasperAgeElement = document.getElementById('kasper-age');
-    if (myronAgeElement) {
-        myronAgeElement.textContent = myronAge;
-    }
-    if (tristanAgeElement) {
-        tristanAgeElement.textContent = tristanAge;
-    }
-    if (kasperAgeElement) {
-        kasperAgeElement.textContent = kasperAge;
-    }
 
     // Update current year in footer
     const currentYearElement = document.getElementById('current-year');

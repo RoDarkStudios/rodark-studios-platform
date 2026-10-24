@@ -5,6 +5,7 @@ const ROBLOX_GROUP_GAMES_PAGE_LIMIT = 100;
 const ROBLOX_GROUP_GAMES_MAX_PAGES = 20;
 const ROBLOX_GAME_DETAILS_BATCH_SIZE = 20;
 const DEFAULT_MIN_VISITS = 100000;
+const ACTIVE_PLAYERS_DISPLAY_THRESHOLD = 1000;
 const CACHE_TTL_MS = 60 * 1000;
 const FAILURE_CACHE_TTL_MS = 15 * 1000;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -153,8 +154,13 @@ function isGroupOwnedGame(row, groupId) {
 }
 
 function compareGamesByActivity(left, right) {
-    const leftPlaying = Number.isFinite(left.playing) && left.playing >= 0 ? left.playing : 0;
-    const rightPlaying = Number.isFinite(right.playing) && right.playing >= 0 ? right.playing : 0;
+    // Hidden player counts share one tier, ordered by total visits below.
+    const leftPlaying = Number.isFinite(left.playing) && left.playing > ACTIVE_PLAYERS_DISPLAY_THRESHOLD
+        ? left.playing
+        : 0;
+    const rightPlaying = Number.isFinite(right.playing) && right.playing > ACTIVE_PLAYERS_DISPLAY_THRESHOLD
+        ? right.playing
+        : 0;
     if (rightPlaying !== leftPlaying) {
         return rightPlaying - leftPlaying;
     }
