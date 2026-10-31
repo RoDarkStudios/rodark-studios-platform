@@ -20,6 +20,7 @@ const consultationCheckout = require('./api/consultations/checkout');
 const consultationConfirm = require('./api/consultations/confirm');
 const consultationWebhook = require('./api/consultations/webhook');
 const { getAdminGroupId } = require('./api/_lib/roblox-groups');
+const { includeAdditionalStudioGames } = require('./api/_lib/studio-games');
 const {
     areConsultationsEnabled,
     renderConsultationFeatures,
@@ -315,10 +316,11 @@ async function fetchFreshStudioStats() {
     const groupId = getAdminGroupId();
     const groupEndpoint = `https://groups.roblox.com/v1/groups/${encodeURIComponent(groupId)}`;
 
-    const [universeIds, groupPayload] = await Promise.all([
+    const [groupUniverseIds, groupPayload] = await Promise.all([
         fetchGroupUniverseIds(groupId),
         fetchRobloxJson(groupEndpoint)
     ]);
+    const universeIds = includeAdditionalStudioGames(groupUniverseIds);
 
     if (!universeIds.length) {
         throw new Error('Roblox group games response did not include any universe IDs');

@@ -1,11 +1,10 @@
 const { methodNotAllowed, sendJson } = require('../_lib/http');
 const { getAdminGroupId } = require('../_lib/roblox-groups');
+const { ADDITIONAL_STUDIO_UNIVERSE_IDS, includeAdditionalStudioGames } = require('../_lib/studio-games');
 
 const ROBLOX_GROUP_GAMES_PAGE_LIMIT = 100;
 const ROBLOX_GROUP_GAMES_MAX_PAGES = 20;
 const ROBLOX_GAME_DETAILS_BATCH_SIZE = 20;
-// Include Chew Rocks for Cash (place 105108640103109) alongside eligible group games.
-const ADDITIONAL_SHOWCASE_UNIVERSE_IDS = [10767758871];
 const DEFAULT_MIN_VISITS = 100000;
 const ACTIVE_PLAYERS_DISPLAY_THRESHOLD = 1000;
 const CACHE_TTL_MS = 60 * 1000;
@@ -178,10 +177,9 @@ function compareGamesByActivity(left, right) {
 
 async function fetchEligibleGroupGames(groupId, minVisits) {
     const groupRows = await fetchGroupGames(groupId);
-    const universeIds = [...new Set([
-        ...groupRows.map((row) => parsePositiveInteger(row && row.id)).filter(Boolean),
-        ...ADDITIONAL_SHOWCASE_UNIVERSE_IDS
-    ])];
+    const universeIds = includeAdditionalStudioGames(
+        groupRows.map((row) => parsePositiveInteger(row && row.id)).filter(Boolean)
+    );
     const rows = await fetchGameDetails(universeIds);
     const detailsByUniverseId = new Map(rows
         .map((row) => [parsePositiveInteger(row && row.id), row])
@@ -197,7 +195,7 @@ async function fetchEligibleGroupGames(groupId, minVisits) {
         .filter((game) => Number.isFinite(game.visits) && game.visits > minVisits);
 
     // Manual additions bypass group/visit eligibility, but use the same activity sorting.
-    for (const universeId of ADDITIONAL_SHOWCASE_UNIVERSE_IDS) {
+    for (const universeId of ADDITIONAL_STUDIO_UNIVERSE_IDS) {
         const row = detailsByUniverseId.get(universeId);
         if (row) {
             games.push(normalizeGame(row));
