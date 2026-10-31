@@ -4,6 +4,8 @@ const { getAdminGroupId } = require('../_lib/roblox-groups');
 const ROBLOX_GROUP_GAMES_PAGE_LIMIT = 100;
 const ROBLOX_GROUP_GAMES_MAX_PAGES = 20;
 const ROBLOX_GAME_DETAILS_BATCH_SIZE = 20;
+// Include Chew Rocks for Cash (place 105108640103109) alongside eligible group games.
+const ADDITIONAL_SHOWCASE_UNIVERSE_IDS = [10767758871];
 const DEFAULT_MIN_VISITS = 100000;
 const ACTIVE_PLAYERS_DISPLAY_THRESHOLD = 1000;
 const CACHE_TTL_MS = 60 * 1000;
@@ -176,28 +178,35 @@ function compareGamesByActivity(left, right) {
 
 async function fetchEligibleGroupGames(groupId, minVisits) {
     const groupRows = await fetchGroupGames(groupId);
-    if (!groupRows.length) {
-        return [];
-    }
-
-    const universeIds = groupRows
-        .map((row) => parsePositiveInteger(row && row.id))
-        .filter(Boolean);
+    const universeIds = [...new Set([
+        ...groupRows.map((row) => parsePositiveInteger(row && row.id)).filter(Boolean),
+        ...ADDITIONAL_SHOWCASE_UNIVERSE_IDS
+    ])];
     const rows = await fetchGameDetails(universeIds);
     const detailsByUniverseId = new Map(rows
         .map((row) => [parsePositiveInteger(row && row.id), row])
         .filter(([universeId]) => universeId));
 
-    return groupRows
+    const games = groupRows
         .filter((row) => isGroupOwnedGame(row, groupId))
         .map((row) => {
             const universeId = parsePositiveInteger(row && row.id);
             const detailRow = detailsByUniverseId.get(universeId);
             return detailRow ? normalizeGame(detailRow) : normalizeGroupGame(row);
         })
+        .filter((game) => Number.isFinite(game.visits) && game.visits > minVisits);
+
+    // Manual additions bypass group/visit eligibility, but use the same activity sorting.
+    for (const universeId of ADDITIONAL_SHOWCASE_UNIVERSE_IDS) {
+        const row = detailsByUniverseId.get(universeId);
+        if (row) {
+            games.push(normalizeGame(row));
+        }
+    }
+
+    return [...new Map(games.map((game) => [game.universeId, game])).values()]
         .filter((game) => Number.isFinite(game.universeId) && game.universeId > 0)
         .filter((game) => Number.isFinite(game.rootPlaceId) && game.rootPlaceId > 0)
-        .filter((game) => Number.isFinite(game.visits) && game.visits > minVisits)
         .sort(compareGamesByActivity);
 }
 
