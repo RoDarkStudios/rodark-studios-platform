@@ -22,7 +22,7 @@
   ],
   "games": [
     { "key": "dig-for-eggs", "name": "Dig for Eggs", "emoji": "🥚" },
-    { "key": "kidnap-and-jail", "name": "Kidnap and Jail", "emoji": "🚔" }
+    { "key": "13-days-to-escape", "name": "13 Days to Escape", "emoji": "🚔" }
   ],
   "categories": [
     { "key": "staff", "name": "Staff", "profile": "staff", "channels": [

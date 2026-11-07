@@ -173,11 +173,11 @@ function effective(blueprint, channelKey, keys) {
     return (bits & ~deny) | allow;
 }
 
-test('the layout has 8 categories, 34 channels and no ticket resources, with Kidnap and Jail below Dig for Eggs', () => {
+test('the layout has 8 categories, 34 channels and no ticket resources, with 13 Days to Escape below Dig for Eggs', () => {
     const blueprint = compileBlueprint(control);
     assert.equal(blueprint.channels.filter((channel) => channel.type === 4).length, 8);
     assert.equal(blueprint.channels.filter((channel) => channel.type !== 4).length, 34);
-    assert.deepEqual(blueprint.spec.games.map(game => game.key), ['dig-for-eggs', 'kidnap-and-jail']);
+    assert.deepEqual(blueprint.spec.games.map(game => game.key), ['dig-for-eggs', '13-days-to-escape']);
     assert.ok(!blueprint.roles.some(role => role.key.startsWith('game-')));
     assert.ok(!blueprint.channels.some(channel => ['help', 'category:tickets'].includes(channel.key)));
     assert.ok(!blueprint.defaultChannelKeys.includes('help'));
@@ -187,7 +187,7 @@ test('the layout has 8 categories, 34 channels and no ticket resources, with Kid
         assert.equal(blueprint.channels.find(channel => channel.key === `category:game-${game.key}`).name, game.name);
     }
     assert.deepEqual(blueprint.channels.filter(channel => channel.type === 4).map(channel => channel.name),
-        ['Staff', 'Info', 'IGNORE', 'Announcements', 'Dig for Eggs', 'Kidnap and Jail', 'General', 'Voice']);
+        ['Staff', 'Info', 'IGNORE', 'Announcements', 'Dig for Eggs', '13 Days to Escape', 'General', 'Voice']);
     assert.equal(blueprint.channels.find((channel) => channel.key === 'category:ignore').position, 2);
     assert.equal(blueprint.roles.filter((role) => role.key.startsWith('level-')).length, 7);
 });
@@ -309,8 +309,8 @@ test('onboarding includes both games for everyone by default and asks only about
     assert.deepEqual(body.default_channel_ids, ['rules', 'info', 'roles', 'honeypot', 'announcements', 'game-updates',
         'codes', 'polls-feedback', 'dig-for-eggs/chat', 'dig-for-eggs/media', 'dig-for-eggs/private-servers',
         'dig-for-eggs/youtube-videos', 'dig-for-eggs/bug-reports', 'dig-for-eggs/feature-suggestions', 'dig-for-eggs/dev-discussions',
-        'kidnap-and-jail/chat', 'kidnap-and-jail/media', 'kidnap-and-jail/private-servers', 'kidnap-and-jail/youtube-videos',
-        'kidnap-and-jail/bug-reports', 'kidnap-and-jail/feature-suggestions', 'kidnap-and-jail/dev-discussions',
+        '13-days-to-escape/chat', '13-days-to-escape/media', '13-days-to-escape/private-servers', '13-days-to-escape/youtube-videos',
+        '13-days-to-escape/bug-reports', '13-days-to-escape/feature-suggestions', '13-days-to-escape/dev-discussions',
         'general-chat', 'memes', 'level-ups', 'lounge-1', 'lounge-2', 'duo', 'squad', 'party']);
     assert.equal(body.prompts.length, 1);
     assert.equal(body.prompts[0].title, blueprint.spec.onboarding.notificationsQuestion);
@@ -341,18 +341,27 @@ test('onboarding includes both games for everyone by default and asks only about
     }
 });
 
-test('adding Kidnap and Jail preserves existing channels, history and notification choices without requiring game roles', async () => {
+test('replacing Kidnap and Jail creates fresh channels and preserves other history and notification choices', async () => {
     const fake = fakeDiscord(), blueprint = compileBlueprint(control), previousSpec = clone(blueprint.spec);
-    previousSpec.games = previousSpec.games.filter(game => game.key === 'dig-for-eggs');
+    previousSpec.games[1] = { key: 'kidnap-and-jail', name: 'Kidnap and Jail', emoji: '🚔' };
     const first = await deploy(fake, {}, compileBlueprint(control, previousSpec));
     const prompts = clone(fake.server.onboarding.prompts), roles = clone(fake.server.roles);
     for (const id of Object.values(first.state.resources.channel)) fake.server.messages.get(id).push(`History for ${id}`);
     const next = await deploy(fake, first.state, blueprint);
     assert.equal(next.plan.initial, false);
-    assert.ok(!next.plan.operations.some(op => op.kind.startsWith('delete_') || op.kind === 'role'));
+    assert.ok(!next.plan.operations.some(op => op.kind === 'role' || (op.kind.startsWith('delete_') && op.kind !== 'delete_channel')));
     const created = next.plan.operations.filter(op => op.kind === 'channel' && !op.id).map(op => op.key);
-    assert.deepEqual(created, ['category:game-kidnap-and-jail', ...blueprint.spec.gameChannels.map(channel => `kidnap-and-jail/${channel.key}`)]);
+    assert.deepEqual(created, ['category:game-13-days-to-escape', ...blueprint.spec.gameChannels.map(channel => `13-days-to-escape/${channel.key}`)]);
+    const oldKeys = ['category:game-kidnap-and-jail', ...blueprint.spec.gameChannels.map(channel => `kidnap-and-jail/${channel.key}`)];
+    const oldIds = oldKeys.map(key => first.state.resources.channel[key]);
+    assert.deepEqual(next.plan.operations.filter(op => op.kind === 'delete_channel').map(op => op.id).sort(), [...oldIds].sort());
+    for (const key of oldKeys) assert.equal(next.state.resources.channel[key], undefined);
+    for (const id of oldIds) {
+        assert.ok(!fake.server.channels.some(channel => channel.id === id));
+        assert.equal(fake.server.messages.has(id), false);
+    }
     for (const [key, id] of Object.entries(first.state.resources.channel)) {
+        if (oldKeys.includes(key)) continue;
         assert.equal(next.state.resources.channel[key], id);
         assert.deepEqual(fake.server.messages.get(id), [`History for ${id}`]);
     }
@@ -362,8 +371,10 @@ test('adding Kidnap and Jail preserves existing channels, history and notificati
     assert.deepEqual(next.state.resources.option, first.state.resources.option);
     for (const channel of blueprint.spec.gameChannels) {
         const original = blueprint.channels.find(item => item.key === `dig-for-eggs/${channel.key}`);
-        const copy = blueprint.channels.find(item => item.key === `kidnap-and-jail/${channel.key}`);
-        assert.deepEqual(copy, { ...original, key: copy.key, game: 'kidnap-and-jail', parentKey: 'category:game-kidnap-and-jail' });
+        const copy = blueprint.channels.find(item => item.key === `13-days-to-escape/${channel.key}`);
+        assert.deepEqual(copy, { ...original, key: copy.key, game: '13-days-to-escape', parentKey: 'category:game-13-days-to-escape' });
+        assert.ok(!oldIds.includes(next.state.resources.channel[copy.key]));
+        assert.deepEqual(fake.server.messages.get(next.state.resources.channel[copy.key]), []);
         assert.ok(fake.server.onboarding.default_channel_ids.includes(next.state.resources.channel[copy.key]));
     }
     const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
