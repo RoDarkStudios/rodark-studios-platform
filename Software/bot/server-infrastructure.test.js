@@ -194,8 +194,8 @@ test('the layout has 8 categories, 34 channels and no ticket resources, with 13 
 
 test('Staff can moderate members and messages but cannot change infrastructure or owner-only forum status tags', () => {
     const blueprint = compileBlueprint(control), staff = BigInt(blueprint.roles.find((role) => role.key === 'staff').permissions);
-    for (const permission of [P.KickMembers, P.BanMembers, P.ModerateMembers, P.ManageMessages, P.MoveMembers]) assert.ok(staff & permission);
-    for (const permission of [P.Administrator, P.ManageChannels, P.ManageGuild, P.ManageRoles, P.ManageWebhooks, P.ManageThreads]) assert.equal(staff & permission, 0n);
+    for (const permission of [P.ModerateMembers, P.ManageMessages, P.MoveMembers]) assert.ok(staff & permission);
+    for (const permission of [P.KickMembers, P.BanMembers, P.Administrator, P.ManageChannels, P.ManageGuild, P.ManageRoles, P.ManageWebhooks, P.ManageThreads]) assert.equal(staff & permission, 0n);
     for (const key of ['staff-info', 'rules', 'level-ups', 'moderation-log']) {
         const value = effective(blueprint, key, ['staff']);
         assert.ok(value & P.ViewChannel);
@@ -205,20 +205,20 @@ test('Staff can moderate members and messages but cannot change infrastructure o
     assert.equal(effective(blueprint, 'staff-chat', []) & P.ViewChannel, 0n);
 });
 
-test('native mention permissions allow members to ping Staff, restrict the Owner role and let Staff ping everyone', async () => {
+test('native mention permissions allow members to ping Staff and reserve mass mentions for administrators', async () => {
     const blueprint = compileBlueprint(control), fake = fakeDiscord();
     const { state } = await deploy(fake);
     const staff = fake.server.roles.find(role => role.id === state.resources.role.staff);
     const owner = fake.server.roles.find(role => role.id === state.resources.role.owner);
     assert.equal(staff.mentionable, true);
     assert.equal(owner.mentionable, false);
-    assert.ok(BigInt(staff.permissions) & P.MentionEveryone);
+    assert.equal(BigInt(staff.permissions) & P.MentionEveryone, 0n);
     assert.ok(BigInt(owner.permissions) & P.Administrator);
     assert.equal(BigInt(blueprint.everyonePermissions) & P.MentionEveryone, 0n);
     for (const keys of [[], ['creator'], ['booster'], ['level-100']]) {
         assert.equal(effective(blueprint, 'general-chat', keys) & P.MentionEveryone, 0n);
     }
-    assert.ok(effective(blueprint, 'general-chat', ['staff']) & P.MentionEveryone);
+    for (const channel of blueprint.channels) assert.equal(effective(blueprint, channel.key, ['staff']) & P.MentionEveryone, 0n);
     assert.deepEqual(fake.server.autoMod.map(rule => rule.trigger_type), [5], 'No keyword filter blocks individual mentions');
     assert.ok(!fake.server.writes.some(write => write.path === `/guilds/${GUILD}/roles/${owner.id}`), 'Already correct Owner settings need no write');
     const snapshot = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
@@ -226,6 +226,25 @@ test('native mention permissions allow members to ping Staff, restrict the Owner
     staff.mentionable = false;
     const drift = await captureSnapshot(fake.rest, GUILD, BOT, blueprint.spec);
     assert.ok(buildPlan(blueprint, drift, state).operations.some(op => op.kind === 'role' && op.key === 'staff'));
+});
+
+test('deployment removes native bans, kicks and mass mentions from the existing Staff role', async () => {
+    const fake = fakeDiscord();
+    const blueprint = compileBlueprint(control);
+    const previousSpec = clone(blueprint.spec);
+    delete previousSpec.staffRemovalCommands;
+    previousSpec.staffCanMentionAllRoles = true;
+    const previous = await deploy(fake, {}, compileBlueprint(control, previousSpec));
+    const staffId = previous.state.resources.role.staff;
+    const nativePermissions = P.KickMembers | P.BanMembers | P.MentionEveryone;
+    assert.equal(BigInt(fake.server.roles.find(role => role.id === staffId).permissions) & nativePermissions, nativePermissions);
+
+    const updated = await deploy(fake, previous.state, blueprint);
+    const staff = fake.server.roles.find(role => role.id === staffId);
+    assert.equal(updated.state.resources.role.staff, staffId);
+    assert.equal(BigInt(staff.permissions) & nativePermissions, 0n);
+    assert.ok(BigInt(staff.permissions) & P.ModerateMembers);
+    assert.ok(staff.mentionable);
 });
 
 test('Deploy fixes Owner mentions and display automatically without changing its identity, permissions or assignments', async () => {

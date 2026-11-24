@@ -16,6 +16,7 @@
   ],
   "levels": { "milestones": [5, 10, 15, 25, 50, 75, 100], "preservePermissions": true, "enabled": true, "attachmentUnlockLevel": 5, "mentionLevelUps": false },
   "tickets": { "enabled": false },
+  "staffRemovalCommands": true,
   "notifications": [
     { "key": "announcements", "name": "Announcements", "emoji": "📣", "description": "Studio announcements and game updates" },
     { "key": "polls", "name": "Polls Feedback", "emoji": "📊", "description": "Polls and opportunities to give feedback" }
@@ -29,7 +30,7 @@
       { "key": "staff-info", "name": "📘・staff-info", "type": "text", "profile": "staff-readonly" },
       { "key": "staff-chat", "name": "💬・staff-chat", "type": "text", "profile": "staff" },
       { "key": "staff-vc", "name": "🔊・staff-vc", "type": "voice", "profile": "staff" },
-      { "key": "moderation-log", "name": "🛡️・ai-moderation-log", "type": "text", "profile": "moderation-log", "topic": "RoDark Studios contextual moderation • Private evidence and human ban reviews" }
+      { "key": "moderation-log", "name": "🛡️・ai-moderation-log", "type": "text", "profile": "moderation-log", "topic": "Private moderation actions, evidence and human ban reviews" }
     ] },
     { "key": "info", "name": "Info", "channels": [
       { "key": "rules", "name": "📕・rules", "type": "text", "profile": "readonly" },
@@ -84,7 +85,7 @@
     "defaultChannels": "public"
   },
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
-  "staffCanMentionAllRoles": true,
+  "staffCanMentionAllRoles": false,
   "content": {
     "rules": [
       "Be Nice",

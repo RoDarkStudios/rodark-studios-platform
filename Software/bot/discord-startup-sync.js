@@ -351,10 +351,11 @@ async function syncStaffInfoChannel(channel, control) {
                 ? `2. **Tickets** — Help members in private tickets. Escalate unresolved issues and Content Creator applications to an ${getRoleMention(guild, 'Owner')}. Only Owners award Content Creator.`
                 : `2. **Community help** — Answer questions and refer unresolved issues to an ${getRoleMention(guild, 'Owner')}. Only Owners award Content Creator.`,
             '3. **Moderation** — Delete abusive messages; timeout, kick or ban when justified. Ordinary swearing and friendly jokes are allowed. Context, targeted bullying, hate and threats matter.',
-            `4. **AI reviews** — Review evidence in <#${active.bindings.channel['moderation-log']}>. The bot can timeout; Staff make ban decisions. Dismiss false positives with the review buttons.`
+            `4. **AI reviews** — Review evidence in <#${active.bindings.channel['moderation-log']}>. The bot can timeout; Staff make ban decisions. Dismiss false positives with the review buttons.`,
+            ...(active.spec.staffRemovalCommands ? ['5. **Bans and kicks** — Use `/ban` with an optional reason or `/kick` with a required reason. Staff can take up to five combined actions per rolling hour. The moderation log records each action.'] : [])
         ].join('\n') });
         embed.addFields(
-            { name: 'Forums', value: 'Only Owners apply Fixed, Closed and Implemented tags. Use /forum-moderate inside a member’s forum post to lock, reopen or remove it when moderation is needed.' },
+            { name: 'Forums', value: 'Ask an Owner to lock, reopen or remove a forum post. Only Owners apply Fixed, Closed and Implemented tags.' },
             { name: 'Server structure', value: 'Channels, roles, permissions and onboarding are deployed through the website. Staff do not manage the infrastructure.' }
         );
     }

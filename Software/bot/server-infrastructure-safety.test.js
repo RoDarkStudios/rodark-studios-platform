@@ -7,7 +7,6 @@ const { compileBlueprint } = require('./server-blueprint');
 const { createHandler } = require('../api/admin/discord-infrastructure');
 const { runStartupSync } = require('./discord-startup-sync');
 const { controlWithLayout } = require('./server-infrastructure');
-const { handleCommunityInteraction } = require('./server-community');
 const GUILD = '849976422135103498';
 
 test('deployment persistence uses PostgreSQL constraints, scopes previews to their server/version, expires previews and checkpoints recovery', async (t) => {
@@ -130,27 +129,8 @@ for (const enabled of [false, true]) test(`information messages fit Discord limi
     assert.ok(text.includes('Game channels are available to everyone'));
     assert.ok(!text.includes('1208767046184345610'));
     assert.ok(text.includes('Ordinary swearing'));
+    const staffInfo = messages.find(message => message.title === 'Staff Info');
+    assert.match(staffInfo.fields.find(field => field.name === 'Forums').value, /Ask an Owner to lock, reopen or remove a forum post/);
+    assert.match(staffInfo.fields.find(field => field.name === 'Staff Jobs').value, /five combined actions per rolling hour/);
     assert.doesNotMatch(messages.find(message => message.title === 'Server Roles').description, /\bMember\b|Verified member/);
-});
-
-test('forum moderation delegates post operations to Staff without allowing status-tag changes or moderation of Owner posts', async () => {
-    const blueprint = compileBlueprint(), bindings = { role: { staff: 'staff', owner: 'owner' }, channel: {} };
-    for (const channel of blueprint.channels) bindings.channel[channel.key] = channel.key;
-    let memberRoles = ['staff'], ownerPost = false, edited = null;
-    const user = { id: 'moderator', roles: { cache: new Map() } };
-    const guild = { ownerId: 'server-owner', members: { fetch: async ({ user: id }) => id === 'moderator'
-        ? { ...user, roles: { cache: new Map(memberRoles.map((role) => [role, {}])) } }
-        : { roles: { cache: new Map(ownerPost ? [['owner', {}]] : []) }, user: { bot: false } } },
-        channels: { fetch: async () => ({ isThread: () => true, parentId: 'dig-for-eggs/bug-reports', ownerId: 'author', edit: async (value) => { edited = value; } }) } };
-    let reply = '';
-    const interaction = { isChatInputCommand: () => true, commandName: 'forum-moderate', guildId: GUILD, guild,
-        user: { id: 'moderator' }, channelId: 'post', deferReply: async () => {}, editReply: async (text) => { reply = text; },
-        options: { getString: (name) => name === 'action' ? 'lock' : 'Abusive thread' } };
-    const control = { infrastructure: { spec: blueprint.spec, bindings } };
-    await handleCommunityInteraction(interaction, control);
-    assert.equal(edited.locked, true); assert.ok(!Object.hasOwn(edited, 'appliedTags'));
-    edited = null; ownerPost = true; await handleCommunityInteraction(interaction, control);
-    assert.equal(edited, null); assert.match(reply, /Ask an Owner/);
-    ownerPost = false; memberRoles = []; await handleCommunityInteraction(interaction, control);
-    assert.equal(edited, null); assert.match(reply, /Only Staff/);
 });

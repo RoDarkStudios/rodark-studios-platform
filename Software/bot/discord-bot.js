@@ -1,27 +1,27 @@
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { ApplicationCommandType, Client, GatewayIntentBits, Partials, REST } = require('discord.js');
 const { getDiscordBotControl, updateDiscordBotControl, setDiscordBotRuntimeStatus } = require('../api/_lib/discord-bot-control-store');
 const { getPostgresPool } = require('../api/_lib/postgres');
 const { runStartupSync } = require('./discord-startup-sync');
 const { ensureTicketPanel, getTicketSystemControl, handleTicketInteraction } = require('./tickets');
 const { ensureLevelSystem, getLevelSystemSyncKey, handleLevelMessage } = require('./levels');
-const { ensureChannelPurgeCommand, handleChannelPurgeInteraction } = require('./channel-purge');
 const { createHoneypotSystem } = require('./honeypot');
 const { createModerationSystem } = require('./moderation');
+const { createStaffActions, staffActionsEnabled, staffCommands } = require('./staff-actions');
 const { createInfrastructureWorker, controlWithLayout } = require('./server-infrastructure');
 const infrastructureStore = require('../api/_lib/discord-infrastructure-store');
 const { closeDiscordTicketRecord } = require('../api/_lib/discord-ticket-store');
-const { ensureCommunityCommands, handleCommunityInteraction } = require('./server-community');
 
 const POLL_INTERVAL_MS = Number.parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '5000', 10);
 const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
-const OBSOLETE_GUILD_COMMAND_NAMES = ['bug-payout', 'add-payout'];
-const OBSOLETE_COMMAND_CLEANUP_TTL_MS = 10 * 60 * 1000;
+const OBSOLETE_GUILD_COMMAND_NAMES = ['bug-payout', 'add-payout', 'forum-moderate', 'purge-channel'];
+const COMMAND_SYNC_TTL_MS = 10 * 60 * 1000;
 
 let client = null;
 let connecting = false;
 let currentControl = null;
 let honeypotSystem = null;
 let moderationSystem = null;
+let staffActionSystem = null;
 let infrastructureSystem = null;
 let startupNeeded = true;
 let syncingState = false;
@@ -29,8 +29,8 @@ let lastTicketPanelSyncKey = '';
 let lastTicketPanelSyncAt = 0;
 let lastLevelSystemSyncKey = '';
 let lastLevelSystemSyncAt = 0;
-let lastObsoleteCommandCleanupGuildIds = '';
-let lastObsoleteCommandCleanupAt = 0;
+let lastCommandSyncKey = '';
+let nextCommandSyncAt = 0;
 
 function getTargetGuilds(nextClient, control) {
     if (!nextClient || !nextClient.guilds || !nextClient.guilds.cache) {
@@ -44,42 +44,57 @@ function getTargetGuilds(nextClient, control) {
         : guilds;
 }
 
-async function deleteObsoleteGuildCommands(nextClient, control, options) {
+async function syncGuildCommands(nextClient, control) {
     if (!nextClient || !nextClient.isReady()) {
         return;
     }
 
     const guilds = getTargetGuilds(nextClient, control);
     const guildIds = guilds.map((guild) => String(guild.id)).sort().join(',');
+    const enableStaffCommands = staffActionsEnabled(control);
+    const syncKey = JSON.stringify([guildIds, enableStaffCommands]);
     const now = Date.now();
-    const force = Boolean(options && options.force);
-    if (!force && guildIds === lastObsoleteCommandCleanupGuildIds && now - lastObsoleteCommandCleanupAt < OBSOLETE_COMMAND_CLEANUP_TTL_MS) {
+    if (syncKey === lastCommandSyncKey && now < nextCommandSyncAt) {
         return;
     }
 
+    let failed = false;
     for (const guild of guilds) {
         const commands = await guild.commands.fetch().catch((error) => {
             console.error(`[discord-commands] Failed to fetch commands for ${guild.name}:`, error);
+            failed = true;
             return null;
         });
         if (!commands) {
             continue;
         }
 
+        const slashCommands = commands.filter((command) => command.type === ApplicationCommandType.ChatInput);
         for (const commandName of OBSOLETE_GUILD_COMMAND_NAMES) {
-            const command = commands.find((candidate) => candidate.name === commandName);
+            const command = slashCommands.find((candidate) => candidate.name === commandName);
             if (!command) {
                 continue;
             }
 
             await command.delete().catch((error) => {
                 console.error(`[discord-commands] Failed to delete obsolete /${commandName}:`, error);
+                failed = true;
             });
+        }
+        if (enableStaffCommands && guild.id === control.guildId) {
+            for (const data of staffCommands) {
+                const existing = slashCommands.find((command) => command.name === data.name);
+                if (existing?.equals(data, true)) continue;
+                await (existing ? existing.edit(data) : guild.commands.create(data)).catch((error) => {
+                    console.error(`[discord-commands] Failed to register /${data.name}:`, error);
+                    failed = true;
+                });
+            }
         }
     }
 
-    lastObsoleteCommandCleanupGuildIds = guildIds;
-    lastObsoleteCommandCleanupAt = now;
+    lastCommandSyncKey = syncKey;
+    nextCommandSyncAt = now + (failed ? 30_000 : COMMAND_SYNC_TTL_MS);
 }
 
 function getTicketPanelSyncKey(control) {
@@ -147,6 +162,8 @@ function createClient() {
     honeypotSystem = nextHoneypot;
     const nextModeration = createModerationSystem(nextClient);
     moderationSystem = nextModeration;
+    const nextStaffActions = createStaffActions(new REST({ retries: 0 }).setToken(DISCORD_BOT_TOKEN));
+    staffActionSystem = nextStaffActions;
     const nextInfrastructure = createInfrastructureWorker(nextClient, {
         beforeApply: () => nextModeration.pause(),
         onProgress: () => setDiscordBotRuntimeStatus('online', null),
@@ -169,7 +186,6 @@ function createClient() {
             await syncLevelSystemIfNeeded(nextClient, effective, { force: true });
             await nextHoneypot.ensure(effective, { force: true });
             await nextModeration.ensure(effective, { force: true });
-            await ensureCommunityCommands(nextClient, effective, { force: true });
         }
     });
     infrastructureSystem = nextInfrastructure;
@@ -196,14 +212,12 @@ function createClient() {
             }
             const control = nextInfrastructure.effectiveControl(currentControl || await getDiscordBotControl());
             currentControl = control;
+            if (await nextStaffActions.handleInteraction(interaction, control)) return;
             if (await nextModeration.handleInteraction(interaction)) return;
-            if (await handleCommunityInteraction(interaction, control)) return;
             const locked = await infrastructureStore.withGuildLock(control.guildId || interaction.guildId, async () => {
                 const liveState = await infrastructureStore.getState(control.guildId || interaction.guildId);
                 if (liveState.maintenance) return;
-                if (await handleTicketInteraction(interaction, control)) return;
-                if (!control.infrastructure) await handleChannelPurgeInteraction(interaction);
-                else if (interaction.commandName === 'purge-channel') await interaction.reply({ content: 'This server layout is managed through Deploy on the website.', ephemeral: true });
+                await handleTicketInteraction(interaction, control);
             });
             if (!locked && interaction.isRepliable?.() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: 'The bot is synchronising the server. Please try again shortly.', ephemeral: true });
@@ -291,6 +305,7 @@ async function connectBot() {
         await honeypotSystem?.stop();
         await moderationSystem?.stop();
         moderationSystem = null;
+        staffActionSystem = null;
         if (client) await client.destroy();
         client = null;
         await setDiscordBotRuntimeStatus('error', error.message);
@@ -311,6 +326,7 @@ async function disconnectBot() {
     honeypotSystem = null;
     const currentModeration = moderationSystem;
     moderationSystem = null;
+    staffActionSystem = null;
     infrastructureSystem = null;
     startupNeeded = true;
     await currentHoneypot?.stop();
@@ -326,8 +342,8 @@ async function disconnectBot() {
     lastTicketPanelSyncAt = 0;
     lastLevelSystemSyncKey = '';
     lastLevelSystemSyncAt = 0;
-    lastObsoleteCommandCleanupGuildIds = '';
-    lastObsoleteCommandCleanupAt = 0;
+    lastCommandSyncKey = '';
+    nextCommandSyncAt = 0;
     currentControl = null;
     console.log('Discord bot is offline.');
 }
@@ -344,8 +360,12 @@ async function syncBotState() {
             // Cleanup runs independently of layout sync and never delays new bans.
             // The existing poll drives its durable queue; no per-message scans/timers.
             void honeypotSystem.tickCleanup(currentControl);
+            await syncGuildCommands(client, currentControl);
             await infrastructureSystem.tick(control, async (effective) => {
                 currentControl = effective;
+                await staffActionSystem.publishLogs(client.guilds.cache.get(effective.guildId), effective).catch((error) => {
+                    console.error('[staff-actions] Could not publish action logs:', error.message);
+                });
                 moderationSystem.resume();
                 moderationSystem.start(() => currentControl);
                 await moderationSystem.ensure(effective, { force: startupNeeded });
@@ -353,9 +373,6 @@ async function syncBotState() {
                 if (startupNeeded) await runStartupSync(client, effective);
                 await syncTicketPanelIfNeeded(client, effective, { force: startupNeeded });
                 await syncLevelSystemIfNeeded(client, effective, { force: startupNeeded });
-                if (effective.infrastructure) await ensureCommunityCommands(client, effective, { force: startupNeeded });
-                else await ensureChannelPurgeCommand(client, effective, { force: startupNeeded });
-                await deleteObsoleteGuildCommands(client, effective, { force: startupNeeded });
                 startupNeeded = false;
                 await setDiscordBotRuntimeStatus('online', [honeypotSystem.getError(), moderationSystem.getError()].filter(Boolean).join('; ') || null);
             });

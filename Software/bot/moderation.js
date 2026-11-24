@@ -470,4 +470,4 @@ function createModerationSystem(client, {
     return { ensure, handleMessage, handleDelete, handleInteraction, start, stop, tick, pause, resume: () => { paused = false; }, getError: () => healthError };
 }
 
-module.exports = { createModerationSystem, readConfig, eligibleChannel, resolveModeratorRoles, makeCase, buildCasePayload, LOG_TOPIC };
+module.exports = { createModerationSystem, readConfig, eligibleChannel, resolveModeratorRoles, makeCase, buildCasePayload, assertPrivateLog, LOG_TOPIC };

@@ -26,7 +26,7 @@ const reference = (kind, key) => `$${kind}:${key}`;
 
 const COMMON = ['ViewChannel', 'SendMessages', 'SendMessagesInThreads', 'ReadMessageHistory', 'AddReactions',
     'AttachFiles', 'UseExternalEmojis', 'UseExternalStickers', 'Connect', 'Speak', 'Stream', 'UseVAD', 'UseApplicationCommands'];
-const STAFF = ['KickMembers', 'BanMembers', 'ModerateMembers', 'ManageMessages', 'ViewAuditLog', 'MuteMembers',
+const STAFF = ['ModerateMembers', 'ManageMessages', 'ViewAuditLog', 'MuteMembers',
     'DeafenMembers', 'MoveMembers', 'ManageNicknames', 'EmbedLinks', 'BypassSlowmode'];
 const WRITE = ['SendMessages', 'SendMessagesInThreads', 'CreatePublicThreads', 'CreatePrivateThreads', 'SendVoiceMessages', 'SendPolls'];
 const MODERATE_CONTENT = ['ManageMessages', 'ManageThreads', 'PinMessages'];
@@ -58,6 +58,9 @@ function overwrites(profile, guildId) {
 }
 
 function validateManifest(spec) {
+    if (spec.staffRemovalCommands !== undefined && typeof spec.staffRemovalCommands !== 'boolean') {
+        throw new Error('staffRemovalCommands must be a boolean.');
+    }
     if (spec.tickets !== undefined && (!spec.tickets || typeof spec.tickets.enabled !== 'boolean')) {
         throw new Error('tickets.enabled must be a boolean.');
     }
@@ -103,9 +106,11 @@ function compileBlueprint(control = {}, spec = manifest) {
     const hasTickets = ticketsEnabled(spec);
     const threshold = Number(spec.levels.attachmentUnlockLevel ?? 5);
     if (!spec.levels.milestones.includes(threshold)) throw new Error('Invalid existing level permission threshold.');
+    const staffPermissions = [...STAFF, ...(spec.staffRemovalCommands ? [] : ['KickMembers', 'BanMembers']),
+        ...(spec.staffCanMentionAllRoles ? ['MentionEveryone'] : [])];
     const roles = spec.roles.map((role) => ({ ...role,
         color: Number.parseInt(role.color.replace('#', ''), 16), mentionable: Boolean(role.mentionable), hoist: Boolean(role.hoist),
-        permissions: permissions(role.profile === 'staff' ? [...STAFF, ...(spec.staffCanMentionAllRoles ? ['MentionEveryone'] : [])] : [])
+        permissions: permissions(role.profile === 'staff' ? staffPermissions : [])
     }));
     for (const level of [...spec.levels.milestones].reverse()) roles.push({ key: `level-${level}`, name: `Level ${level}`,
         color: level >= 50 ? 0x22d3ee : 0xf97316, hoist: false, mentionable: false,
