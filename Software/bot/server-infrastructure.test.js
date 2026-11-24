@@ -194,8 +194,8 @@ test('the layout has 8 categories, 34 channels and no ticket resources, with 13 
 
 test('Staff can moderate members and messages but cannot change infrastructure or owner-only forum status tags', () => {
     const blueprint = compileBlueprint(control), staff = BigInt(blueprint.roles.find((role) => role.key === 'staff').permissions);
-    for (const permission of [P.ModerateMembers, P.ManageMessages, P.MoveMembers]) assert.ok(staff & permission);
-    for (const permission of [P.KickMembers, P.BanMembers, P.Administrator, P.ManageChannels, P.ManageGuild, P.ManageRoles, P.ManageWebhooks, P.ManageThreads]) assert.equal(staff & permission, 0n);
+    for (const permission of [P.ModerateMembers, P.ManageMessages, P.MoveMembers, P.ChangeNickname]) assert.ok(staff & permission);
+    for (const permission of [P.KickMembers, P.BanMembers, P.Administrator, P.ManageChannels, P.ManageGuild, P.ManageRoles, P.ManageWebhooks, P.ManageThreads, P.ManageNicknames]) assert.equal(staff & permission, 0n);
     for (const key of ['staff-info', 'rules', 'level-ups', 'moderation-log']) {
         const value = effective(blueprint, key, ['staff']);
         assert.ok(value & P.ViewChannel);
@@ -228,15 +228,16 @@ test('native mention permissions allow members to ping Staff and reserve mass me
     assert.ok(buildPlan(blueprint, drift, state).operations.some(op => op.kind === 'role' && op.key === 'staff'));
 });
 
-test('deployment removes native bans, kicks and mass mentions from the existing Staff role', async () => {
+test('deployment updates moderation and nickname permissions on the existing Staff role', async () => {
     const fake = fakeDiscord();
     const blueprint = compileBlueprint(control);
     const previousSpec = clone(blueprint.spec);
     delete previousSpec.staffRemovalCommands;
+    delete previousSpec.staffCanManageNicknames;
     previousSpec.staffCanMentionAllRoles = true;
     const previous = await deploy(fake, {}, compileBlueprint(control, previousSpec));
     const staffId = previous.state.resources.role.staff;
-    const nativePermissions = P.KickMembers | P.BanMembers | P.MentionEveryone;
+    const nativePermissions = P.KickMembers | P.BanMembers | P.MentionEveryone | P.ManageNicknames;
     assert.equal(BigInt(fake.server.roles.find(role => role.id === staffId).permissions) & nativePermissions, nativePermissions);
 
     const updated = await deploy(fake, previous.state, blueprint);
@@ -244,6 +245,7 @@ test('deployment removes native bans, kicks and mass mentions from the existing 
     assert.equal(updated.state.resources.role.staff, staffId);
     assert.equal(BigInt(staff.permissions) & nativePermissions, 0n);
     assert.ok(BigInt(staff.permissions) & P.ModerateMembers);
+    assert.ok(BigInt(staff.permissions) & P.ChangeNickname);
     assert.ok(staff.mentionable);
 });
 

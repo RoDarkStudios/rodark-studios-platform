@@ -47,11 +47,11 @@ function fixture() {
     return { actor, second, admin, native, outsider, target, owner, requests, delivered, staffRole, logChannel, overwrites, interaction, rest };
 }
 
-test('registered commands require a member, with a reason required only for kicks', () => {
+test('registered commands require a member and accept an optional reason', () => {
     assert.deepEqual(staffCommands.map(command => command.name), ['ban', 'kick']);
     for (const data of staffCommands) {
         assert.equal(data.default_member_permissions, String(P.ModerateMembers));
-        assert.deepEqual(data.options.map(option => [option.name, option.required]), [['member', true], ['reason', data.name === 'kick']]);
+        assert.deepEqual(data.options.map(option => [option.name, option.required]), [['member', true], ['reason', false]]);
         const existing = new ApplicationCommand({}, { ...JSON.parse(JSON.stringify(data)), id: '1' }, { id: GUILD });
         assert.equal(existing.equals(data, true), true);
     }
@@ -89,9 +89,9 @@ test('staff removal commands enforce and audit a shared PostgreSQL-backed quota'
         assert.match(denied[1].response, /native Ban Members/);
         for (const command of denied.slice(2)) assert.match(command.response, /cannot take this action/);
 
-        const blankReason = f.interaction('kick', f.actor, f.target, ' ');
-        await first.handleInteraction(blankReason, control);
-        assert.match(blankReason.response, /Enter a reason/);
+        const longReason = f.interaction('kick', f.actor, f.target, 'a'.repeat(301));
+        await first.handleInteraction(longReason, control);
+        assert.match(longReason.response, /300 characters or fewer/);
 
         const legacy = f.interaction('ban');
         await first.handleInteraction(legacy, { guildId: GUILD });
@@ -124,7 +124,7 @@ test('staff removal commands enforce and audit a shared PostgreSQL-backed quota'
         assert.match(afterRestart.response, /shared limit/);
         assert.equal(f.requests.length, 5);
 
-        const otherStaff = f.interaction('kick', f.second);
+        const otherStaff = f.interaction('kick', f.second, f.target, null);
         await first.handleInteraction(otherStaff, control);
         assert.match(otherStaff.response, /was kicked/);
         await db.query(`update discord_bot_staff_actions set quota_until = now() - interval '1 second' where interaction_id = $1`, [replay.id]);
@@ -148,9 +148,10 @@ test('staff removal commands enforce and audit a shared PostgreSQL-backed quota'
         await first.publishLogs(requests[0].guild, control);
         assert.equal(f.delivered.length, 13);
         assert.equal(f.delivered.filter(message => message.embeds[0].data.fields[0].value.includes('Administrator')).length, 6);
-        const reasons = f.delivered.map(message => message.embeds[0].data.fields.find(field => field.name === 'Reason').value);
-        assert.equal(reasons.filter(reason => reason === 'No reason provided').length, 1);
-        assert.equal(reasons.filter(reason => reason === 'Repeated harassment').length, 12);
+        const entries = f.delivered.map(message => message.embeds[0].data);
+        const omitted = entries.filter(entry => entry.fields.some(field => field.name === 'Reason' && field.value === 'No reason provided'));
+        assert.deepEqual(omitted.map(entry => entry.title).sort(), ['Ban succeeded', 'Kick succeeded']);
+        assert.equal(entries.filter(entry => entry.fields.some(field => field.name === 'Reason' && field.value === 'Repeated harassment')).length, 11);
         assert.ok(f.delivered.every(message => message.enforceNonce && message.allowedMentions.parse.length === 0));
         assert.deepEqual(await store.pendingLogs(GUILD), []);
     });

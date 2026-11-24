@@ -15,7 +15,7 @@ const staffCommands = COMMAND_NAMES.map((name) => new SlashCommandBuilder()
     .setDefaultMemberPermissions(P.ModerateMembers)
     .addUserOption((option) => option.setName('member').setDescription('The member to remove').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Why the member is being removed')
-        .setMinLength(1).setMaxLength(REASON_LIMIT).setRequired(name === 'kick'))
+        .setMinLength(1).setMaxLength(REASON_LIMIT).setRequired(false))
     .toJSON());
 
 function staffActionsEnabled(control) {
@@ -48,10 +48,9 @@ function createStaffActions(actionRest, { store = defaultStore, logger = console
 
         const { role: bindings } = control.infrastructure.bindings;
         const targetId = interaction.options.getUser('member', true).id;
-        const reasonRequired = action === 'kick';
-        const reason = interaction.options.getString('reason', reasonRequired)?.trim() || '';
-        if ((reasonRequired && !reason) || reason.length > REASON_LIMIT) {
-            return reply(`Enter a reason of 1–${REASON_LIMIT} characters.`);
+        const reason = interaction.options.getString('reason')?.trim() || '';
+        if (reason.length > REASON_LIMIT) {
+            return reply(`Keep the reason to ${REASON_LIMIT} characters or fewer.`);
         }
 
         const [roles, actor, target] = await Promise.all([

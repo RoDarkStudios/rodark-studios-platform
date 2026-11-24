@@ -27,7 +27,7 @@ const reference = (kind, key) => `$${kind}:${key}`;
 const COMMON = ['ViewChannel', 'SendMessages', 'SendMessagesInThreads', 'ReadMessageHistory', 'AddReactions',
     'AttachFiles', 'UseExternalEmojis', 'UseExternalStickers', 'Connect', 'Speak', 'Stream', 'UseVAD', 'UseApplicationCommands'];
 const STAFF = ['ModerateMembers', 'ManageMessages', 'ViewAuditLog', 'MuteMembers',
-    'DeafenMembers', 'MoveMembers', 'ManageNicknames', 'EmbedLinks', 'BypassSlowmode'];
+    'DeafenMembers', 'MoveMembers', 'EmbedLinks', 'BypassSlowmode'];
 const WRITE = ['SendMessages', 'SendMessagesInThreads', 'CreatePublicThreads', 'CreatePrivateThreads', 'SendVoiceMessages', 'SendPolls'];
 const MODERATE_CONTENT = ['ManageMessages', 'ManageThreads', 'PinMessages'];
 
@@ -69,6 +69,9 @@ function validateManifest(spec) {
     if (spec.staffCanMentionAllRoles !== undefined && typeof spec.staffCanMentionAllRoles !== 'boolean') {
         throw new Error('staffCanMentionAllRoles must be a boolean.');
     }
+    if (spec.staffCanManageNicknames !== undefined && typeof spec.staffCanManageNicknames !== 'boolean') {
+        throw new Error('staffCanManageNicknames must be a boolean.');
+    }
     if (spec.bootstrap.ownerRoleMentionable !== undefined && typeof spec.bootstrap.ownerRoleMentionable !== 'boolean') {
         throw new Error('bootstrap.ownerRoleMentionable must be a boolean.');
     }
@@ -107,6 +110,7 @@ function compileBlueprint(control = {}, spec = manifest) {
     const threshold = Number(spec.levels.attachmentUnlockLevel ?? 5);
     if (!spec.levels.milestones.includes(threshold)) throw new Error('Invalid existing level permission threshold.');
     const staffPermissions = [...STAFF, ...(spec.staffRemovalCommands ? [] : ['KickMembers', 'BanMembers']),
+        spec.staffCanManageNicknames === false ? 'ChangeNickname' : 'ManageNicknames',
         ...(spec.staffCanMentionAllRoles ? ['MentionEveryone'] : [])];
     const roles = spec.roles.map((role) => ({ ...role,
         color: Number.parseInt(role.color.replace('#', ''), 16), mentionable: Boolean(role.mentionable), hoist: Boolean(role.hoist),

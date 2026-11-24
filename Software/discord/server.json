@@ -86,6 +86,7 @@
   },
   "autoModerationRules": [{ "triggerType": 5, "enabled": true, "mentionTotalLimit": 20, "mentionRaidProtection": true }],
   "staffCanMentionAllRoles": false,
+  "staffCanManageNicknames": false,
   "content": {
     "rules": [
       "Be Nice",
